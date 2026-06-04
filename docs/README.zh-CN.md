@@ -87,11 +87,11 @@ flowchart LR
 |------|-------------|
 | Java | 17+ |
 | Node.js | 20+（`web/`） |
-| [Centrifugo](https://centrifugal.dev/) | v5 二进制放在 `bin/centrifugo` 或 `scripts/bin/centrifugo`（不入库） |
+| [Centrifugo](https://centrifugal.dev/) | 本地：`./scripts/install-centrifugo.sh` → `scripts/bin/centrifugo`；生产 Linux 可用 `bin/centrifugo`（不入库） |
 | MySQL | 8 |
 | Flutter | 仅构建 `app/` 时需要 |
 
-**首次运行 `./scripts/start-dev.sh` 前：** 执行 `cd web && npm ci` 安装 Web 依赖，并自备 Centrifugo v5 可执行文件（见上表）。缺少任一项时启动脚本会报错退出，不会误报「已启动」。
+**首次运行 `./scripts/start-dev.sh` 前：** 执行 `cd web && npm ci` 与 `./scripts/install-centrifugo.sh`。`bin/centrifugo` 多为 Linux 版，在 Apple Silicon 上无法运行。缺少依赖或架构不匹配时会报错退出。
 
 ### 本地开发（国内逻辑）
 

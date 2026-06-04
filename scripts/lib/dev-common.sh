@@ -34,21 +34,60 @@ require_file() {
   fi
 }
 
-# Prints absolute path to centrifugo binary, or returns 1.
-resolve_centrifugo_bin() {
-  if [ -x "$ROOT/bin/centrifugo" ]; then
-    echo "$ROOT/bin/centrifugo"
-    return 0
-  fi
-  if [ -x "$ROOT/scripts/bin/centrifugo" ]; then
-    echo "$ROOT/scripts/bin/centrifugo"
-    return 0
-  fi
+# Returns 0 if the binary runs on this machine (OS/arch), not merely chmod +x.
+centrifugo_runnable() {
+  local bin="$1"
+  [ -f "$bin" ] && [ -x "$bin" ] && "$bin" version >/dev/null 2>&1
+}
+
+centrifugo_candidate_paths() {
+  printf '%s\n' \
+    "$ROOT/scripts/bin/centrifugo" \
+    "$ROOT/bin/centrifugo"
   if command -v centrifugo >/dev/null 2>&1; then
     command -v centrifugo
+  fi
+}
+
+# Human-readable hint when a file exists but cannot execute (e.g. Linux bin on macOS).
+centrifugo_mismatch_hint() {
+  local bin="$1"
+  if [ ! -f "$bin" ]; then
     return 0
   fi
+  if command -v file >/dev/null 2>&1; then
+    echo "（$bin: $(file -b "$bin")）"
+  fi
+}
+
+# Prints absolute path to centrifugo binary, or returns 1.
+resolve_centrifugo_bin() {
+  local candidate
+  while IFS= read -r candidate; do
+    [ -z "$candidate" ] && continue
+    if centrifugo_runnable "$candidate"; then
+      echo "$candidate"
+      return 0
+    fi
+  done < <(centrifugo_candidate_paths)
   return 1
+}
+
+centrifugo_resolve_error_msg() {
+  local msg="未找到可在本机运行的 Centrifugo。"
+  local bad=""
+  while IFS= read -r candidate; do
+    [ -z "$candidate" ] || [ ! -f "$candidate" ] && continue
+    if ! centrifugo_runnable "$candidate"; then
+      bad="$candidate"
+      break
+    fi
+  done < <(centrifugo_candidate_paths)
+  if [ -n "$bad" ]; then
+    msg+=" 检测到 $bad 与当前系统不匹配$(centrifugo_mismatch_hint "$bad")。"
+  fi
+  msg+=" 请运行: ./scripts/install-centrifugo.sh（或从 https://github.com/centrifugal/centrifugo/releases 下载对应平台二进制到 scripts/bin/centrifugo）"
+  echo "$msg"
 }
 
 # wait_service name pid timeout_seconds logfile mode

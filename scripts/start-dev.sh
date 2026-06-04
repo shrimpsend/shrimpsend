@@ -74,7 +74,7 @@ require_file "$ROOT/config.json" \
 
 CFGO_BIN=""
 if ! CFGO_BIN="$(resolve_centrifugo_bin)"; then
-  die "未找到 Centrifugo 可执行文件。请将 v5 二进制放到 bin/centrifugo 或 scripts/bin/centrifugo（见 README 环境要求）"
+  die "$(centrifugo_resolve_error_msg)"
 fi
 
 if [ ! -x "$ROOT/backend/gradlew" ]; then
@@ -88,6 +88,7 @@ fi
 echo "  config.json、Centrifugo、Gradle、Web 依赖: OK"
 
 echo "启动 Centrifugo (config.json)..."
+: > "$CFGO_LOG"
 "$CFGO_BIN" -c "$ROOT/config.json" >> "$CFGO_LOG" 2>&1 &
 pid_c=$!
 echo "$pid_c" >> "$PID_FILE"

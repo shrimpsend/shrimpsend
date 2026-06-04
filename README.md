@@ -86,11 +86,11 @@ flowchart LR
 |------|-----------------|
 | Java | 17+ |
 | Node.js | 20+ (for `web/`) |
-| [Centrifugo](https://centrifugal.dev/) | v5 binary at `bin/centrifugo` or `scripts/bin/centrifugo` (not in git) |
+| [Centrifugo](https://centrifugal.dev/) | macOS/Linux dev: `./scripts/install-centrifugo.sh` → `scripts/bin/centrifugo`; production Linux may use `bin/centrifugo` (not in git) |
 | MySQL | 8 |
 | Flutter | Only when building `app/` |
 
-**Before first `./scripts/start-dev.sh`:** install Web deps (`cd web && npm ci`) and place the Centrifugo v5 binary (see table above). The start script exits with an error if either is missing.
+**Before first `./scripts/start-dev.sh`:** run `cd web && npm ci` and `./scripts/install-centrifugo.sh` (Apple Silicon cannot use the Linux `bin/centrifugo` from production). The start script exits with an error if dependencies are missing or the binary does not match your OS.
 
 ### Local development (China logic)
 
