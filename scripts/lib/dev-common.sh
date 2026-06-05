@@ -85,7 +85,9 @@ resolve_centrifugo_bin() {
       echo "$candidate"
       return 0
     fi
-  done < <(centrifugo_candidate_paths)
+  done <<EOF
+$(centrifugo_candidate_paths)
+EOF
   return 1
 }
 
@@ -98,7 +100,9 @@ centrifugo_resolve_error_msg() {
       bad="$candidate"
       break
     fi
-  done < <(centrifugo_candidate_paths)
+  done <<EOF
+$(centrifugo_candidate_paths)
+EOF
   if [ -n "$bad" ]; then
     msg+=" 检测到 $bad 与当前系统不匹配$(centrifugo_mismatch_hint "$bad")。"
   fi

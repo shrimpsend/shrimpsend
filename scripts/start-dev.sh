@@ -5,6 +5,10 @@
 #   ./scripts/start-dev.sh --overseas   # 海外 ShrimpSend 逻辑（dev-overseas）
 # 停止：./scripts/stop-dev.sh
 
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec env bash "$0" "$@"
+fi
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=lib/dev-common.sh
 source "$ROOT/scripts/lib/dev-common.sh"
