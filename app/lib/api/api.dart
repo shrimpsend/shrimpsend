@@ -10,7 +10,7 @@ export 'client.dart'
         setOn401Refresh,
         setOnSessionInvalidated,
         setAccessToken;
-export 'auth.dart' show refreshStoredSession, refreshTokensTimeout;
+export 'auth.dart';
 export 'devices.dart';
 export 'messages.dart';
 export 's3.dart';
