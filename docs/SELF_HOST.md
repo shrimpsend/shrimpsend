@@ -76,7 +76,7 @@ git clone git@github.com:shrimpsend/public-ops.git ../ops
 ```
 
 2. Optional: `export ULTRASEND_OPS_DIR=/path/to/your-ops` if ops is not at `../ops`.
-3. Ensure Java 17+, Node.js, MySQL, and `scripts/bin/linux/centrifugo` are available on the server.
+3. Ensure Java 17+, Node.js, and MySQL are available on the server. **Centrifugo** (`scripts/bin/linux/centrifugo`, not in git) is installed automatically when you run `./scripts/sync-to-build-machine.sh` (sparse clone from [shrimpsend/centrifugo-bins](https://github.com/shrimpsend/centrifugo-bins)); manual fallback: `./scripts/install-centrifugo.sh`.
 
 Scripts resolve ops in this order: `ULTRASEND_OPS_DIR` → sibling `../ops` → validate `.ultrasend-ops` marker and at least one config subdirectory (`cn/`, `overseas/`, `local/`, etc.).
 

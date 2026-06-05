@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 下载与当前 OS/arch 匹配的 Centrifugo 到 scripts/bin/{mac,linux}/centrifugo
+# 优先从 shrimpsend/centrifugo-bins 获取；失败则回退官方 Release
 # 用法: ./scripts/install-centrifugo.sh
 # 可选: CENTRIFUGO_VERSION=6.8.1 ./scripts/install-centrifugo.sh
 set -euo pipefail
@@ -7,6 +8,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=lib/dev-common.sh
 source "$ROOT/scripts/lib/dev-common.sh"
+# shellcheck source=lib/ensure-centrifugo.sh
+source "$ROOT/scripts/lib/ensure-centrifugo.sh"
 
 VERSION="${CENTRIFUGO_VERSION:-6.8.1}"
 platform="$(centrifugo_platform_subdir)"
@@ -17,6 +20,14 @@ fi
 
 DEST="$ROOT/scripts/bin/$platform/centrifugo"
 mkdir -p "$ROOT/scripts/bin/$platform"
+
+if ( ensure_centrifugo_platform_bin "$ROOT" "$platform" && centrifugo_runnable "$DEST" ); then
+  echo "==> 已从 centrifugo-bins 安装: $DEST"
+  "$DEST" version
+  echo "    生产部署使用: $ROOT/scripts/bin/linux/centrifugo"
+  echo "    本地启动: ./scripts/start-dev.sh"
+  exit 0
+fi
 
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(uname -m)
@@ -42,7 +53,7 @@ url="https://github.com/centrifugal/centrifugo/releases/download/v${VERSION}/${a
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
-echo "==> 下载 Centrifugo v${VERSION} (${os}_${arch})"
+echo "==> centrifugo-bins 不可用，从官方 Release 下载 Centrifugo v${VERSION} (${os}_${arch})"
 echo "    $url"
 if ! curl -fsSL "$url" -o "$tmpdir/$asset"; then
   echo "[错误] 下载失败。可设置 CENTRIFUGO_VERSION 或从 https://github.com/centrifugal/centrifugo/releases 手动安装" >&2

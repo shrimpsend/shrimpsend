@@ -86,11 +86,11 @@ flowchart LR
 |------|-----------------|
 | Java | 17+ |
 | Node.js | 20+ (for `web/`) |
-| [Centrifugo](https://centrifugal.dev/) | macOS/Linux dev: `./scripts/install-centrifugo.sh` → `scripts/bin/{mac,linux}/centrifugo`; production: `scripts/bin/linux/centrifugo` (not in git) |
+| [Centrifugo](https://centrifugal.dev/) | Dev: `./scripts/install-centrifugo.sh` (prefers [centrifugo-bins](https://github.com/shrimpsend/centrifugo-bins)); production: `sync-to-build-machine.sh` auto-fetches `scripts/bin/linux/centrifugo` (not in git) |
 | MySQL | 8 |
 | Flutter | Only when building `app/` |
 
-**Before first `./scripts/start-dev.sh`:** run `cd web && npm ci` and `./scripts/install-centrifugo.sh`. The start script picks `scripts/bin/mac/` or `scripts/bin/linux/` by OS and exits with an error if dependencies are missing or the binary does not match your platform.
+**Before first `./scripts/start-dev.sh`:** run `cd web && npm ci` and `./scripts/install-centrifugo.sh` (or run `./scripts/sync-to-build-machine.sh` earlier to fetch the Linux binary only). The start script picks `scripts/bin/mac/` or `scripts/bin/linux/` by OS.
 
 ### Local development (China logic)
 
