@@ -24,7 +24,7 @@ if [ -n "$_BUILD_ENV" ] && [ -f "$_BUILD_ENV" ]; then
 fi
 
 append_dart_define_secrets() {
-  local -n _out=$1
+  local _arr_name=$1
   local _key _val
   local _keys=(
     RC_TEST_STORE_API_KEY
@@ -51,7 +51,7 @@ append_dart_define_secrets() {
   for _key in "${_keys[@]}"; do
     _val="${!_key:-}"
     if [[ -n "$_val" ]]; then
-      _out+=("--dart-define=${_key}=${_val}")
+      eval "${_arr_name}+=(\"--dart-define=${_key}=$(printf '%q' "$_val")\")"
     fi
   done
 }
