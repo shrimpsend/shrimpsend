@@ -2,7 +2,7 @@ import { getApiUrl } from '@/lib/config';
 
 /** 国内分发：123 云盘分享页 */
 export const CLIENT_RELEASE_URL_MAINLAND =
-  'https://1816849228.share.123pan.cn/123pan/cXByVv-AEum';
+  'https://1816849228.share.123pan.cn/123pan/cXByVv-Z76m';
 
 /** 出海分发：Google Drive 分享文件夹 */
 export const CLIENT_RELEASE_URL_OVERSEAS =

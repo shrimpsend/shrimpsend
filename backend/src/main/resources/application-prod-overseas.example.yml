@@ -9,6 +9,9 @@ spring:
     password: "${SPRING_DATASOURCE_PASSWORD:CHANGE_ME}"
 
 app:
+  admin:
+    # 逗号分隔；须与 web NEXT_PUBLIC_ADMIN_EMAILS 一致
+    emails: "admin@example.com"
   public-web-base-url: "${APP_PUBLIC_WEB_BASE_URL:https://example.com}"
   s3-docs-path: "${APP_S3_DOCS_PATH:/en/docs/s3/overview}"
   datasource:

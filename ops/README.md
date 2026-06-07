@@ -138,6 +138,18 @@ ops/
 ULTRASEND_OPS_DIR=/path/to/ops ./scripts/deploy.sh
 ```
 
+**后台管理员邮箱**（前后端须一致；国内/海外 Web 共用 `web/.env.local`）：
+
+| 集群 | 后端 |
+|------|------|
+| 国内 prod | `cn/application-prod.yml` → `app.admin.emails` |
+| 海外 prod | `overseas/application-prod-overseas.yml` → `app.admin.emails` |
+| 本地 dev-overseas | `local/application-dev-overseas.yml` → `app.admin.emails` |
+
+前端：`NEXT_PUBLIC_ADMIN_EMAILS`（海外 `deploy.sh` 构建同样使用）
+
+**发行包上传**（`storage.s3.*`）：国内 prod → COS（`cn/application-prod.yml`）；海外 prod / dev-overseas → R2。详见 `docs/release-upload-direct.md`。
+
 `ops/flutter/env.secrets.dart` 含 RevenueCat SDK 公钥（`test_`/`appl_`/`goog_`）与生产 API/WS URL；构建脚本亦支持通过环境变量 `--dart-define` 覆盖（见 `app/scripts/dart-define-env-secrets.sh`，从 resolved ops 读取 `flutter/build.env`）。
 
 ## 凭证轮换清单（开源公开前必须完成）

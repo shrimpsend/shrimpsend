@@ -95,7 +95,7 @@ export STORAGE_S3_PUBLIC_HOST=https://pub-<hash>.r2.dev   # 或自定义域名
 export STORAGE_S3_PRESIGN_EXPIRE_SECONDS=1800
 ```
 
-国内 prod 沿用 `application.yml` 默认或既有环境变量，无需变化。
+国内 prod 在 `cn/application-prod.yml` 配置 `storage.s3.*`（腾讯云 COS）；海外 prod 在 `overseas/application-prod-overseas.yml` 配置（Cloudflare R2）。详见 `docs/release-upload-direct.md`。
 
 ---
 
