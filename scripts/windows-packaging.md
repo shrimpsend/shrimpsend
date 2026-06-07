@@ -45,6 +45,18 @@ Get-Item app\windows\vc_redist\x64\*.dll | Select-Object Name,@{Name='FileVersio
 - `-ZipOnly`：假设已构建过 Release，仅压缩 ZIP（不打 MSIX、不重新 flutter build、不跑 Inno）。
 - `-SkipClean`：不执行 `flutter clean`，在上一次构建基础上增量打包（更快；正式发布建议不带此参数）。
 
+## MSIX：cn 主程序命名与 ZIP/Inno 的差异
+
+国内（`cn`）构建时，CMake 磁盘输出为 **`虾传.exe`**（见 [`app/windows/CMakeLists.txt`](../app/windows/CMakeLists.txt) 的 `APP_EXECUTABLE_NAME`），而 `dart run msix:create` 会从 **`BINARY_NAME`（固定 `Shrimpsend`）** 推断 manifest 中的 `Executable="Shrimpsend.exe"`，且不会校验 Release 目录内是否真有该文件。若 cn build 后直接打 MSIX，MakeAppx 会报 manifest 校验失败（`Shrimpsend.exe doesn't exist in the package`）。
+
+[`app/scripts/package_windows.ps1`](../app/scripts/package_windows.ps1) 的处理顺序：
+
+1. ZIP / Inno 仍只打包 **`虾传.exe`**（与 OTA 更新、`appExecutableBaseName` 一致）。
+2. **MSIX 前**临时复制 `虾传.exe` → `Shrimpsend.exe`，供 MakeAppx 通过校验；MSIX 成功后删除 Release 内临时副本。
+3. cn MSIX 包内入口 exe 为 `Shrimpsend.exe`（与 `identity_name`、`execution_alias: shrimpsend` 一致）；开始菜单显示名仍由 `--display-name=虾传` 控制。
+
+**intl**（`-Overseas`）构建本身即为 `Shrimpsend.exe`，无需复制。单独执行 `dart run msix:create` 时：cn build 后须先复制 exe，或始终走统一打包脚本。
+
 ## MSIX：安装位置与快捷方式（系统限制说明）
 
 - **不能自选安装目录**是 MSIX 的设计：应用由系统装入受管位置（真实文件多在 `C:\Program Files\WindowsApps\` 下加密/受限目录，不建议用户手动浏览）。
@@ -62,11 +74,18 @@ Get-Item app\windows\vc_redist\x64\*.dll | Select-Object Name,@{Name='FileVersio
 
 ## 仅打 MSIX（在 `app` 目录）
 
+推荐仍使用 `.\app\scripts\package_windows.ps1 -SkipInno`（或 `-SkipMsix` 以外的参数），自动处理 cn exe 复制与输出路径。
+
+若手动在 `app` 目录执行，**国内 cn build** 须在 `msix:create` 前复制主程序（intl 可跳过）：
+
 ```powershell
 cd app
 flutter clean
 flutter build windows --release
+Copy-Item -LiteralPath 'build\windows\x64\runner\Release\虾传.exe' `
+  -Destination 'build\windows\x64\runner\Release\Shrimpsend.exe' -Force
 dart run msix:create "--build-windows=false"
+Remove-Item -LiteralPath 'build\windows\x64\runner\Release\Shrimpsend.exe' -Force -ErrorAction SilentlyContinue
 ```
 
 `pubspec.yaml` 的 `msix_config.build_windows` 已为 `false`，与一键脚本一致：先 `flutter build`，再只打包 MSIX。

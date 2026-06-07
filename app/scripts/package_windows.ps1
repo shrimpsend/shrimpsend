@@ -217,11 +217,23 @@ function Invoke-PackageWindowsRegion {
     }
 
     if (-not $SkipMsix -and -not $ZipOnly) {
+        # cn 构建磁盘 exe 为 虾传.exe，但 msix 从 CMake BINARY_NAME 推断 Shrimpsend.exe；
+        # ZIP/Inno 已完成后复制，避免便携包含双 exe，且满足 MakeAppx manifest 校验。
+        $msixExePath = Join-Path $ReleaseDir 'Shrimpsend.exe'
+        if (-not $OverseasRegion) {
+            Write-Host "MSIX prep: copy $expectedExe -> Shrimpsend.exe"
+            Copy-Item -LiteralPath $expectedPath -Destination $msixExePath -Force
+        }
+
         Write-Host "MSIX -> $msixPath"
         # pubspec msix_config.build_windows=false；PowerShell 下请用 =false 单参数，避免 false 被当成布尔量传错
         dart run msix:create "--build-windows=false" --output-path $DistDir --output-name $msixName "--display-name=$appDisplayName"
         if ($LASTEXITCODE -ne 0) {
             Write-Error "msix:create failed with exit code $LASTEXITCODE"
+        }
+
+        if (-not $OverseasRegion -and (Test-Path -LiteralPath $msixExePath)) {
+            Remove-Item -LiteralPath $msixExePath -Force
         }
     }
 
