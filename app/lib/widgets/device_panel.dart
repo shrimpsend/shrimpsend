@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,7 @@ import '../color_theme.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../network/connection_orchestrator.dart';
 import '../network/connection_resolution.dart';
+import '../network/probe_priority.dart';
 import '../providers/app_mode_provider.dart';
 import '../providers/device_provider.dart';
 import '../services/analytics/analytics.dart';
@@ -17,6 +19,8 @@ import '../ui/app_ui.dart';
 import '../ui/platform_icon.dart';
 
 const _lanProbeTimeout = Duration(seconds: 3);
+const _panelLanProbeConcurrency = 6;
+const _panelSignalingProbeConcurrency = 3;
 
 /// Sort rank from resolved reach status; checking is probe UI, not device state.
 int _reachSortRank(String status) {
@@ -153,11 +157,66 @@ class _DevicePanelState extends ConsumerState<DevicePanel>
     }
   }
 
+  Future<void> _runPanelProbeWave(
+    List<DeviceDto> devices,
+    int concurrency,
+    Future<void> Function(DeviceDto) probe,
+  ) async {
+    if (devices.isEmpty) return;
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (nextIndex < devices.length) {
+        final index = nextIndex++;
+        await probe(devices[index]);
+      }
+    }
+    final workers = concurrency < devices.length ? concurrency : devices.length;
+    await Future.wait(List.generate(workers, (_) => worker()));
+  }
+
+  void _probeOneDevice(DeviceDto d, bool isOffline, SendMode sendMode) {
+    final hasLan = d.lanHttpUrl != null && d.lanHttpUrl!.isNotEmpty;
+    final useDirectProbe = sendMode == SendMode.nearby && hasLan;
+    if (!useDirectProbe && !isOffline && widget.onLanHttpProbe != null) {
+      unawaited(_probeLanViaCentrifugo(d.deviceId));
+    } else {
+      if (hasLan) {
+        unawaited(_probeDirectPush(d.deviceId, d.lanHttpUrl!));
+      } else if (widget.lanReceiverUrl != null && widget.onProbePull != null) {
+        unawaited(_probeReversePull(d.deviceId));
+      } else if (mounted) {
+        setState(() => _setLanReach(d.deviceId, 'offline'));
+      }
+    }
+    if (!isOffline && widget.onWebRTCProbe != null) {
+      unawaited(_probeWebRTC(d.deviceId));
+    } else if (mounted) {
+      setState(() => _setWebrtcReach(d.deviceId, 'offline'));
+    }
+  }
+
   void _startProbes(
     List<DeviceDto> devices,
     bool isOffline,
-    SendMode sendMode,
-  ) {
+    SendMode sendMode, {
+    bool forceAll = false,
+  }) {
+    final nearbyIds = ref
+        .read(nearbyDevicesProvider)
+        .map((d) => d.deviceId)
+        .toSet();
+    final myIds = ref.read(myDevicesProvider).map((d) => d.deviceId).toSet();
+    final partition = partitionForProbe(
+      devices,
+      nearbyIds: nearbyIds,
+      myDeviceIds: myIds,
+    );
+    final toProbe = forceAll
+        ? devices
+        : [...partition.lanDiscovered, ...partition.presenceOnline];
+    final lazyIds = partition.lazy.map((d) => d.deviceId).toSet();
+    final probeIds = toProbe.map((d) => d.deviceId).toSet();
+
     final nextLan = <String, String>{};
     final nextWebrtc = <String, String>{};
     for (final d in devices) {
@@ -169,38 +228,45 @@ class _DevicePanelState extends ConsumerState<DevicePanel>
       if (prevWebrtc != null && prevWebrtc != 'checking') {
         _webrtcSortReach[d.deviceId] = prevWebrtc;
       }
-      nextLan[d.deviceId] = 'checking';
-      nextWebrtc[d.deviceId] = 'checking';
+      if (lazyIds.contains(d.deviceId)) {
+        nextLan[d.deviceId] = 'offline';
+        nextWebrtc[d.deviceId] = 'offline';
+      } else if (probeIds.contains(d.deviceId)) {
+        nextLan[d.deviceId] = 'checking';
+        nextWebrtc[d.deviceId] = 'checking';
+      } else {
+        nextLan[d.deviceId] = _lanReachability[d.deviceId] ?? 'offline';
+        nextWebrtc[d.deviceId] = _webrtcReachability[d.deviceId] ?? 'offline';
+      }
     }
     setState(() {
       _lanReachability = nextLan;
       _webrtcReachability = nextWebrtc;
     });
-    for (final d in devices) {
-      final hasLan = d.lanHttpUrl != null && d.lanHttpUrl!.isNotEmpty;
-      final useDirectProbe = sendMode == SendMode.nearby && hasLan;
-      if (!useDirectProbe && !isOffline && widget.onLanHttpProbe != null) {
-        _probeLanViaCentrifugo(d.deviceId);
-      } else {
-        if (hasLan) {
-          _probeDirectPush(d.deviceId, d.lanHttpUrl!);
-        } else if (widget.lanReceiverUrl != null &&
-            widget.onProbePull != null) {
-          _probeReversePull(d.deviceId);
-        } else {
-          if (mounted) {
-            setState(() => _setLanReach(d.deviceId, 'offline'));
-          }
-        }
+
+    if (toProbe.isEmpty) return;
+
+    unawaited(() async {
+      if (forceAll) {
+        await _runPanelProbeWave(
+          toProbe,
+          _panelSignalingProbeConcurrency,
+          (d) async => _probeOneDevice(d, isOffline, sendMode),
+        );
+        return;
       }
-      if (!isOffline && widget.onWebRTCProbe != null) {
-        _probeWebRTC(d.deviceId);
-      } else {
-        if (mounted) {
-          setState(() => _setWebrtcReach(d.deviceId, 'offline'));
-        }
-      }
-    }
+      await _runPanelProbeWave(
+        partition.lanDiscovered,
+        _panelLanProbeConcurrency,
+        (d) async => _probeOneDevice(d, isOffline, sendMode),
+      );
+      if (!mounted) return;
+      await _runPanelProbeWave(
+        partition.presenceOnline,
+        _panelSignalingProbeConcurrency,
+        (d) async => _probeOneDevice(d, isOffline, sendMode),
+      );
+    }());
   }
 
   Future<void> _probeDirectPush(String deviceId, String lanHttpUrl) async {

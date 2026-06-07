@@ -177,6 +177,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   userIdRef.current = userId;
   selectedDeviceIdRef.current = selectedDeviceId;
   const [targetProbeToken, setTargetProbeToken] = useState(0);
+  const [probeForceAll, setProbeForceAll] = useState(false);
   const storageHydratedRef = useRef(false);
   const presenceSessionId = useMemo(() => getOrCreatePresenceSessionId(), []);
   const activeTransfersRef = useRef<Map<string, AbortController>>(new Map());
@@ -589,6 +590,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             return next;
           });
           if (patch.device.deviceId !== getOrCreateDeviceId() && patch.device.presenceStatus !== 'offline') {
+            setProbeForceAll(false);
             setTargetProbeToken((x) => x + 1);
           }
           return;
@@ -804,6 +806,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     lanDevices,
     connected,
     targetProbeToken,
+    probeForceAll,
     sendWebRTCProbe,
     sendLanHttpProbe,
     directHttpProbe,
@@ -1054,6 +1057,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const refreshSendTargets = useCallback(() => {
     void checkS3Config();
+    setProbeForceAll(true);
     setTargetProbeToken((t) => t + 1);
     loadDevices();
   }, [loadDevices, checkS3Config]);
@@ -1065,6 +1069,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) {
       initialTargetProbeForUserRef.current = undefined;
+      setProbeForceAll(false);
       setTargetProbeToken(0);
     }
   }, [userId]);
@@ -1073,6 +1078,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (!userId || !connected || otherDevices.length === 0) return;
     if (initialTargetProbeForUserRef.current === userId) return;
     initialTargetProbeForUserRef.current = userId;
+    setProbeForceAll(false);
     setTargetProbeToken((t) => t + 1);
   }, [userId, connected, otherDevices.length]);
 
