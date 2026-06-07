@@ -54,6 +54,7 @@ import '../widgets/pending_files_bar.dart';
 import '../network/connection_bar_view_model.dart';
 import '../network/connection_orchestrator.dart';
 import '../network/connection_resolution.dart';
+import '../network/probe_priority.dart';
 import '../widgets/desktop_file_drag_source.dart';
 import '../widgets/file_card_bubble.dart';
 import 'file_manager_screen.dart';
@@ -291,7 +292,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   static const Duration _probeQuickDirectHttp = Duration(seconds: 2);
   static const Duration _probeQuickLanSignaling = Duration(seconds: 3);
   static const Duration _probeQuickWebRTC = Duration(seconds: 4);
-  static const int _maxConcurrentDeviceProbes = 3;
+  static const int _lanProbeConcurrency = 6;
+  static const int _signalingProbeConcurrency = 3;
   final Map<String, DateTime> _lastProbeRequestAt = {};
   final Map<String, int> _probeRequestSeqByPeer = {};
   final Set<String> _probeRunningPeers = {};
@@ -717,6 +719,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _enqueueDirtyProbe(String deviceId) {
     if (!mounted || deviceId.isEmpty || deviceId == _deviceId) return;
     if (deviceId == s3VirtualDeviceId) return;
+    final device = _findKnownDeviceById(deviceId);
+    if (device != null) {
+      final nearbyIds = ref
+          .read(nearbyDevicesProvider)
+          .map((d) => d.deviceId)
+          .toSet();
+      final myIds = ref.read(myDevicesProvider).map((d) => d.deviceId).toSet();
+      final priority = classifyDevice(
+        device,
+        nearbyIds: nearbyIds,
+        myDeviceIds: myIds,
+      );
+      final selectedId = ref.read(selectedDeviceIdProvider);
+      if (priority == ProbePriority.lazy && selectedId != deviceId) return;
+    }
     _dirtyProbeDeviceIds.add(deviceId);
     _dirtyProbeDebounce?.cancel();
     _dirtyProbeDebounce = Timer(_dirtyProbeDebounceWindow, () {
@@ -1788,6 +1805,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     bool isCurrent() =>
         requestId == null || _isProbeRequestCurrent(device.deviceId, requestId);
 
+    final nearbyIds = ref
+        .read(nearbyDevicesProvider)
+        .map((d) => d.deviceId)
+        .toSet();
+    if (shouldSkipAutoProbe(device, nearbyIds: nearbyIds)) {
+      if (!mounted || !isCurrent()) return;
+      ref.read(deviceReachabilityProvider.notifier).setDetail(
+        device.deviceId,
+        DeviceReachDetail.offlineDetail,
+      );
+      return;
+    }
+
     bool directHttp = false;
 
     if (device.lanHttpUrl != null && device.lanHttpUrl!.isNotEmpty) {
@@ -1800,6 +1830,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
 
     if (!isCurrent()) return;
+
+    if (directHttp) {
+      if (!mounted || !isCurrent()) return;
+      ref.read(deviceReachabilityProvider.notifier).mergeDetail(
+        device.deviceId,
+        directHttp: true,
+        webrtc: kDeviceReachMergeUnset,
+        checking: false,
+        provisionalOnline: false,
+      );
+      return;
+    }
 
     final lanReach = await _resolveLanReachFromProbes(
       device,
@@ -1843,9 +1885,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  Future<void> _probeAllDevices({bool force = false}) async {
-    if (!mounted) return;
-    final currentId = await getOrCreateDeviceId();
+  List<DeviceDto> _collectPeerDevices() {
+    final currentId = _deviceId;
     final myDevices = ref.read(myDevicesProvider);
     final nearbyDevices = ref.read(nearbyDevicesProvider);
     final myIds = myDevices.map((d) => d.deviceId).toSet();
@@ -1853,14 +1894,75 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ...myDevices,
       ...nearbyDevices.where((d) => !myIds.contains(d.deviceId)),
     ];
-    final devices = allDevices.where((d) => d.deviceId != currentId).toList();
+    return allDevices
+        .where((d) => d.deviceId != currentId && d.deviceId.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _runProbeWave(
+    List<DeviceDto> devices, {
+    required int concurrency,
+    required bool force,
+    required void Function() onProbeFinished,
+  }) async {
     if (devices.isEmpty) return;
+
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (nextIndex < devices.length) {
+        final index = nextIndex++;
+        try {
+          await _enqueueProbeRequest(
+            devices[index],
+            source: 'probe_all',
+            force: force,
+          );
+        } finally {
+          onProbeFinished();
+        }
+      }
+    }
+
+    final workers = concurrency < devices.length ? concurrency : devices.length;
+    await Future.wait(List.generate(workers, (_) => worker()));
+  }
+
+  Future<void> _probeAllDevices({bool force = false}) async {
+    if (!mounted) return;
+    final devices = _collectPeerDevices();
+    if (devices.isEmpty) return;
+
+    final nearbyIds = ref
+        .read(nearbyDevicesProvider)
+        .map((d) => d.deviceId)
+        .toSet();
+    final myIds = ref.read(myDevicesProvider).map((d) => d.deviceId).toSet();
+    final partition = partitionForProbe(
+      devices,
+      nearbyIds: nearbyIds,
+      myDeviceIds: myIds,
+    );
+
+    final toProbe = force
+        ? devices
+        : [...partition.lanDiscovered, ...partition.presenceOnline];
+    if (toProbe.isEmpty && partition.lazy.isEmpty) return;
 
     ref.read(devicesProbingProvider.notifier).state = true;
     final reach = ref.read(deviceReachabilityProvider.notifier);
-    reach.setAllChecking(devices.map((d) => d.deviceId).toList());
 
-    var pending = devices.length;
+    if (force) {
+      reach.setAllChecking(toProbe.map((d) => d.deviceId).toList());
+    } else {
+      if (toProbe.isNotEmpty) {
+        reach.setAllChecking(toProbe.map((d) => d.deviceId).toList());
+      }
+      for (final d in partition.lazy) {
+        reach.setDetail(d.deviceId, DeviceReachDetail.offlineDetail);
+      }
+    }
+
+    var pending = toProbe.length;
     void onProbeFinished() {
       pending--;
       if (pending <= 0 && mounted) {
@@ -1868,26 +1970,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
 
-    Future<void> probeOne(DeviceDto d) async {
-      try {
-        await _enqueueProbeRequest(d, source: 'probe_all', force: force);
-      } finally {
-        onProbeFinished();
-      }
+    if (pending == 0) {
+      ref.read(devicesProbingProvider.notifier).state = false;
+      return;
     }
 
-    var nextIndex = 0;
-    Future<void> worker() async {
-      while (nextIndex < devices.length) {
-        final index = nextIndex++;
-        await probeOne(devices[index]);
-      }
+    if (force) {
+      await _runProbeWave(
+        toProbe,
+        concurrency: _signalingProbeConcurrency,
+        force: force,
+        onProbeFinished: onProbeFinished,
+      );
+      return;
     }
 
-    final workers = _maxConcurrentDeviceProbes < devices.length
-        ? _maxConcurrentDeviceProbes
-        : devices.length;
-    await Future.wait(List.generate(workers, (_) => worker()));
+    await _runProbeWave(
+      partition.lanDiscovered,
+      concurrency: _lanProbeConcurrency,
+      force: force,
+      onProbeFinished: onProbeFinished,
+    );
+    if (!mounted) return;
+    await _runProbeWave(
+      partition.presenceOnline,
+      concurrency: _signalingProbeConcurrency,
+      force: force,
+      onProbeFinished: onProbeFinished,
+    );
   }
 
   Future<void> _probeSingleDevice(String deviceId, {bool force = false}) async {

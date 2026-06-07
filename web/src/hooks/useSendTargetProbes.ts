@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import type { DeviceDto } from '@/lib/api';
 import { logger } from '@/lib/logger';
+import {
+  partitionForProbe,
+  runWithConcurrency,
+  shouldSkipAutoProbe,
+} from '@/lib/probePriority';
 
 const TAG = 'useSendTargetProbes';
 
@@ -96,22 +101,42 @@ function mergeReachOnListChange(
   return next;
 }
 
-/** Probe all methods in parallel and return per-method results. */
+/** Probe all methods; skips signaling/WebRTC when direct HTTP succeeds. */
 async function probeDeviceAllMethods(
   device: DeviceDto,
+  nearbyIds: Set<string>,
   onDirectHttpProbe: (url: string) => Promise<boolean>,
   onLanHttpProbe: (deviceId: string) => Promise<{ success: boolean; lanHttpUrl?: string; senderReachable?: boolean }>,
   onWebRTCProbe: (deviceId: string) => Promise<boolean>,
+  { forceFull = false }: { forceFull?: boolean } = {},
 ): Promise<{ methods: DeviceReachDetail; freshLanUrl?: string }> {
-  const results = await Promise.allSettled([
-    // Direct HTTP probe
-    (async () => {
-      const lanUrl = device.lanHttpUrl;
-      if (!lanUrl) return { ok: false, url: undefined };
+  if (!forceFull && shouldSkipAutoProbe(device, nearbyIds)) {
+    return { methods: offlineMethods };
+  }
+
+  const lanUrl = device.lanHttpUrl?.trim();
+  if (lanUrl) {
+    try {
       const ok = await onDirectHttpProbe(lanUrl);
-      return { ok, url: ok ? lanUrl : undefined };
-    })(),
-    // LAN signaling probe
+      if (ok) {
+        return {
+          methods: {
+            directHttp: true,
+            peerHttpHealthy: false,
+            pullReachable: false,
+            webrtc: false,
+            lanSignaling: false,
+          },
+          freshLanUrl: lanUrl,
+        };
+      }
+    } catch {
+      // fall through to signaling
+    }
+  }
+
+  const results = await Promise.allSettled([
+    Promise.resolve({ ok: false, url: undefined as string | undefined }),
     (async () => {
       const result = await onLanHttpProbe(device.deviceId);
       return {
@@ -120,23 +145,21 @@ async function probeDeviceAllMethods(
         url: result.lanHttpUrl,
       };
     })(),
-    // WebRTC probe
     onWebRTCProbe(device.deviceId),
   ]);
 
-  const directResult = results[0].status === 'fulfilled' ? results[0].value : { ok: false, url: undefined };
   const lanResult = results[1].status === 'fulfilled'
     ? results[1].value
-    : { peerOk: false, pullOk: false, url: undefined };
+    : { peerOk: false, pullOk: false, url: undefined as string | undefined };
   const webrtcOk = results[2].status === 'fulfilled' ? results[2].value : false;
 
-  const freshLanUrl = directResult.url ?? lanResult.url;
+  const freshLanUrl = lanResult.url;
   const peerHttpHealthy = lanResult.peerOk;
   const pullReachable = lanResult.pullOk;
 
   return {
     methods: {
-      directHttp: directResult.ok,
+      directHttp: false,
       peerHttpHealthy,
       pullReachable,
       webrtc: webrtcOk,
@@ -151,6 +174,7 @@ export function useSendTargetProbes(
   lanDevices: DeviceDto[],
   connected: boolean,
   probeToken: number,
+  probeForceAll: boolean,
   onWebRTCProbe: (targetDeviceId: string) => Promise<boolean>,
   onLanHttpProbe: (
     targetDeviceId: string,
@@ -173,6 +197,18 @@ export function useSendTargetProbes(
     [otherDevices],
   );
 
+  const myDeviceIds = useMemo(
+    () => new Set(otherDevices.map((d) => d.deviceId)),
+    [otherDevices],
+  );
+  const nearbyIds = useMemo(() => {
+    const ids = new Set(lanDevices.map((d) => d.deviceId));
+    for (const d of otherDevices) {
+      if (d.lanHttpUrl?.trim()) ids.add(d.deviceId);
+    }
+    return ids;
+  }, [otherDevices, lanDevices]);
+
   const [deviceReach, setDeviceReach] = useState<Record<string, DeviceReachEntry>>(() =>
     buildFromDevicePresence(otherDevices),
   );
@@ -181,6 +217,10 @@ export function useSendTargetProbes(
   const freshLanUrlsRef = useRef<Record<string, string>>({});
   const deviceSnapshotRef = useRef(otherDevices);
   deviceSnapshotRef.current = otherDevices;
+  const nearbyIdsRef = useRef(nearbyIds);
+  nearbyIdsRef.current = nearbyIds;
+  const myDeviceIdsRef = useRef(myDeviceIds);
+  myDeviceIdsRef.current = myDeviceIds;
 
   useEffect(() => {
     const ids = otherDevices.map((d) => d.deviceId);
@@ -201,39 +241,90 @@ export function useSendTargetProbes(
     }
 
     const snap = deviceSnapshotRef.current;
-    logger.info(TAG, 'probe run token=', probeToken, 'devices=', snap.length);
+    const partition = partitionForProbe(
+      snap,
+      nearbyIdsRef.current,
+      myDeviceIdsRef.current,
+    );
+    const toProbe = probeForceAll
+      ? snap
+      : [...partition.lanDiscovered, ...partition.presenceOnline];
+
+    logger.info(
+      TAG,
+      'probe run token=',
+      probeToken,
+      'forceAll=',
+      probeForceAll,
+      'auto=',
+      toProbe.length,
+      'lazy=',
+      partition.lazy.length,
+    );
 
     setDeviceReach((prev) => {
       const next = { ...prev };
-      for (const d of snap) next[d.deviceId] = toProbingEntry(prev[d.deviceId]);
+      for (const d of toProbe) next[d.deviceId] = toProbingEntry(prev[d.deviceId]);
+      if (!probeForceAll) {
+        for (const d of partition.lazy) next[d.deviceId] = offlineEntry;
+      }
       return next;
     });
 
-    setProbing(true);
-    let pending = snap.length;
-    for (const d of snap) {
-      void (async () => {
-        try {
-          const { methods, freshLanUrl } = await probeDeviceAllMethods(
-            d, onDirectHttpProbe, onLanHttpProbe, onWebRTCProbe,
-          );
-          if (cancelledRef.current) return;
-          if (freshLanUrl) {
-            freshLanUrlsRef.current = { ...freshLanUrlsRef.current, [d.deviceId]: freshLanUrl };
-          }
-          setDeviceReach((prev) => ({
-            ...prev,
-            [d.deviceId]: toResolvedEntry(methods),
-          }));
-        } finally {
-          pending--;
-          if (pending <= 0 && !cancelledRef.current) setProbing(false);
-        }
-      })();
+    if (toProbe.length === 0) {
+      setProbing(false);
+      return () => { cancelledRef.current = true; };
     }
 
+    setProbing(true);
+
+    const applyResult = (
+      deviceId: string,
+      methods: DeviceReachDetail,
+      freshLanUrl?: string,
+    ) => {
+      if (cancelledRef.current) return;
+      if (freshLanUrl) {
+        freshLanUrlsRef.current = { ...freshLanUrlsRef.current, [deviceId]: freshLanUrl };
+      }
+      setDeviceReach((prev) => ({
+        ...prev,
+        [deviceId]: toResolvedEntry(methods),
+      }));
+    };
+
+    const probeOne = async (d: DeviceDto, forceFull: boolean) => {
+      try {
+        const { methods, freshLanUrl } = await probeDeviceAllMethods(
+          d,
+          nearbyIdsRef.current,
+          onDirectHttpProbe,
+          onLanHttpProbe,
+          onWebRTCProbe,
+          { forceFull },
+        );
+        applyResult(d.deviceId, methods, freshLanUrl);
+      } catch {
+        applyResult(d.deviceId, offlineMethods);
+      }
+    };
+
+    void (async () => {
+      try {
+        if (probeForceAll) {
+          await runWithConcurrency(toProbe, 3, (d) => probeOne(d, true));
+        } else {
+          await runWithConcurrency(partition.lanDiscovered, 6, (d) => probeOne(d, false));
+          if (cancelledRef.current) return;
+          await runWithConcurrency(partition.presenceOnline, 3, (d) => probeOne(d, false));
+        }
+      } finally {
+        if (!cancelledRef.current) setProbing(false);
+      }
+    })();
+
     return () => { cancelledRef.current = true; };
-  }, [probeToken, connected, onWebRTCProbe, onLanHttpProbe, onDirectHttpProbe]);
+  }, [probeToken, probeForceAll, connected, onWebRTCProbe, onLanHttpProbe, onDirectHttpProbe]);
 
   const probeSingleDevice = useCallback((deviceId: string) => {
     if (!connected) return;
@@ -246,7 +337,12 @@ export function useSendTargetProbes(
     }));
     void (async () => {
       const { methods, freshLanUrl } = await probeDeviceAllMethods(
-        device, onDirectHttpProbe, onLanHttpProbe, onWebRTCProbe,
+        device,
+        nearbyIdsRef.current,
+        onDirectHttpProbe,
+        onLanHttpProbe,
+        onWebRTCProbe,
+        { forceFull: true },
       );
       if (freshLanUrl) {
         freshLanUrlsRef.current = { ...freshLanUrlsRef.current, [deviceId]: freshLanUrl };

@@ -196,6 +196,7 @@ export function Chat({
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   /** Increment to re-run LAN/WebRTC reach probes (see refreshSendTargets). */
   const [targetProbeToken, setTargetProbeToken] = useState(0);
+  const [probeForceAll, setProbeForceAll] = useState(false);
   const storageHydratedRef = useRef(false);
   const activeTransfersRef = useRef<Map<string, AbortController>>(new Map());
   const speedTrackersRef = useRef<Map<string, SpeedTracker>>(new Map());
@@ -549,6 +550,7 @@ export function Chat({
             return next;
           });
           if (patch.device.deviceId !== getOrCreateDeviceId() && patch.device.presenceStatus !== 'offline') {
+            setProbeForceAll(false);
             setTargetProbeToken((x) => x + 1);
           }
           return;
@@ -715,6 +717,7 @@ export function Chat({
     lanDevices,
     connected,
     targetProbeToken,
+    probeForceAll,
     sendWebRTCProbe,
     sendLanHttpProbe,
     async () => false,
@@ -1018,6 +1021,7 @@ export function Chat({
   }, [userId, presenceSessionId, loadDevices]);
 
   const refreshSendTargets = useCallback(() => {
+    setProbeForceAll(true);
     setTargetProbeToken((t) => t + 1);
     loadDevices();
   }, [loadDevices]);
@@ -1027,6 +1031,7 @@ export function Chat({
   useEffect(() => {
     if (!userId) {
       initialTargetProbeForUserRef.current = undefined;
+      setProbeForceAll(false);
       setTargetProbeToken(0);
     }
   }, [userId]);
@@ -1035,6 +1040,7 @@ export function Chat({
     if (!userId || !connected || otherDevices.length === 0) return;
     if (initialTargetProbeForUserRef.current === userId) return;
     initialTargetProbeForUserRef.current = userId;
+    setProbeForceAll(false);
     setTargetProbeToken((t) => t + 1);
   }, [userId, connected, otherDevices.length]);
 
