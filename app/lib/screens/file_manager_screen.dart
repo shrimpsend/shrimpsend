@@ -526,6 +526,16 @@ class _FileManagerScreenState extends State<FileManagerScreen>
 
   bool get _isMobile => Platform.isAndroid || Platform.isIOS;
 
+  EdgeInsets _listVerticalPadding(BuildContext context) {
+    return EdgeInsets.only(
+      top: AppSpacing.xs,
+      bottom: AppSpacing.xs +
+          (widget.embedded
+              ? AppLayout.floatingBottomBarScrollInset(context)
+              : 0),
+    );
+  }
+
   Future<void> _clearCacheDirectory() async {
     final l10n = AppLocalizations.of(context);
     final confirmed = await AppConfirmDialog.show(
@@ -1795,7 +1805,7 @@ class _FileManagerScreenState extends State<FileManagerScreen>
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         controller: _scrollController,
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        padding: _listVerticalPadding(context),
         itemCount: itemCount,
         separatorBuilder: (_, index) {
           if (index >= files.length - 1) return const SizedBox.shrink();
@@ -1886,7 +1896,7 @@ class _FileManagerScreenState extends State<FileManagerScreen>
       color: Theme.of(context).colorScheme.primary,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        padding: _listVerticalPadding(context),
         children: [
           for (final category in sortedCategories)
             _buildCategorySection(

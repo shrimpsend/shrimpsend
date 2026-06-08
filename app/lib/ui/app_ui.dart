@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../typography.dart';
@@ -82,9 +85,20 @@ class AppLayout {
   /// Extra breathing room so the last list row clears the bar.
   static const double floatingBottomBarScrollExtra = 8;
 
+  /// System bottom safe area (Home Indicator / navigation bar).
+  static double floatingBottomSystemInset(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final inset = math.max(
+      media.viewPadding.bottom,
+      media.systemGestureInsets.bottom,
+    );
+    if (inset > 0) return inset;
+    if (Platform.isAndroid) return 48;
+    return 0;
+  }
+
   static double floatingBottomBarScrollInset(BuildContext context) {
-    final bottom = MediaQuery.paddingOf(context).bottom;
-    return bottom +
+    return floatingBottomSystemInset(context) +
         floatingBottomBarBottomGap +
         floatingBottomBarHeight +
         floatingBottomBarScrollExtra;

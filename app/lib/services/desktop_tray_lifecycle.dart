@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../l10n/app_brand.dart';
 import 'window_state_store.dart';
 
 const _kDesktopLifecycleChannel = MethodChannel(
@@ -98,7 +99,7 @@ Future<void> initDesktopWindowBeforeRunApp({bool startHidden = false}) async {
           ? Size(savedBounds.width, savedBounds.height)
           : const Size(1280, 720),
       center: savedBounds == null,
-      title: 'ShrimpSend',
+      title: desktopWindowTitle(),
       skipTaskbar: startHidden,
     ),
     () async {
@@ -132,7 +133,7 @@ Future<void> initDesktopTrayAfterFirstFrame() async {
     trayIconAsset = 'assets/logo.png';
   }
   await trayManager.setIcon(trayIconAsset, isTemplate: false);
-  await trayManager.setToolTip('ShrimpSend');
+  await trayManager.setToolTip(desktopWindowTitle());
   trayManager.addListener(_trayShowListener);
 
   await trayManager.setContextMenu(

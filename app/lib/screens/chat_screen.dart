@@ -8523,12 +8523,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           // stronger glass tint + no tab glow reduces ghost pill on light BG.
                           Align(
                             alignment: Alignment.bottomCenter,
-                            child: SafeArea(
-                              top: false,
-                              minimum: const EdgeInsets.only(
+                            child: Padding(
+                              padding: EdgeInsets.only(
                                 left: _kMobileFloatingBarEdge,
                                 right: _kMobileFloatingBarEdge,
-                                bottom: _kMobileFloatingBarBottomGap,
+                                bottom:
+                                    AppLayout.floatingBottomSystemInset(
+                                      context,
+                                    ) +
+                                    _kMobileFloatingBarBottomGap,
                               ),
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
