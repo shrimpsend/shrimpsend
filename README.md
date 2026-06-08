@@ -7,7 +7,8 @@
 </p>
 
 <p align="center">
-  <strong>Device-conversation sync</strong> — send text, clipboard snippets, images, videos, and large files to your own devices. LAN-first paths with S3-compatible fallback.
+  <strong>Reliable transfer between your devices — even on difficult networks.</strong><br />
+  LAN when possible. Relay when needed. Resume when interrupted.
 </p>
 
 <p align="center">
@@ -16,14 +17,15 @@
   <a href="https://github.com/shrimpsend/shrimpsend"><img src="https://img.shields.io/badge/Source-shrimpsend-181717?logo=github" alt="Source repository" /></a>
 </p>
 
-This repository (**`ultrasend`**) is the open-source codebase for **ShrimpSend** / **虾传** — a self-hostable message and file relay for your personal devices. It is not a cloud drive and not a “upload, get a link, forward the link” workflow; you pick a target device and send into a private device conversation.
+This repository (**`ultrasend`**) is the open-source codebase for **ShrimpSend** / **虾传** — a self-hostable relay for your personal devices. Send text, clipboard snippets, images, videos, and large files between phones, desktops, and browsers. It is built for **complex networks**: go as fast as your LAN allows on direct paths, keep transfers alive across NAT and restrictive Wi‑Fi, and resume large files after disconnects. It is not a cloud drive and not an “upload, get a link, forward the link” workflow.
 
 ## Why ShrimpSend
 
-- **Device conversations** — repeated sends (notes, screenshots, installers, videos) stay in one thread per target device.
-- **LAN / WebRTC first** — prefer direct paths on the same network; fall back when NAT or firewalls block reachability.
+- **No install for recipients** — send directly to browsers and temporary devices when the other side cannot install software.
+- **Resume after disconnects** — large native client ↔ client transfers continue from the interrupted position instead of restarting from 0%.
+- **Works on restrictive networks** — server-assisted relay when hotel Wi‑Fi, campus networks, or carrier NAT block direct reachability.
+- **LAN-first, still built for speed** — prefer direct LAN / WebRTC on the same network; use relay or S3-compatible fallback only when needed.
 - **Real-time sync** — [Centrifugo](https://centrifugal.dev/) pushes updates to every signed-in client on channel `user#<userId>`.
-- **Flexible file delivery** — S3-compatible presigned upload/download for all devices, or LAN direct / reverse pull to a chosen peer (see [shared/protocol.md](shared/protocol.md)).
 - **Self-host friendly** — run the full stack on your infrastructure under [AGPL-3.0-or-later](LICENSE); production secrets stay in private ops templates ([docs/SELF_HOST.md](docs/SELF_HOST.md)).
 
 ## Screenshots
@@ -35,7 +37,7 @@ This repository (**`ultrasend`**) is the open-source codebase for **ShrimpSend**
 </p>
 
 <p align="center">
-  <em>Left: discover peers on the LAN · Center: device conversation with HTTP/WebRTC/S3 paths · Right: cloud relay settings</em>
+  <em>Left: discover peers on the LAN · Center: pick a path (LAN / relay / S3) · Right: cloud relay settings</em>
 </p>
 
 ## Architecture
@@ -69,7 +71,7 @@ flowchart LR
 | Spring Boot backend | 9000 | REST API, auth, S3 orchestration |
 | Next.js web | 3000 | Browser client |
 
-**Transfer paths:** small/large files over LAN use HTTP direct push or reverse pull; cross-network or “all devices” mode uses your configured S3 bucket. Details: [shared/protocol.md](shared/protocol.md).
+**Transfer paths:** on the same LAN, HTTP direct push or reverse pull and optional WebRTC aim for maximum throughput; across restrictive or unstable networks, server-assisted relay and S3-compatible fallback keep delivery reliable. Large native transfers can resume after disconnects. Details: [shared/protocol.md](shared/protocol.md).
 
 ## Tech stack
 
@@ -224,6 +226,9 @@ ultrasend/
 - Real-time messages on `user#<userId>`
 - Text + file messages (S3 presigned upload/download)
 - Per-send choice: all devices (S3) or a specific peer (LAN direct when possible)
+- Browser receive without asking others to install the app
+- Resume large transfers after network drops (native client ↔ client)
+- Server-assisted paths across NAT, campus Wi‑Fi, and carrier networks (signed-in)
 - Settings: S3 credentials, device list, renames
 
 ## Documentation
