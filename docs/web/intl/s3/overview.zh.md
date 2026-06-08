@@ -51,9 +51,7 @@ https://shrimpsend.com
 
 ## 平台详细配置
 
-- [缤纷云（推荐）](/zh/docs/s3/bitiful)
 - [内置 S3（国际版）](/zh/docs/s3/built-in)
-- [腾讯云 COS](/zh/docs/s3/tencent-cos)
 - [Cloudflare R2](/zh/docs/s3/cloudflare-r2)
 - [RustFS](/zh/docs/s3/rustfs)
 

@@ -134,6 +134,9 @@ export function readS3SectionDoc(
   if (section === 'built-in' && region !== 'overseas') {
     throw new Error(`S3 section unavailable in region: ${section}`);
   }
+  if ((section === 'bitiful' || section === 'tencent-cos') && region === 'overseas') {
+    throw new Error(`S3 section unavailable in region: ${section}`);
+  }
   return doc('s3', readDocsMarkdown(...s3SectionFile(region, locale, section)), section);
 }
 
