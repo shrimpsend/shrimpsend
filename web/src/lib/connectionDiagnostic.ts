@@ -139,9 +139,27 @@ export function buildDiagnosticSummary(
   return t('chat.connectionDiag.summaryRecommend', { mode: modeLabel, reason });
 }
 
+function trimLanUrl(url?: string | null): string | undefined {
+  const trimmed = url?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+/** Merge LAN URL from device DTO, prior probe cache, and in-run signaling discovery. */
+export function resolvePeerLanHttpUrl(
+  device: DeviceDto,
+  sources: { initialFreshLanUrl?: string; discoveredLanUrl?: string },
+): string | undefined {
+  return (
+    trimLanUrl(device.lanHttpUrl) ??
+    trimLanUrl(sources.initialFreshLanUrl) ??
+    trimLanUrl(sources.discoveredLanUrl)
+  );
+}
+
 export type ConnectionDiagnosticProbeDeps = {
   device: DeviceDto;
   orderedStepIds: DiagnosticStepId[];
+  initialFreshLanUrl?: string;
   connected: boolean;
   isLoggedIn: boolean;
   webrtcAvailable: boolean;
@@ -201,6 +219,43 @@ export async function runConnectionDiagnostic(
   let pullReachable = false;
   let webrtcResult = false;
   let freshLanUrl: string | undefined;
+  let discoveredLanUrl: string | undefined;
+  let httpDirectFailedNoUrl = false;
+
+  const probeHttpDirect = async (lanUrl: string): Promise<boolean> => {
+    try {
+      return await deps.onDirectHttpProbe(lanUrl);
+    } catch {
+      return false;
+    }
+  };
+
+  const finishHttpDirectWithUrl = (ok: boolean, lanUrl: string, startedAt: number) => {
+    directHttp = ok;
+    finishStep(
+      'httpDirect',
+      ok ? 'success' : 'failure',
+      ok
+        ? t('chat.connectionDiag.reasonHttpDirectOk')
+        : t('chat.connectionDiag.reasonHttpDirectFail'),
+      startedAt,
+    );
+    if (ok) freshLanUrl = lanUrl;
+  };
+
+  const backfillHttpDirect = async (lanUrl: string) => {
+    if (isCancelled()) return;
+    const startedAt = Date.now();
+    patchStep('httpDirect', {
+      status: 'running',
+      startedAt,
+      elapsedMs: undefined,
+      reason: undefined,
+    });
+    const ok = await probeHttpDirect(lanUrl);
+    finishHttpDirectWithUrl(ok, lanUrl, startedAt);
+    httpDirectFailedNoUrl = false;
+  };
 
   for (const stepId of orderedStepIds) {
     if (isCancelled()) break;
@@ -209,24 +264,16 @@ export async function runConnectionDiagnostic(
 
     switch (stepId) {
       case 'httpDirect': {
-        const lanUrl = device.lanHttpUrl?.trim();
+        const lanUrl = resolvePeerLanHttpUrl(device, {
+          initialFreshLanUrl: deps.initialFreshLanUrl,
+          discoveredLanUrl,
+        });
         if (!lanUrl) {
+          httpDirectFailedNoUrl = true;
           finishStep(stepId, 'failure', t('chat.connectionDiag.reasonHttpDirectNoUrl'), startedAt);
         } else {
-          try {
-            directHttp = await deps.onDirectHttpProbe(lanUrl);
-          } catch {
-            directHttp = false;
-          }
-          finishStep(
-            stepId,
-            directHttp ? 'success' : 'failure',
-            directHttp
-              ? t('chat.connectionDiag.reasonHttpDirectOk')
-              : t('chat.connectionDiag.reasonHttpDirectFail'),
-            startedAt,
-          );
-          if (directHttp) freshLanUrl = lanUrl;
+          const ok = await probeHttpDirect(lanUrl);
+          finishHttpDirectWithUrl(ok, lanUrl, startedAt);
         }
         break;
       }
@@ -238,7 +285,11 @@ export async function runConnectionDiagnostic(
             const r = await deps.onLanHttpProbe(device.deviceId);
             peerHttpHealthy = r.success;
             if (r.senderReachable) pullReachable = true;
-            if (r.lanHttpUrl) freshLanUrl = r.lanHttpUrl;
+            const signalUrl = trimLanUrl(r.lanHttpUrl);
+            if (signalUrl) {
+              discoveredLanUrl = signalUrl;
+              freshLanUrl = signalUrl;
+            }
             finishStep(
               stepId,
               peerHttpHealthy ? 'success' : 'failure',
@@ -247,6 +298,9 @@ export async function runConnectionDiagnostic(
                 : t('chat.connectionDiag.reasonHttpSignalingFail'),
               startedAt,
             );
+            if (httpDirectFailedNoUrl && signalUrl) {
+              await backfillHttpDirect(signalUrl);
+            }
           } catch {
             finishStep(stepId, 'failure', t('chat.connectionDiag.reasonHttpSignalingFail'), startedAt);
           }
