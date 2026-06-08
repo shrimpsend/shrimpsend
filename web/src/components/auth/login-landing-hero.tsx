@@ -16,8 +16,8 @@ import {
   Cable,
   CloudUpload,
   Sparkles,
-  ArrowLeftRight,
-  AppWindow,
+  Globe2,
+  Router,
 } from 'lucide-react';
 
 type Props = {
@@ -38,16 +38,16 @@ export function LoginLandingHero({ className }: Props) {
     });
   }, []);
 
-  /** 核心：本地/mDNS、续传、打破单向网络、局域网网页互通 */
+  /** 核心：免安装、续传、复杂网络 */
   const primaryFeatures: FeatureItem[] = [
-    { icon: Radio, titleKey: 'landing.featureOfflineMdnsTitle', descKey: 'landing.featureOfflineMdnsDesc', stagger: 'app-stagger-1' },
+    { icon: Globe2, titleKey: 'landing.featureNoInstallTitle', descKey: 'landing.featureNoInstallDesc', stagger: 'app-stagger-1' },
     { icon: RefreshCw, titleKey: 'landing.featureResumeTitle', descKey: 'landing.featureResumeDesc', stagger: 'app-stagger-2' },
-    { icon: ArrowLeftRight, titleKey: 'landing.featureBreakOneWayTitle', descKey: 'landing.featureBreakOneWayDesc', stagger: 'app-stagger-3' },
-    { icon: AppWindow, titleKey: 'landing.featureLanWebTitle', descKey: 'landing.featureLanWebDesc', stagger: 'app-stagger-4' },
+    { icon: Router, titleKey: 'landing.featureRestrictiveNetworkTitle', descKey: 'landing.featureRestrictiveNetworkDesc', stagger: 'app-stagger-3' },
   ];
 
-  /** 更多：并发与传输栈、进阶能力与体验 */
+  /** 更多：本地发现、并发与传输栈、进阶能力与体验 */
   const secondaryFeatures: FeatureItem[] = [
+    { icon: Radio, titleKey: 'landing.featureOfflineMdnsTitle', descKey: 'landing.featureOfflineMdnsDesc', stagger: 'app-stagger-4' },
     { icon: Layers, titleKey: 'landing.featureMultiParallelTitle', descKey: 'landing.featureMultiParallelDesc', stagger: 'app-stagger-5' },
     { icon: Cpu, titleKey: 'landing.featureMultiThreadTitle', descKey: 'landing.featureMultiThreadDesc', stagger: 'app-stagger-6' },
     { icon: Cable, titleKey: 'landing.featureWebrtcTitle', descKey: 'landing.featureWebrtcDesc', stagger: 'app-stagger-7' },

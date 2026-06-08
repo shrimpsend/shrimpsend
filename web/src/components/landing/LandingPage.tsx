@@ -11,33 +11,27 @@ import type { LocalePath } from '@/lib/i18nRouting';
 import { DEFAULT_OG_IMAGE, HREFLANG, SITE_NAME, absoluteUrl } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import {
+  Check,
   Github,
-  CloudUpload,
   FileArchive,
   FileImage,
   Globe2,
   Laptop,
-  LockKeyhole,
-  MessageSquareText,
-  MonitorSmartphone,
-  Network,
   Play,
-  Radio,
   RefreshCw,
   Router,
-  SendHorizontal,
   Server,
-  ShieldCheck,
-  Sparkles,
   Smartphone,
+  Sparkles,
+  X,
   Zap,
 } from 'lucide-react';
 
 const featureCards = [
   {
-    icon: Radio,
-    titleKey: 'landing.featureOfflineMdnsTitle',
-    descKey: 'landing.featureOfflineMdnsDesc',
+    icon: Globe2,
+    titleKey: 'landing.featureNoInstallTitle',
+    descKey: 'landing.featureNoInstallDesc',
   },
   {
     icon: RefreshCw,
@@ -45,28 +39,41 @@ const featureCards = [
     descKey: 'landing.featureResumeDesc',
   },
   {
-    icon: Network,
-    titleKey: 'landing.featureLanWebTitle',
-    descKey: 'landing.featureLanWebDesc',
-  },
-  {
-    icon: CloudUpload,
-    titleKey: 'landing.featureS3WanTitle',
-    descKey: 'landing.featureS3WanDesc',
+    icon: Router,
+    titleKey: 'landing.featureRestrictiveNetworkTitle',
+    descKey: 'landing.featureRestrictiveNetworkDesc',
   },
 ] as const;
 
 const statItems = [
   { icon: Zap, valueKey: 'landing.statSpeedValue', labelKey: 'landing.statSpeedLabel' },
-  { icon: ShieldCheck, valueKey: 'landing.statSecurityValue', labelKey: 'landing.statSecurityLabel' },
-  { icon: MonitorSmartphone, valueKey: 'landing.statPlatformValue', labelKey: 'landing.statPlatformLabel' },
-  { icon: MessageSquareText, valueKey: 'landing.statMessageValue', labelKey: 'landing.statMessageLabel' },
+  { icon: RefreshCw, valueKey: 'landing.statSecurityValue', labelKey: 'landing.statSecurityLabel' },
+  { icon: Globe2, valueKey: 'landing.statPlatformValue', labelKey: 'landing.statPlatformLabel' },
+  { icon: Router, valueKey: 'landing.statMessageValue', labelKey: 'landing.statMessageLabel' },
+] as const;
+
+const compareScenarios = [
+  {
+    titleKey: 'landing.compareScenario1Title',
+    othersKey: 'landing.compareScenario1Others',
+    shrimpSendKey: 'landing.compareScenario1ShrimpSend',
+  },
+  {
+    titleKey: 'landing.compareScenario2Title',
+    othersKey: 'landing.compareScenario2Others',
+    shrimpSendKey: 'landing.compareScenario2ShrimpSend',
+  },
+  {
+    titleKey: 'landing.compareScenario3Title',
+    othersKey: 'landing.compareScenario3Others',
+    shrimpSendKey: 'landing.compareScenario3ShrimpSend',
+  },
 ] as const;
 
 const steps = [
-  { icon: FileArchive, titleKey: 'landing.stepOneTitle', descKey: 'landing.stepOneDesc' },
-  { icon: LockKeyhole, titleKey: 'landing.stepTwoTitle', descKey: 'landing.stepTwoDesc' },
-  { icon: MonitorSmartphone, titleKey: 'landing.stepThreeTitle', descKey: 'landing.stepThreeDesc' },
+  { icon: Laptop, titleKey: 'landing.stepOneTitle', descKey: 'landing.stepOneDesc' },
+  { icon: Router, titleKey: 'landing.stepTwoTitle', descKey: 'landing.stepTwoDesc' },
+  { icon: RefreshCw, titleKey: 'landing.stepThreeTitle', descKey: 'landing.stepThreeDesc' },
 ] as const;
 
 const faqItems = [
@@ -195,7 +202,7 @@ function HeroVisual() {
         <div className="rounded-2xl border border-primary/20 bg-primary/[0.08] px-4 py-3">
           <div className="flex items-start gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/25">
-              <MessageSquareText className="size-4" />
+              <RefreshCw className="size-4" />
             </span>
             <div>
               <p className="text-sm font-semibold text-foreground">{t('landing.heroMessageTitle')}</p>
@@ -243,10 +250,10 @@ function HeroVisual() {
             <FileImage className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold">IMG_2038.mov</p>
-            <p className="font-mono text-[10px] text-muted-foreground">1.25 GB · 68%</p>
+            <p className="truncate text-xs font-semibold">project-build.apk</p>
+            <p className="font-mono text-[10px] text-muted-foreground">{t('landing.heroResumeLabel')}</p>
           </div>
-          <SendHorizontal className="size-4 text-primary" />
+          <RefreshCw className="size-4 text-primary" />
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/12">
           <div className="h-full w-[68%] rounded-full bg-primary shadow-[0_0_18px_color-mix(in_oklch,var(--primary)_80%,transparent)]" />
@@ -289,9 +296,9 @@ function HowItWorksVisual() {
   ] as const;
 
   const transferItems = [
-    { icon: MessageSquareText, label: 'clipboard', value: '2 KB' },
-    { icon: FileImage, label: 'IMG_2038.mov', value: '68%' },
-    { icon: FileArchive, label: 'Project.zip', value: 'queued' },
+    { icon: Globe2, label: 'browser', value: 'no install' },
+    { icon: FileImage, label: 'project-build.apk', value: '68%' },
+    { icon: FileArchive, label: 'release.zip', value: 'queued' },
   ] as const;
 
   return (
@@ -349,7 +356,7 @@ function HowItWorksVisual() {
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-2">
           <div className="flex items-center gap-2 text-xs font-semibold">
-            <SendHorizontal className="size-3.5 text-primary" />
+            <RefreshCw className="size-3.5 text-primary" />
             {t('landing.heroTransferStatus')}
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/12">
@@ -365,6 +372,47 @@ function HowItWorksVisual() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CompareSection() {
+  const { t } = useI18n();
+
+  return (
+    <section className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-20 md:px-8" id="compare">
+      <div className="mx-auto mb-10 max-w-2xl text-center">
+        <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary/80">{t('landing.compareKicker')}</p>
+        <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{t('landing.compareTitle')}</h2>
+        <p className="mt-3 text-sm leading-7 text-muted-foreground">{t('landing.compareDesc')}</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {compareScenarios.map(({ titleKey, othersKey, shrimpSendKey }) => (
+          <article key={titleKey} className="landing-glass-card flex flex-col rounded-3xl p-5">
+            <h3 className="text-base font-semibold tracking-tight">{t(titleKey)}</h3>
+            <div className="mt-5 space-y-3">
+              <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-3.5 py-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {t('landing.compareOthersLabel')}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <X className="mt-0.5 size-4 shrink-0 text-muted-foreground/70" aria-hidden />
+                  <p className="text-sm leading-6 text-muted-foreground">{t(othersKey)}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-primary/25 bg-primary/[0.08] px-3.5 py-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-primary/80">
+                  {t('landing.compareShrimpSendLabel')}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                  <p className="text-sm leading-6 text-foreground">{t(shrimpSendKey)}</p>
+                </div>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -519,7 +567,7 @@ export function LandingPage({ localePath, siteOrigin }: { localePath: LocalePath
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary/80">{t('landing.featuresKicker')}</p>
           <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{t('landing.featuresTitle')}</h2>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {featureCards.map(({ icon: Icon, titleKey, descKey }) => (
             <article key={titleKey} className="landing-glass-card rounded-3xl p-5">
               <span className="mb-6 flex size-12 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20">
@@ -531,6 +579,8 @@ export function LandingPage({ localePath, siteOrigin }: { localePath: LocalePath
           ))}
         </div>
       </section>
+
+      <CompareSection />
 
       <section className="relative z-10 mx-auto grid w-full max-w-7xl gap-10 px-5 pb-20 md:px-8 lg:grid-cols-[0.8fr_1.2fr]">
         <div>
