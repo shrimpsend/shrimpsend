@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../color_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../providers/device_provider.dart';
 import '../../ui/app_ui.dart';
@@ -92,7 +93,7 @@ class ChatHeader extends ConsumerWidget implements PreferredSizeWidget {
     final isS3 = selectedDeviceId == s3VirtualDeviceId;
     final device = isS3 ? null : allDevices.where((d) => d.deviceId == selectedDeviceId).firstOrNull;
     final detail = selectedDeviceId != null ? (reachability[selectedDeviceId] ?? DeviceReachDetail.offlineDetail) : DeviceReachDetail.offlineDetail;
-    final reachStatus = detail.status;
+    final reachStatus = detail.uiReachStatus;
 
     Widget titleContent;
     if (isS3) {
@@ -175,11 +176,13 @@ class ChatHeader extends ConsumerWidget implements PreferredSizeWidget {
                 child: Container(
                   width: 10, height: 10,
                   decoration: BoxDecoration(
-                    color: reachStatus == 'online'
-                        ? colors.success
-                        : reachStatus == 'checking'
-                            ? colors.warning
-                            : colors.textTertiary.withValues(alpha: 0.4),
+                    color: switch (reachStatus) {
+                      DeviceReachStatus.online => colors.success,
+                      DeviceReachStatus.pullOnline => AppColorTheme.s3Color,
+                      DeviceReachStatus.checking => colors.warning,
+                      DeviceReachStatus.offline =>
+                        colors.textTertiary.withValues(alpha: 0.4),
+                    },
                     shape: BoxShape.circle,
                     border: Border.all(color: colors.surface, width: 2),
                   ),
@@ -210,11 +213,13 @@ class ChatHeader extends ConsumerWidget implements PreferredSizeWidget {
                     ],
                     Expanded(
                       child: Text(
-                        reachStatus == 'online'
-                            ? l10n.chatDeviceOnline
-                            : reachStatus == 'checking'
-                                ? l10n.chatDeviceChecking
-                                : l10n.chatDeviceOffline,
+                        switch (reachStatus) {
+                          DeviceReachStatus.online => l10n.chatDeviceOnline,
+                          DeviceReachStatus.pullOnline =>
+                            l10n.chatDevicePullOnline,
+                          DeviceReachStatus.checking => l10n.chatDeviceChecking,
+                          DeviceReachStatus.offline => l10n.chatDeviceOffline,
+                        },
                         style: theme.textTheme.bodySmall?.copyWith(color: colors.textTertiary, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

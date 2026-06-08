@@ -311,6 +311,7 @@
   "chatS3StatusOnlineSendAll": "Online · send to all devices",
   "chatS3StatusUnavailableCheck": "Unavailable · check S3 settings",
   "chatDeviceOnline": "Online",
+  "chatDevicePullOnline": "Pull available",
   "chatDeviceChecking": "Checking…",
   "chatDeviceOffline": "Offline",
   "chatHeaderDeviceNumberTooltip": "Device no.: {code}",
@@ -1238,6 +1239,85 @@
   "transportModeLabel": "Transport",
   "transportModeHttpLan": "HTTP LAN direct",
   "transportModeWebrtcLan": "WebRTC LAN direct",
+  "connectionDiagTitle": "Connection diagnostic",
+  "connectionDiagSubtitleRunning": "Testing connection to {peer}…",
+  "@connectionDiagSubtitleRunning": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionDiagSubtitleDone": "Connection test to {peer} complete",
+  "@connectionDiagSubtitleDone": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionDiagContinueInBackground": "Continue in background",
+  "connectionDiagDone": "Done",
+  "connectionDiagStepS3": "S3 cloud",
+  "connectionDiagStepHttpDirect": "HTTP LAN direct",
+  "connectionDiagStepHttpSignaling": "HTTP signaling",
+  "connectionDiagStepHttpPull": "HTTP reverse pull",
+  "connectionDiagStepWebrtc": "WebRTC connectivity",
+  "connectionDiagStatusPending": "Waiting",
+  "connectionDiagStatusRunning": "Testing",
+  "connectionDiagStatusSuccess": "Available",
+  "connectionDiagStatusFailure": "Unavailable",
+  "connectionDiagStatusSkipped": "Skipped",
+  "connectionDiagReasonS3Online": "S3 configured and cloud reachable",
+  "connectionDiagReasonS3NotConfigured": "S3 not configured",
+  "connectionDiagReasonS3Unavailable": "S3 configured but cloud unreachable",
+  "connectionDiagReasonHttpDirectOk": "LAN HTTP direct connection succeeded",
+  "connectionDiagReasonHttpDirectFail": "Cannot reach peer HTTP service (timeout or no response)",
+  "connectionDiagReasonHttpSignalingOk": "Peer HTTP self-check passed",
+  "connectionDiagReasonHttpSignalingFail": "Signaling probe failed; peer HTTP did not respond",
+  "connectionDiagReasonHttpPullOk": "Peer can reverse-pull from this device",
+  "connectionDiagReasonHttpPullFail": "Reverse pull failed; peer cannot reach local HTTP",
+  "connectionDiagReasonWebrtcOnline": "Same network — WebRTC can connect directly",
+  "connectionDiagReasonWebrtcConnectable": "Cross-network — WebRTC may connect via relay",
+  "connectionDiagReasonWebrtcFail": "WebRTC signaling or ICE unreachable",
+  "connectionDiagReasonWebrtcSkippedLanOk": "LAN HTTP already works — WebRTC skipped",
+  "connectionDiagReasonSkippedLanDirectOk": "HTTP direct succeeded — skipped",
+  "connectionDiagReasonSkippedOffline": "Offline — cloud signaling probes unavailable",
+  "connectionDiagReasonSkippedPeerOffline": "Peer offline with no LAN address — skipped",
+  "connectionDiagReasonHttpDirectNoUrl": "No LAN address found — cannot test HTTP direct",
+  "connectionDiagReasonOfflineCloud": "Offline — cloud signaling probes unavailable",
+  "connectionDiagReasonS3LoginRequired": "Sign in required to test S3",
+  "connectionDiagSummaryRecommend": "Recommended: {mode} ({reason})",
+  "@connectionDiagSummaryRecommend": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionDiagSummaryNoRoute": "No available transport route found",
+  "connectionDiagElapsed": "{elapsed} elapsed",
+  "@connectionDiagElapsed": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionDiagHelpHttpDirectTitle": "HTTP LAN direct",
+  "connectionDiagHelpHttpDirectBody": "Your device sends an HTTP GET to the peer's LAN address (/probe) without going through the cloud.\n\nThis checks whether a direct HTTP file transfer is possible when the peer's LAN URL is known (e.g. via mDNS) and reachable on the local network.",
+  "connectionDiagHelpHttpSignalingTitle": "HTTP signaling",
+  "connectionDiagHelpHttpSignalingBody": "A cloud message (Centrifugo) asks the peer to self-check its HTTP service and report back.\n\nThis checks whether the peer's HTTP service is healthy when you don't yet know its LAN address, as long as both sides are online. The result may also include or update the peer's LAN URL.",
+  "connectionDiagHelpHttpPullTitle": "HTTP reverse pull",
+  "connectionDiagHelpHttpPullBody": "A cloud message asks the peer to try reaching your device's HTTP service.\n\nThis checks reverse-pull connectivity when the network is asymmetric (e.g. NAT) and the peer can pull from you even if you cannot push to them directly.",
+  "connectionDiagHelpWebrtcTitle": "WebRTC connectivity",
+  "connectionDiagHelpWebrtcBody": "ICE network candidates are exchanged via the cloud to analyze whether both sides are on the same network, can connect P2P, or need a relay.\n\nThis checks whether WebRTC file transfer is viable (often slower than HTTP direct, but can work across networks).",
+  "connectionDiagHelpS3Title": "S3 cloud",
+  "connectionDiagHelpS3Body": "Verifies that S3 storage is configured for your account and tests cloud reachability.\n\nThis checks whether files can fall back to S3 cloud relay when all LAN/direct paths are unavailable.",
+  "connectionDiagHelpTooltip": "How this check works",
   "composerPickAttachmentTitle": "Choose attachment",
   "composerAttachImageVideo": "Photos & videos",
   "composerAttachImageVideoDesc": "Pick photos or videos from your gallery",

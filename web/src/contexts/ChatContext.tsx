@@ -46,6 +46,16 @@ import { AnalyticsEvents } from '@/lib/analyticsEvents';
 import { isWebPeer } from '@/lib/peerPlatform';
 import { filePayloadTransferChannel } from '@/lib/filePayload';
 import { downloadS3FileAsBrowserSave } from '@/lib/downloadS3File';
+import { classifyDevice } from '@/lib/probePriority';
+import {
+  type ConnectionDiagnosticState,
+  buildDiagnosticSummary,
+  diagnosticStepOrder,
+  diagnosticStepTitle,
+  peerLabelForDevice,
+  isPeerWebDevice,
+  runConnectionDiagnostic,
+} from '@/lib/connectionDiagnostic';
 
 const TAG = 'ChatContext';
 const MAX_PARALLEL_FILE_SENDS = 3;
@@ -91,6 +101,12 @@ export type ChatContextValue = {
   targetsProbing: boolean;
   refreshSendTargets: () => void;
   probeSingleDevice: (deviceId: string) => void;
+  runSessionConnectionDiagnostic: (deviceId: string) => void;
+
+  // Connection diagnostic sheet
+  connectionDiagnostic: ConnectionDiagnosticState | null;
+  diagnosticSheetOpen: boolean;
+  setDiagnosticSheetOpen: (open: boolean) => void;
 
   // Messages
   messages: ChatMessage[];
@@ -187,6 +203,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const webrtcFileSizeMap = useRef<Map<string, number>>(new Map());
   const pendingWebRTCProbesRef = useRef<Map<string, (success: boolean) => void>>(new Map());
   const pendingLanHttpProbesRef = useRef<Map<string, (result: { success: boolean; lanHttpUrl?: string; senderReachable?: boolean }) => void>>(new Map());
+  const pendingPullProbesRef = useRef<Map<string, (success: boolean) => void>>(new Map());
+  const diagnosticSessionRef = useRef(0);
+
+  const [connectionDiagnostic, setConnectionDiagnostic] = useState<ConnectionDiagnosticState | null>(null);
+  const [diagnosticSheetOpen, setDiagnosticSheetOpen] = useState(false);
 
   type RetryInfo = { file: File; channel: 'lan' | 's3' | 'webrtc'; targetDevices: DeviceDto[]; webrtcTargetDeviceId?: string };
   const retryInfoRef = useRef<Map<string, RetryInfo>>(new Map());
@@ -537,6 +558,34 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   }, [devices]);
 
+  const sendPullProbe = useCallback(async (targetDeviceId: string): Promise<boolean> => {
+    const myId = getOrCreateDeviceId();
+    const selfLanUrl = devices.find((d) => d.deviceId === myId)?.lanHttpUrl?.trim();
+    if (!selfLanUrl) return false;
+    const probeId = generateUUID();
+    return new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => {
+        pendingPullProbesRef.current.delete(probeId);
+        resolve(false);
+      }, 8000);
+      pendingPullProbesRef.current.set(probeId, (success) => {
+        clearTimeout(timer);
+        pendingPullProbesRef.current.delete(probeId);
+        resolve(success);
+      });
+      sendMessage({
+        type: 'lan_pull_probe',
+        payload: { probeId, probeUrl: selfLanUrl, targetDeviceId },
+        fromDeviceId: myId,
+        ts: Date.now(),
+      }).catch(() => {
+        clearTimeout(timer);
+        pendingPullProbesRef.current.delete(probeId);
+        resolve(false);
+      });
+    });
+  }, [devices]);
+
   // ─── WebRTC signal handling ───────────────────────────────────────────
 
   const handleWebRTCSignal = useCallback((data: MessageEnvelope) => {
@@ -628,7 +677,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
-      if (data.type === 'lan_pull_probe_result') return;
+      if (data.type === 'lan_pull_probe_result' && data.payload && typeof data.payload === 'object') {
+        const payload = data.payload as { probeId?: string; success?: boolean };
+        if (payload?.probeId) {
+          const resolve = pendingPullProbesRef.current.get(payload.probeId);
+          if (resolve) resolve(payload.success === true);
+        }
+        return;
+      }
       if (data.type === 'lan_http_probe' && data.payload && typeof data.payload === 'object') {
         const payload = data.payload as { probeId?: string; targetDeviceId?: string; senderLanHttpUrl?: string };
         const me = getOrCreateDeviceId();
@@ -801,7 +857,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const directHttpProbe = useCallback((url: string) => probeHttpWeb(url, 3000), []);
 
-  const { deviceReach, freshLanUrlsRef, probing: targetsProbing, probeSingleDevice } = useSendTargetProbes(
+  const { deviceReach, freshLanUrlsRef, probing: targetsProbing, probeSingleDevice, applyDeviceReach } = useSendTargetProbes(
     otherDevices,
     lanDevices,
     connected,
@@ -1041,6 +1097,160 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [runS3ConfigCheck]);
+
+  const checkS3ForDiagnostic = useCallback(async (): Promise<{ configured: boolean; online: boolean }> => {
+    try {
+      const configured = await hasS3Config();
+      if (!configured) return { configured: false, online: false };
+      if (!userId) return { configured: true, online: false };
+      try {
+        await testS3Config();
+        return { configured: true, online: true };
+      } catch {
+        return { configured: true, online: false };
+      }
+    } catch {
+      return { configured: false, online: false };
+    }
+  }, [userId]);
+
+  const runSessionConnectionDiagnostic = useCallback((deviceId: string) => {
+    if (!deviceId || deviceId === S3_VIRTUAL_DEVICE_ID) {
+      void checkS3Config();
+      return;
+    }
+
+    const entry = deviceReach[deviceId];
+    if (entry?.probing) return;
+
+    const device = devices.find((d) => d.deviceId === deviceId);
+    if (!device) return;
+
+    void checkS3Config();
+
+    const nearbyIds = new Set(lanDevices.map((d) => d.deviceId));
+    for (const d of otherDevices) {
+      if (d.lanHttpUrl?.trim()) nearbyIds.add(d.deviceId);
+    }
+    const myDeviceIds = new Set(otherDevices.map((d) => d.deviceId));
+    const priority = classifyDevice(device, nearbyIds, myDeviceIds);
+    const orderedIds = diagnosticStepOrder(priority);
+
+    setConnectionDiagnostic({
+      peerId: deviceId,
+      peerLabel: peerLabelForDevice(device),
+      steps: orderedIds.map((id) => ({
+        id,
+        title: diagnosticStepTitle(t, id),
+        status: 'pending',
+      })),
+      running: true,
+    });
+    setDiagnosticSheetOpen(true);
+
+    applyDeviceReach(deviceId, {
+      methods: entry?.methods ?? {
+        directHttp: false,
+        peerHttpHealthy: false,
+        pullReachable: false,
+        webrtc: false,
+        lanSignaling: false,
+      },
+      probing: true,
+    });
+
+    const session = ++diagnosticSessionRef.current;
+
+    void (async () => {
+      let s3Available = s3Configured && s3Online;
+      try {
+        const { methods, freshLanUrl } = await runConnectionDiagnostic({
+          device,
+          orderedStepIds: orderedIds,
+          connected,
+          isLoggedIn: !!userId,
+          webrtcAvailable,
+          onDirectHttpProbe: directHttpProbe,
+          onLanHttpProbe: sendLanHttpProbe,
+          onPullProbe: sendPullProbe,
+          onWebRTCProbe: sendWebRTCProbe,
+          onCheckS3: async () => {
+            const result = await checkS3ForDiagnostic();
+            s3Available = result.configured && result.online;
+            return result;
+          },
+          t,
+          onStepUpdate: (steps) => {
+            if (diagnosticSessionRef.current !== session) return;
+            setConnectionDiagnostic((prev) =>
+              prev && prev.peerId === deviceId ? { ...prev, steps } : prev,
+            );
+          },
+          isCancelled: () => diagnosticSessionRef.current !== session,
+        });
+
+        if (diagnosticSessionRef.current !== session) return;
+
+        applyDeviceReach(
+          deviceId,
+          { methods, probing: false },
+          freshLanUrl,
+        );
+
+        const summary = buildDiagnosticSummary(t, methods, {
+          peerIsWeb: isPeerWebDevice(device),
+          webrtcAvailable,
+          s3Available,
+        });
+
+        setConnectionDiagnostic((prev) =>
+          prev && prev.peerId === deviceId
+            ? { ...prev, running: false, summary }
+            : prev,
+        );
+      } catch (e) {
+        logger.warn(TAG, 'runSessionConnectionDiagnostic failed', e);
+        if (diagnosticSessionRef.current !== session) return;
+        applyDeviceReach(deviceId, {
+          methods: {
+            directHttp: false,
+            peerHttpHealthy: false,
+            pullReachable: false,
+            webrtc: false,
+            lanSignaling: false,
+          },
+          probing: false,
+        });
+        setConnectionDiagnostic((prev) =>
+          prev && prev.peerId === deviceId
+            ? {
+                ...prev,
+                running: false,
+                summary: t('chat.connectionDiag.summaryNoRoute'),
+              }
+            : prev,
+        );
+      }
+    })();
+  }, [
+    deviceReach,
+    devices,
+    otherDevices,
+    lanDevices,
+    connected,
+    userId,
+    webrtcAvailable,
+    directHttpProbe,
+    sendLanHttpProbe,
+    sendPullProbe,
+    sendWebRTCProbe,
+    checkS3ForDiagnostic,
+    checkS3Config,
+    applyDeviceReach,
+    t,
+    s3Configured,
+    s3Online,
+  ]);
 
   useEffect(() => {
     if (!userId || !accessToken) return;
@@ -1729,6 +1939,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     targetsProbing,
     refreshSendTargets,
     probeSingleDevice,
+    runSessionConnectionDiagnostic,
+    connectionDiagnostic,
+    diagnosticSheetOpen,
+    setDiagnosticSheetOpen,
     messages,
     sendTextMessage,
     sending,
@@ -1765,12 +1979,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     connected, devices, currentDeviceId, otherDevices, lanDevices, refreshDevices,
     selectedDeviceId, sendMode, onSendModeChange, selectedTargets, toggleTarget,
     deviceReach, targetsProbing, refreshSendTargets, probeSingleDevice,
+    runSessionConnectionDiagnostic, connectionDiagnostic, diagnosticSheetOpen, setDiagnosticSheetOpen,
     messages, sendTextMessage, sending, sendError, fileError,
     pendingFiles, handleSendFiles, handleFileSelect, removePendingFile,
     handleDeleteMessage, cancelTransfer, handleRetryText, handleRetryFile,
     loadMoreMessages, loadingMore,
     selectMode, selectedKeys, toggleMessageSelect, exitSelectMode, toggleSelectAllMessages, enterSelectWithKey, handleBulkDelete, clearCurrentThreadMessages,
     webrtcAvailable, s3Configured, s3Online, s3Checking, checkS3Config, bestSendModeForDevice, probeSingleDevice,
+    runSessionConnectionDiagnostic, connectionDiagnostic, diagnosticSheetOpen, setDiagnosticSheetOpen,
   ]);
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

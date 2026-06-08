@@ -669,6 +669,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatDeviceOnline => '在线';
 
   @override
+  String get chatDevicePullOnline => '可拉取';
+
+  @override
   String get chatDeviceChecking => '检测中…';
 
   @override
@@ -2131,6 +2134,164 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get transportModeWebrtcLan => 'WebRTC 局域网直连';
+
+  @override
+  String get connectionDiagTitle => '连接诊断';
+
+  @override
+  String connectionDiagSubtitleRunning(String peer) {
+    return '正在检测与 $peer 的连接…';
+  }
+
+  @override
+  String connectionDiagSubtitleDone(String peer) {
+    return '与 $peer 的连接检测已完成';
+  }
+
+  @override
+  String get connectionDiagContinueInBackground => '后台继续';
+
+  @override
+  String get connectionDiagDone => '完成';
+
+  @override
+  String get connectionDiagStepS3 => 'S3 云端';
+
+  @override
+  String get connectionDiagStepHttpDirect => 'HTTP 局域网直连';
+
+  @override
+  String get connectionDiagStepHttpSignaling => 'HTTP 信令检测';
+
+  @override
+  String get connectionDiagStepHttpPull => 'HTTP 反向拉取';
+
+  @override
+  String get connectionDiagStepWebrtc => 'WebRTC 连通性';
+
+  @override
+  String get connectionDiagStatusPending => '等待';
+
+  @override
+  String get connectionDiagStatusRunning => '检测中';
+
+  @override
+  String get connectionDiagStatusSuccess => '可用';
+
+  @override
+  String get connectionDiagStatusFailure => '不可用';
+
+  @override
+  String get connectionDiagStatusSkipped => '已跳过';
+
+  @override
+  String get connectionDiagReasonS3Online => 'S3 配置正常，云端可达';
+
+  @override
+  String get connectionDiagReasonS3NotConfigured => 'S3 未配置';
+
+  @override
+  String get connectionDiagReasonS3Unavailable => 'S3 已配置但云端不可达';
+
+  @override
+  String get connectionDiagReasonHttpDirectOk => '局域网 HTTP 直连成功';
+
+  @override
+  String get connectionDiagReasonHttpDirectFail => '无法访问对端 HTTP 服务（超时或无响应）';
+
+  @override
+  String get connectionDiagReasonHttpSignalingOk => '对端 HTTP 服务自检通过';
+
+  @override
+  String get connectionDiagReasonHttpSignalingFail => '信令检测失败，对端 HTTP 服务未响应';
+
+  @override
+  String get connectionDiagReasonHttpPullOk => '对端可反向拉取本机文件';
+
+  @override
+  String get connectionDiagReasonHttpPullFail => '反向拉取失败，对端无法访问本机 HTTP';
+
+  @override
+  String get connectionDiagReasonWebrtcOnline => '同网段，WebRTC 可直接连通';
+
+  @override
+  String get connectionDiagReasonWebrtcConnectable => '跨网段，WebRTC 可能通过中继连通';
+
+  @override
+  String get connectionDiagReasonWebrtcFail => 'WebRTC 信令或 ICE 不可达';
+
+  @override
+  String get connectionDiagReasonWebrtcSkippedLanOk =>
+      '局域网 HTTP 已可用，跳过 WebRTC 检测';
+
+  @override
+  String get connectionDiagReasonSkippedLanDirectOk => 'HTTP 直连已成功，跳过';
+
+  @override
+  String get connectionDiagReasonSkippedOffline => '当前离线，无法通过云端信令检测';
+
+  @override
+  String get connectionDiagReasonSkippedPeerOffline => '对端显示离线且无局域网地址，跳过检测';
+
+  @override
+  String get connectionDiagReasonHttpDirectNoUrl => '未发现局域网地址，无法测试 HTTP 直连';
+
+  @override
+  String get connectionDiagReasonOfflineCloud => '当前离线，无法通过云端信令检测';
+
+  @override
+  String get connectionDiagReasonS3LoginRequired => '需要登录后才可检测 S3';
+
+  @override
+  String connectionDiagSummaryRecommend(String mode, String reason) {
+    return '推荐：$mode（$reason）';
+  }
+
+  @override
+  String get connectionDiagSummaryNoRoute => '未找到可用传输线路';
+
+  @override
+  String connectionDiagElapsed(String elapsed) {
+    return '耗时 $elapsed';
+  }
+
+  @override
+  String get connectionDiagHelpHttpDirectTitle => 'HTTP 局域网直连';
+
+  @override
+  String get connectionDiagHelpHttpDirectBody =>
+      '本机直接向对端的局域网 HTTP 地址发起 /probe 请求，不经过云端服务器。\n\n用于确认：在已知对端局域网地址（如 mDNS 发现）且网络可达时，能否建立最快的 HTTP 文件传输路径。';
+
+  @override
+  String get connectionDiagHelpHttpSignalingTitle => 'HTTP 信令检测';
+
+  @override
+  String get connectionDiagHelpHttpSignalingBody =>
+      '通过云端消息（Centrifugo）通知对端自检其 HTTP 服务，并将结果回传。\n\n用于确认：即使尚未发现对端局域网地址，只要双方在线，对端 HTTP 服务是否正常，并可能获取或更新其局域网地址。';
+
+  @override
+  String get connectionDiagHelpHttpPullTitle => 'HTTP 反向拉取';
+
+  @override
+  String get connectionDiagHelpHttpPullBody =>
+      '通过云端通知对端，尝试访问本机的 HTTP 服务。\n\n用于确认：在 NAT 或网络不对称（只能单向连通）时，对端能否反向拉取本机文件。这是 HTTP 直连不可用时的备选传输方向。';
+
+  @override
+  String get connectionDiagHelpWebrtcTitle => 'WebRTC 连通性';
+
+  @override
+  String get connectionDiagHelpWebrtcBody =>
+      '通过云端交换 ICE 网络候选信息，分析双方是否在同一网段、能否 P2P 直连，或需经中继连通。\n\n用于确认：WebRTC 文件传输路径是否可用（通常比 HTTP 直连慢，但可跨网段）。';
+
+  @override
+  String get connectionDiagHelpS3Title => 'S3 云端';
+
+  @override
+  String get connectionDiagHelpS3Body =>
+      '检测账号的 S3 存储配置是否完整，并向云端发起连通性测试。\n\n用于确认：当所有局域网/直连方式均不可用时，是否可降级到 S3 云中转传输文件。';
+
+  @override
+  String get connectionDiagHelpTooltip => '了解检测原理';
 
   @override
   String get composerPickAttachmentTitle => '选择附件';

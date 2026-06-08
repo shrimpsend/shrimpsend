@@ -631,13 +631,7 @@ class _DeviceListReachRow extends ConsumerWidget {
         (m) => m[device.deviceId] ?? DeviceReachDetail.offlineDetail,
       ),
     );
-    final reachStatus = detail.checking
-        ? DeviceReachStatus.checking
-        : detail.canPullOnly
-        ? DeviceReachStatus.pullOnline
-        : detail.isOnline
-        ? DeviceReachStatus.online
-        : DeviceReachStatus.offline;
+    final reachStatus = detail.uiReachStatus;
     return DeviceConversationItem(
       device: device,
       isMyDevice: isMyDevice,

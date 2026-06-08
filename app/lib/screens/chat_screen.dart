@@ -49,9 +49,11 @@ import '../widgets/chat/chat_message_bubbles.dart';
 import '../widgets/chat/chat_screen_overlays.dart';
 import '../widgets/chat/chat_session_body.dart';
 import '../widgets/chat/chat_theme_helpers.dart';
+import '../widgets/chat/connection_diagnostic_dialog.dart';
 import '../widgets/layout/main_layout.dart';
 import '../widgets/pending_files_bar.dart';
 import '../network/connection_bar_view_model.dart';
+import '../network/connection_diagnostic.dart';
 import '../network/connection_orchestrator.dart';
 import '../network/connection_resolution.dart';
 import '../network/probe_priority.dart';
@@ -195,12 +197,14 @@ class _QueuedProbeRequest {
     required this.requestId,
     required this.mode,
     required this.source,
+    this.reporter,
   });
 
   final DeviceDto device;
   final int requestId;
   final SendMode? mode;
   final String source;
+  final ConnectionDiagnosticReporter? reporter;
   final Completer<bool?> completer = Completer<bool?>();
 }
 
@@ -957,6 +961,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     SendMode? mode,
     required String source,
     bool force = false,
+    ConnectionDiagnosticReporter? reporter,
   }) async {
     final peerId = device.deviceId;
     final key = _probeRequestKey(peerId, mode);
@@ -981,6 +986,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       requestId: requestId,
       mode: mode,
       source: source,
+      reporter: reporter,
     );
 
     if (_probeRunningPeers.contains(peerId)) {
@@ -1024,7 +1030,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         requestId: request.requestId,
       );
     }
-    await _probeDeviceAllMethods(request.device, requestId: request.requestId);
+    if (request.reporter != null) {
+      final orderedStepIds = ref
+          .read(connectionDiagnosticProvider)
+          .steps
+          .map((step) => step.id)
+          .toList(growable: false);
+      await _runConnectionDiagnostic(
+        request.device,
+        requestId: request.requestId,
+        reporter: request.reporter!,
+        orderedStepIds: orderedStepIds,
+      );
+      return null;
+    }
+    await _probeDeviceAllMethods(
+      request.device,
+      requestId: request.requestId,
+    );
     return null;
   }
 
@@ -1375,19 +1398,265 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ref.read(deviceReachabilityProvider)[selected]?.checking ?? false;
     if (checking) return;
 
-    if (ref.read(authProvider).isLoggedIn) {
-      await _checkS3Config();
-      if (!mounted) return;
-    }
-
     final device = _findKnownDeviceById(selected);
     if (device == null) return;
 
-    await _enqueueProbeRequest(
+    final l10n = AppLocalizations.of(context);
+    final peerLabel = connectionPeerLabel(selected, device: device);
+    final nearbyIds = ref
+        .read(nearbyDevicesProvider)
+        .map((d) => d.deviceId)
+        .toSet();
+    final myDeviceIds = ref
+        .read(myDevicesProvider)
+        .map((d) => d.deviceId)
+        .toSet();
+    final priority = classifyDevice(
       device,
-      source: 'session_reach_refresh',
-      force: true,
+      nearbyIds: nearbyIds,
+      myDeviceIds: myDeviceIds,
     );
+    final orderedIds = diagnosticStepOrder(devicePriority: priority);
+    final steps = orderedIds
+        .map(
+          (id) => ConnectionDiagnosticStep(
+            id: id,
+            title: diagnosticStepTitle(l10n, id),
+          ),
+        )
+        .toList(growable: false);
+
+    final diagnosticNotifier = ref.read(connectionDiagnosticProvider.notifier);
+    diagnosticNotifier.startSession(
+      peerId: selected,
+      peerLabel: peerLabel,
+      steps: steps,
+    );
+    final reporter = ConnectionDiagnosticReporter(diagnosticNotifier);
+
+    unawaited(showConnectionDiagnosticSheet(context));
+
+    try {
+      await _enqueueProbeRequest(
+        device,
+        source: 'session_reach_refresh',
+        force: true,
+        reporter: reporter,
+      );
+
+      if (mounted) {
+        reporter.setSummary(_buildConnectionDiagnosticSummary(selected, l10n));
+      }
+    } catch (e) {
+      logChat.warning('_refreshSelectedSessionReach diagnostic failed: $e');
+      if (mounted) {
+        reporter.setSummary(l10n.connectionDiagSummaryNoRoute);
+      }
+    }
+  }
+
+  Future<void> _runConnectionDiagnostic(
+    DeviceDto device, {
+    required int requestId,
+    required ConnectionDiagnosticReporter reporter,
+    required List<ConnectionDiagnosticStepId> orderedStepIds,
+  }) async {
+    final peerId = device.deviceId;
+    bool isCurrent() => _isProbeRequestCurrent(peerId, requestId);
+    final l10n = lookupAppLocalizations(ref.read(appLocaleProvider));
+
+    var directHttp = false;
+    var peerHttpHealthy = false;
+    var pullReachable = false;
+    bool? webrtcResult;
+
+    for (final stepId in orderedStepIds) {
+      if (!isCurrent()) return;
+
+      switch (stepId) {
+        case ConnectionDiagnosticStepId.httpDirect:
+          reporter.beginStep(stepId);
+          final lanUrl = device.lanHttpUrl?.trim();
+          if (lanUrl == null || lanUrl.isEmpty) {
+            reporter.finishFailure(
+              stepId,
+              reason: l10n.connectionDiagReasonHttpDirectNoUrl,
+            );
+          } else {
+            try {
+              directHttp = await probeHttp(
+                lanUrl,
+                timeout: _probeQuickDirectHttp,
+              );
+            } catch (_) {}
+            if (directHttp) {
+              reporter.finishSuccess(
+                stepId,
+                reason: l10n.connectionDiagReasonHttpDirectOk,
+              );
+            } else {
+              reporter.finishFailure(
+                stepId,
+                reason: l10n.connectionDiagReasonHttpDirectFail,
+              );
+            }
+          }
+        case ConnectionDiagnosticStepId.httpSignaling:
+          reporter.beginStep(stepId);
+          if (_effectiveOffline) {
+            reporter.finishFailure(
+              stepId,
+              reason: l10n.connectionDiagReasonOfflineCloud,
+            );
+          } else {
+            try {
+              final r = await _sendLanHttpProbe(
+                peerId,
+                responseTimeout: _probeQuickLanSignaling,
+              );
+              peerHttpHealthy = r.success;
+              if (r.senderReachable) pullReachable = true;
+              _applyProbeLanHttpUrl(peerId, r.lanHttpUrl);
+              if (peerHttpHealthy) {
+                reporter.finishSuccess(
+                  stepId,
+                  reason: l10n.connectionDiagReasonHttpSignalingOk,
+                );
+              } else {
+                reporter.finishFailure(
+                  stepId,
+                  reason: l10n.connectionDiagReasonHttpSignalingFail,
+                );
+              }
+            } catch (_) {
+              reporter.finishFailure(
+                stepId,
+                reason: l10n.connectionDiagReasonHttpSignalingFail,
+              );
+            }
+          }
+        case ConnectionDiagnosticStepId.httpPull:
+          reporter.beginStep(stepId);
+          if (_effectiveOffline) {
+            reporter.finishFailure(
+              stepId,
+              reason: l10n.connectionDiagReasonOfflineCloud,
+            );
+          } else {
+            try {
+              final ok = await _sendPullProbe(peerId);
+              if (ok) pullReachable = true;
+              if (ok) {
+                reporter.finishSuccess(
+                  stepId,
+                  reason: l10n.connectionDiagReasonHttpPullOk,
+                );
+              } else {
+                reporter.finishFailure(
+                  stepId,
+                  reason: l10n.connectionDiagReasonHttpPullFail,
+                );
+              }
+            } catch (_) {
+              reporter.finishFailure(
+                stepId,
+                reason: l10n.connectionDiagReasonHttpPullFail,
+              );
+            }
+          }
+        case ConnectionDiagnosticStepId.webrtc:
+          reporter.beginStep(stepId);
+          if (_effectiveOffline) {
+            reporter.finishFailure(
+              stepId,
+              reason: l10n.connectionDiagReasonOfflineCloud,
+            );
+          } else {
+            try {
+              final connectivity = await _sendWebRTCProbe(
+                peerId,
+                responseTimeout: _probeQuickWebRTC,
+              );
+              final ok =
+                  connectivity == 'online' || connectivity == 'connectable';
+              webrtcResult = ok;
+              if (ok) {
+                final reason = connectivity == 'online'
+                    ? l10n.connectionDiagReasonWebrtcOnline
+                    : l10n.connectionDiagReasonWebrtcConnectable;
+                reporter.finishSuccess(stepId, reason: reason);
+              } else {
+                reporter.finishFailure(
+                  stepId,
+                  reason: l10n.connectionDiagReasonWebrtcFail,
+                );
+              }
+            } catch (_) {
+              webrtcResult = false;
+              reporter.finishFailure(
+                stepId,
+                reason: l10n.connectionDiagReasonWebrtcFail,
+              );
+            }
+          }
+        case ConnectionDiagnosticStepId.s3:
+          reporter.beginStep(stepId);
+          if (!ref.read(authProvider).isLoggedIn) {
+            reporter.finishFailure(
+              stepId,
+              reason: l10n.connectionDiagReasonS3LoginRequired,
+            );
+          } else {
+            await _checkS3Config();
+            if (!mounted || !isCurrent()) return;
+            final s3Configured = ref.read(s3ConfiguredProvider);
+            final s3Online = ref.read(s3OnlineProvider);
+            if (!s3Configured) {
+              reporter.finishFailure(
+                stepId,
+                reason: l10n.connectionDiagReasonS3NotConfigured,
+              );
+            } else if (s3Online) {
+              reporter.finishSuccess(
+                stepId,
+                reason: l10n.connectionDiagReasonS3Online,
+              );
+            } else {
+              reporter.finishFailure(
+                stepId,
+                reason: l10n.connectionDiagReasonS3Unavailable,
+              );
+            }
+          }
+      }
+    }
+
+    if (!mounted || !isCurrent()) return;
+    ref.read(deviceReachabilityProvider.notifier).mergeDetail(
+      peerId,
+      directHttp: directHttp,
+      peerHttpHealthy: peerHttpHealthy,
+      pullReachable: pullReachable,
+      webrtc: webrtcResult,
+      checking: false,
+      provisionalOnline: false,
+    );
+  }
+
+  String _buildConnectionDiagnosticSummary(String peerId, AppLocalizations l10n) {
+    final orchestrator = ref.read(connectionOrchestratorProvider);
+    ConnectionCandidate? best;
+    for (final c in orchestrator.candidates) {
+      if (c.available) {
+        best = c;
+        break;
+      }
+    }
+    if (best == null) {
+      return l10n.connectionDiagSummaryNoRoute;
+    }
+    final modeLabel = transferModeBarLabel(best.mode, l10n: l10n);
+    return l10n.connectionDiagSummaryRecommend(modeLabel, best.reason);
   }
 
   Future<void> _confirmDeleteThisDevice() async {

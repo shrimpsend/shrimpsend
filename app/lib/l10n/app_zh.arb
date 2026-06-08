@@ -222,6 +222,7 @@
   "chatS3StatusOnlineSendAll": "在线 · 发送到所有设备",
   "chatS3StatusUnavailableCheck": "不可用 · 请检查 S3 配置",
   "chatDeviceOnline": "在线",
+  "chatDevicePullOnline": "可拉取",
   "chatDeviceChecking": "检测中…",
   "chatDeviceOffline": "离线",
   "chatHeaderDeviceNumberTooltip": "设备号：{code}",
@@ -792,6 +793,85 @@
   "transportModeLabel": "传输方式",
   "transportModeHttpLan": "HTTP 局域网直连",
   "transportModeWebrtcLan": "WebRTC 局域网直连",
+  "connectionDiagTitle": "连接诊断",
+  "connectionDiagSubtitleRunning": "正在检测与 {peer} 的连接…",
+  "@connectionDiagSubtitleRunning": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionDiagSubtitleDone": "与 {peer} 的连接检测已完成",
+  "@connectionDiagSubtitleDone": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionDiagContinueInBackground": "后台继续",
+  "connectionDiagDone": "完成",
+  "connectionDiagStepS3": "S3 云端",
+  "connectionDiagStepHttpDirect": "HTTP 局域网直连",
+  "connectionDiagStepHttpSignaling": "HTTP 信令检测",
+  "connectionDiagStepHttpPull": "HTTP 反向拉取",
+  "connectionDiagStepWebrtc": "WebRTC 连通性",
+  "connectionDiagStatusPending": "等待",
+  "connectionDiagStatusRunning": "检测中",
+  "connectionDiagStatusSuccess": "可用",
+  "connectionDiagStatusFailure": "不可用",
+  "connectionDiagStatusSkipped": "已跳过",
+  "connectionDiagReasonS3Online": "S3 配置正常，云端可达",
+  "connectionDiagReasonS3NotConfigured": "S3 未配置",
+  "connectionDiagReasonS3Unavailable": "S3 已配置但云端不可达",
+  "connectionDiagReasonHttpDirectOk": "局域网 HTTP 直连成功",
+  "connectionDiagReasonHttpDirectFail": "无法访问对端 HTTP 服务（超时或无响应）",
+  "connectionDiagReasonHttpSignalingOk": "对端 HTTP 服务自检通过",
+  "connectionDiagReasonHttpSignalingFail": "信令检测失败，对端 HTTP 服务未响应",
+  "connectionDiagReasonHttpPullOk": "对端可反向拉取本机文件",
+  "connectionDiagReasonHttpPullFail": "反向拉取失败，对端无法访问本机 HTTP",
+  "connectionDiagReasonWebrtcOnline": "同网段，WebRTC 可直接连通",
+  "connectionDiagReasonWebrtcConnectable": "跨网段，WebRTC 可能通过中继连通",
+  "connectionDiagReasonWebrtcFail": "WebRTC 信令或 ICE 不可达",
+  "connectionDiagReasonWebrtcSkippedLanOk": "局域网 HTTP 已可用，跳过 WebRTC 检测",
+  "connectionDiagReasonSkippedLanDirectOk": "HTTP 直连已成功，跳过",
+  "connectionDiagReasonSkippedOffline": "当前离线，无法通过云端信令检测",
+  "connectionDiagReasonSkippedPeerOffline": "对端显示离线且无局域网地址，跳过检测",
+  "connectionDiagReasonHttpDirectNoUrl": "未发现局域网地址，无法测试 HTTP 直连",
+  "connectionDiagReasonOfflineCloud": "当前离线，无法通过云端信令检测",
+  "connectionDiagReasonS3LoginRequired": "需要登录后才可检测 S3",
+  "connectionDiagSummaryRecommend": "推荐：{mode}（{reason}）",
+  "@connectionDiagSummaryRecommend": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionDiagSummaryNoRoute": "未找到可用传输线路",
+  "connectionDiagElapsed": "耗时 {elapsed}",
+  "@connectionDiagElapsed": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionDiagHelpHttpDirectTitle": "HTTP 局域网直连",
+  "connectionDiagHelpHttpDirectBody": "本机直接向对端的局域网 HTTP 地址发起 /probe 请求，不经过云端服务器。\n\n用于确认：在已知对端局域网地址（如 mDNS 发现）且网络可达时，能否建立最快的 HTTP 文件传输路径。",
+  "connectionDiagHelpHttpSignalingTitle": "HTTP 信令检测",
+  "connectionDiagHelpHttpSignalingBody": "通过云端消息（Centrifugo）通知对端自检其 HTTP 服务，并将结果回传。\n\n用于确认：即使尚未发现对端局域网地址，只要双方在线，对端 HTTP 服务是否正常，并可能获取或更新其局域网地址。",
+  "connectionDiagHelpHttpPullTitle": "HTTP 反向拉取",
+  "connectionDiagHelpHttpPullBody": "通过云端通知对端，尝试访问本机的 HTTP 服务。\n\n用于确认：在 NAT 或网络不对称（只能单向连通）时，对端能否反向拉取本机文件。这是 HTTP 直连不可用时的备选传输方向。",
+  "connectionDiagHelpWebrtcTitle": "WebRTC 连通性",
+  "connectionDiagHelpWebrtcBody": "通过云端交换 ICE 网络候选信息，分析双方是否在同一网段、能否 P2P 直连，或需经中继连通。\n\n用于确认：WebRTC 文件传输路径是否可用（通常比 HTTP 直连慢，但可跨网段）。",
+  "connectionDiagHelpS3Title": "S3 云端",
+  "connectionDiagHelpS3Body": "检测账号的 S3 存储配置是否完整，并向云端发起连通性测试。\n\n用于确认：当所有局域网/直连方式均不可用时，是否可降级到 S3 云中转传输文件。",
+  "connectionDiagHelpTooltip": "了解检测原理",
   "composerPickAttachmentTitle": "选择附件",
   "composerAttachImageVideo": "图片/视频",
   "composerAttachImageVideoDesc": "从相册中选择图片或视频",

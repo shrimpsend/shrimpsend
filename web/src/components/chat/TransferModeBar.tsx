@@ -19,7 +19,7 @@ export function TransferModeBar() {
     selectedDeviceId,
     devices,
     deviceReach,
-    probeSingleDevice,
+    runSessionConnectionDiagnostic,
     checkS3Config,
     s3Configured,
     s3Online,
@@ -130,9 +130,10 @@ export function TransferModeBar() {
         title={t('deviceList.refreshReachTitle')}
         disabled={sessionProbing}
         onClick={() => {
-          void checkS3Config();
           if (selectedDeviceId && selectedDeviceId !== S3_VIRTUAL_DEVICE_ID) {
-            probeSingleDevice(selectedDeviceId);
+            runSessionConnectionDiagnostic(selectedDeviceId);
+          } else {
+            void checkS3Config();
           }
         }}
       >

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../api/api.dart';
 import '../../color_theme.dart';
+import '../../providers/device_provider.dart';
 import '../../ui/app_ui.dart';
 import '../../ui/platform_performance.dart';
 import '../../ui/platform_icon.dart';
 import 'device_id_chip.dart';
-
-enum DeviceReachStatus { online, pullOnline, checking, offline }
 
 class DeviceConversationItem extends StatelessWidget {
   final DeviceDto device;

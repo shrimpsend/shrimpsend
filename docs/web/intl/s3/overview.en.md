@@ -51,9 +51,7 @@ Add `https://www.shrimpsend.com` if needed. Origin is scheme + host + port onlyâ
 
 ## Provider guides
 
-- [Bitiful (Recommended)](/en/docs/s3/bitiful)
 - [Built-in S3](/en/docs/s3/built-in)
-- [Tencent COS](/en/docs/s3/tencent-cos)
 - [Cloudflare R2](/en/docs/s3/cloudflare-r2)
 - [RustFS](/en/docs/s3/rustfs)
 

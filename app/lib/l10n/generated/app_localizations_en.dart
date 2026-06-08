@@ -698,6 +698,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatDeviceOnline => 'Online';
 
   @override
+  String get chatDevicePullOnline => 'Pull available';
+
+  @override
   String get chatDeviceChecking => 'Checking…';
 
   @override
@@ -2216,6 +2219,182 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get transportModeWebrtcLan => 'WebRTC LAN direct';
+
+  @override
+  String get connectionDiagTitle => 'Connection diagnostic';
+
+  @override
+  String connectionDiagSubtitleRunning(String peer) {
+    return 'Testing connection to $peer…';
+  }
+
+  @override
+  String connectionDiagSubtitleDone(String peer) {
+    return 'Connection test to $peer complete';
+  }
+
+  @override
+  String get connectionDiagContinueInBackground => 'Continue in background';
+
+  @override
+  String get connectionDiagDone => 'Done';
+
+  @override
+  String get connectionDiagStepS3 => 'S3 cloud';
+
+  @override
+  String get connectionDiagStepHttpDirect => 'HTTP LAN direct';
+
+  @override
+  String get connectionDiagStepHttpSignaling => 'HTTP signaling';
+
+  @override
+  String get connectionDiagStepHttpPull => 'HTTP reverse pull';
+
+  @override
+  String get connectionDiagStepWebrtc => 'WebRTC connectivity';
+
+  @override
+  String get connectionDiagStatusPending => 'Waiting';
+
+  @override
+  String get connectionDiagStatusRunning => 'Testing';
+
+  @override
+  String get connectionDiagStatusSuccess => 'Available';
+
+  @override
+  String get connectionDiagStatusFailure => 'Unavailable';
+
+  @override
+  String get connectionDiagStatusSkipped => 'Skipped';
+
+  @override
+  String get connectionDiagReasonS3Online =>
+      'S3 configured and cloud reachable';
+
+  @override
+  String get connectionDiagReasonS3NotConfigured => 'S3 not configured';
+
+  @override
+  String get connectionDiagReasonS3Unavailable =>
+      'S3 configured but cloud unreachable';
+
+  @override
+  String get connectionDiagReasonHttpDirectOk =>
+      'LAN HTTP direct connection succeeded';
+
+  @override
+  String get connectionDiagReasonHttpDirectFail =>
+      'Cannot reach peer HTTP service (timeout or no response)';
+
+  @override
+  String get connectionDiagReasonHttpSignalingOk =>
+      'Peer HTTP self-check passed';
+
+  @override
+  String get connectionDiagReasonHttpSignalingFail =>
+      'Signaling probe failed; peer HTTP did not respond';
+
+  @override
+  String get connectionDiagReasonHttpPullOk =>
+      'Peer can reverse-pull from this device';
+
+  @override
+  String get connectionDiagReasonHttpPullFail =>
+      'Reverse pull failed; peer cannot reach local HTTP';
+
+  @override
+  String get connectionDiagReasonWebrtcOnline =>
+      'Same network — WebRTC can connect directly';
+
+  @override
+  String get connectionDiagReasonWebrtcConnectable =>
+      'Cross-network — WebRTC may connect via relay';
+
+  @override
+  String get connectionDiagReasonWebrtcFail =>
+      'WebRTC signaling or ICE unreachable';
+
+  @override
+  String get connectionDiagReasonWebrtcSkippedLanOk =>
+      'LAN HTTP already works — WebRTC skipped';
+
+  @override
+  String get connectionDiagReasonSkippedLanDirectOk =>
+      'HTTP direct succeeded — skipped';
+
+  @override
+  String get connectionDiagReasonSkippedOffline =>
+      'Offline — cloud signaling probes unavailable';
+
+  @override
+  String get connectionDiagReasonSkippedPeerOffline =>
+      'Peer offline with no LAN address — skipped';
+
+  @override
+  String get connectionDiagReasonHttpDirectNoUrl =>
+      'No LAN address found — cannot test HTTP direct';
+
+  @override
+  String get connectionDiagReasonOfflineCloud =>
+      'Offline — cloud signaling probes unavailable';
+
+  @override
+  String get connectionDiagReasonS3LoginRequired =>
+      'Sign in required to test S3';
+
+  @override
+  String connectionDiagSummaryRecommend(String mode, String reason) {
+    return 'Recommended: $mode ($reason)';
+  }
+
+  @override
+  String get connectionDiagSummaryNoRoute =>
+      'No available transport route found';
+
+  @override
+  String connectionDiagElapsed(String elapsed) {
+    return '$elapsed elapsed';
+  }
+
+  @override
+  String get connectionDiagHelpHttpDirectTitle => 'HTTP LAN direct';
+
+  @override
+  String get connectionDiagHelpHttpDirectBody =>
+      'Your device sends an HTTP GET to the peer\'s LAN address (/probe) without going through the cloud.\n\nThis checks whether a direct HTTP file transfer is possible when the peer\'s LAN URL is known (e.g. via mDNS) and reachable on the local network.';
+
+  @override
+  String get connectionDiagHelpHttpSignalingTitle => 'HTTP signaling';
+
+  @override
+  String get connectionDiagHelpHttpSignalingBody =>
+      'A cloud message (Centrifugo) asks the peer to self-check its HTTP service and report back.\n\nThis checks whether the peer\'s HTTP service is healthy when you don\'t yet know its LAN address, as long as both sides are online. The result may also include or update the peer\'s LAN URL.';
+
+  @override
+  String get connectionDiagHelpHttpPullTitle => 'HTTP reverse pull';
+
+  @override
+  String get connectionDiagHelpHttpPullBody =>
+      'A cloud message asks the peer to try reaching your device\'s HTTP service.\n\nThis checks reverse-pull connectivity when the network is asymmetric (e.g. NAT) and the peer can pull from you even if you cannot push to them directly.';
+
+  @override
+  String get connectionDiagHelpWebrtcTitle => 'WebRTC connectivity';
+
+  @override
+  String get connectionDiagHelpWebrtcBody =>
+      'ICE network candidates are exchanged via the cloud to analyze whether both sides are on the same network, can connect P2P, or need a relay.\n\nThis checks whether WebRTC file transfer is viable (often slower than HTTP direct, but can work across networks).';
+
+  @override
+  String get connectionDiagHelpS3Title => 'S3 cloud';
+
+  @override
+  String get connectionDiagHelpS3Body =>
+      'Verifies that S3 storage is configured for your account and tests cloud reachability.\n\nThis checks whether files can fall back to S3 cloud relay when all LAN/direct paths are unavailable.';
+
+  @override
+  String get connectionDiagHelpTooltip => 'How this check works';
 
   @override
   String get composerPickAttachmentTitle => 'Choose attachment';

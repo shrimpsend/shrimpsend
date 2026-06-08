@@ -185,6 +185,7 @@ export function useSendTargetProbes(
   freshLanUrlsRef: MutableRefObject<Record<string, string>>;
   probing: boolean;
   probeSingleDevice: (deviceId: string) => void;
+  applyDeviceReach: (deviceId: string, entry: DeviceReachEntry, freshLanUrl?: string) => void;
 } {
   const deviceFingerprint = useMemo(
     () =>
@@ -354,7 +355,20 @@ export function useSendTargetProbes(
     })();
   }, [connected, onDirectHttpProbe, onLanHttpProbe, onWebRTCProbe]);
 
-  return { deviceReach, freshLanUrlsRef, probing, probeSingleDevice };
+  const applyDeviceReach = useCallback(
+    (deviceId: string, entry: DeviceReachEntry, freshLanUrl?: string) => {
+      if (freshLanUrl) {
+        freshLanUrlsRef.current = { ...freshLanUrlsRef.current, [deviceId]: freshLanUrl };
+      }
+      setDeviceReach((prev) => ({
+        ...prev,
+        [deviceId]: entry,
+      }));
+    },
+    [],
+  );
+
+  return { deviceReach, freshLanUrlsRef, probing, probeSingleDevice, applyDeviceReach };
 }
 
 export function sortDevicesByReach(

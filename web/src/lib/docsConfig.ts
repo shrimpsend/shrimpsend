@@ -28,6 +28,22 @@ export type ResolvedDocsSlug =
   | { kind: 's3'; section: S3SectionId }
   | { kind: 's3-redirect' };
 
+export const MAINLAND_S3_SECTION_IDS: S3SectionId[] = [
+  'overview',
+  'bitiful',
+  'tencent-cos',
+  'cloudflare-r2',
+  'rustfs',
+];
+
+export const OVERSEAS_S3_SECTION_IDS: S3SectionId[] = [
+  'overview',
+  'built-in',
+  'cloudflare-r2',
+  'rustfs',
+];
+
+/** Union of all S3 section ids (for slug validation and nav key maps). */
 export const S3_SECTION_IDS: S3SectionId[] = [
   'overview',
   'bitiful',
@@ -38,13 +54,14 @@ export const S3_SECTION_IDS: S3SectionId[] = [
 ];
 
 const OVERSEAS_ONLY_S3_SECTIONS = new Set<S3SectionId>(['built-in']);
+const MAINLAND_ONLY_S3_SECTIONS = new Set<S3SectionId>(['bitiful', 'tencent-cos']);
 
 export function isS3SectionId(value: string): value is S3SectionId {
   return S3_SECTION_IDS.includes(value as S3SectionId);
 }
 
 export function s3SectionsForRegion(region: DocsRegion): S3SectionId[] {
-  return S3_SECTION_IDS.filter((id) => region === 'overseas' || !OVERSEAS_ONLY_S3_SECTIONS.has(id));
+  return region === 'overseas' ? OVERSEAS_S3_SECTION_IDS : MAINLAND_S3_SECTION_IDS;
 }
 
 export function resolveDocsSlug(slug: string[], region: DocsRegion): ResolvedDocsSlug {
@@ -56,6 +73,9 @@ export function resolveDocsSlug(slug: string[], region: DocsRegion): ResolvedDoc
     if (!second) return { kind: 's3-redirect' };
     if (!isS3SectionId(second)) throw new Error(`Unknown S3 section: ${second}`);
     if (OVERSEAS_ONLY_S3_SECTIONS.has(second) && region !== 'overseas') {
+      throw new Error(`S3 section unavailable in region: ${second}`);
+    }
+    if (MAINLAND_ONLY_S3_SECTIONS.has(second) && region === 'overseas') {
       throw new Error(`S3 section unavailable in region: ${second}`);
     }
     return { kind: 's3', section: second };

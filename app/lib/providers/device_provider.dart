@@ -393,6 +393,8 @@ final s3CheckingProvider = StateProvider<bool>((_) => true);
 // Device reachability (per-method: directHttp / peerHttpHealthy / pullReachable / webrtc)
 // ---------------------------------------------------------------------------
 
+enum DeviceReachStatus { online, pullOnline, checking, offline }
+
 class DeviceReachDetail {
   final bool directHttp;
 
@@ -437,6 +439,13 @@ class DeviceReachDetail {
     if (canPullOnly) return 'pull_online';
     if (isOnline) return 'online';
     return 'offline';
+  }
+
+  DeviceReachStatus get uiReachStatus {
+    if (checking) return DeviceReachStatus.checking;
+    if (canPullOnly) return DeviceReachStatus.pullOnline;
+    if (isOnline) return DeviceReachStatus.online;
+    return DeviceReachStatus.offline;
   }
 
   static const offlineDetail = DeviceReachDetail();

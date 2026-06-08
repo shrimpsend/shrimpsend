@@ -6,6 +6,7 @@ import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageList } from '@/components/chat/MessageList';
 import { MessageInput } from '@/components/chat/MessageInput';
 import { TransferModeBar } from '@/components/chat/TransferModeBar';
+import { ConnectionDiagnosticSheet } from '@/components/chat/ConnectionDiagnosticSheet';
 import { PendingFilesBar } from '@/components/chat/PendingFilesBar';
 import { ErrorBar } from '@/components/chat/ErrorBar';
 import { cn } from '@/lib/utils';
@@ -21,7 +22,14 @@ export function ChatDetailPanel({
   className?: string;
 }) {
   const { t } = useI18n();
-  const { selectedDeviceId, setPendingFiles, setFileError } = useChatContext();
+  const {
+    selectedDeviceId,
+    setPendingFiles,
+    setFileError,
+    connectionDiagnostic,
+    diagnosticSheetOpen,
+    setDiagnosticSheetOpen,
+  } = useChatContext();
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const dragCounterRef = useRef(0);
 
@@ -89,6 +97,12 @@ export function ChatDetailPanel({
           <p className="text-sm">{t('chat.header.pickDeviceHint')}</p>
         </div>
       )}
+
+      <ConnectionDiagnosticSheet
+        open={diagnosticSheetOpen}
+        onOpenChange={setDiagnosticSheetOpen}
+        state={connectionDiagnostic}
+      />
     </div>
   );
 }
