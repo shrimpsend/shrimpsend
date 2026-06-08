@@ -1126,6 +1126,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const device = devices.find((d) => d.deviceId === deviceId);
     if (!device) return;
 
+    const initialFreshLanUrl = freshLanUrlsRef.current[deviceId];
+    const deviceForProbe = initialFreshLanUrl
+      ? { ...device, lanHttpUrl: initialFreshLanUrl }
+      : device;
+
     void checkS3Config();
 
     const nearbyIds = new Set(lanDevices.map((d) => d.deviceId));
@@ -1133,12 +1138,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (d.lanHttpUrl?.trim()) nearbyIds.add(d.deviceId);
     }
     const myDeviceIds = new Set(otherDevices.map((d) => d.deviceId));
-    const priority = classifyDevice(device, nearbyIds, myDeviceIds);
+    const priority = classifyDevice(deviceForProbe, nearbyIds, myDeviceIds);
     const orderedIds = diagnosticStepOrder(priority);
 
     setConnectionDiagnostic({
       peerId: deviceId,
-      peerLabel: peerLabelForDevice(device),
+      peerLabel: peerLabelForDevice(deviceForProbe),
       steps: orderedIds.map((id) => ({
         id,
         title: diagnosticStepTitle(t, id),
@@ -1165,7 +1170,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       let s3Available = s3Configured && s3Online;
       try {
         const { methods, freshLanUrl } = await runConnectionDiagnostic({
-          device,
+          device: deviceForProbe,
+          initialFreshLanUrl,
           orderedStepIds: orderedIds,
           connected,
           isLoggedIn: !!userId,
@@ -1198,7 +1204,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         );
 
         const summary = buildDiagnosticSummary(t, methods, {
-          peerIsWeb: isPeerWebDevice(device),
+          peerIsWeb: isPeerWebDevice(deviceForProbe),
           webrtcAvailable,
           s3Available,
         });
@@ -1247,6 +1253,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     checkS3ForDiagnostic,
     checkS3Config,
     applyDeviceReach,
+    freshLanUrlsRef,
     t,
     s3Configured,
     s3Online,
