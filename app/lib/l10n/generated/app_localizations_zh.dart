@@ -469,6 +469,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsNavAppLogSubtitleMobile => '管理日志文件，可分享';
 
   @override
+  String get settingsNavSourceCode => '源代码';
+
+  @override
+  String get settingsNavSourceCodeSubtitle => '在 GitHub 查看应用源代码';
+
+  @override
   String get settingsS3StatusConfigured => '已配置';
 
   @override

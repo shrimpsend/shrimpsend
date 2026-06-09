@@ -15,6 +15,7 @@ import '../api/api.dart';
 import '../color_theme.dart';
 import '../color_theme_store.dart';
 import '../config/env.dart';
+import '../legal/open_source_urls.dart';
 import '../l10n/app_brand.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../preferences/country_cluster.dart';
@@ -972,11 +973,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: AppSpacing.sm),
-                                  Divider(height: 1, color: colors.border),
-                                  const LegalDocLinksRow(compact: true),
                                 ],
                               ),
+                            ),
+                            Divider(height: 1, color: colors.border),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                              ),
+                              child: LegalDocLinksRow(compact: true),
+                            ),
+                            Divider(height: 1, color: colors.border),
+                            _buildNavItem(
+                              context: context,
+                              icon: LucideIcons.github,
+                              iconBgColor: colors.surfaceMuted,
+                              iconColor: colors.textSecondary,
+                              title: l10n.settingsNavSourceCode,
+                              subtitle: l10n.settingsNavSourceCodeSubtitle,
+                              onTap: () =>
+                                  launchExternalUrl(kOpenSourceRepoUrl),
                             ),
                           ],
                         ),

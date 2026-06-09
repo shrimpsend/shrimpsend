@@ -611,7 +611,8 @@
   "about": {
     "title": "About",
     "getClient": "Get the app",
-    "versionLine": "Version {version}"
+    "versionLine": "Version {version}",
+    "sourceCodeSubtitle": "View the app source on GitHub"
   },
   "shortcuts": {
     "sendTitle": "Send message",

@@ -191,6 +191,8 @@
   "settingsNavAppLog": "App logs",
   "settingsNavAppLogSubtitleDesktop": "Manage log files or open the log folder",
   "settingsNavAppLogSubtitleMobile": "Manage log files and share",
+  "settingsNavSourceCode": "Source code",
+  "settingsNavSourceCodeSubtitle": "View the app source on GitHub",
   "settingsS3StatusConfigured": "Configured",
   "settingsS3StatusNotConfigured": "Not configured",
   "settingsS3StatusHosted": "Built-in",

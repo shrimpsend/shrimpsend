@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Github } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useI18n } from '@/contexts/I18nContext';
 import { BrandLogo } from '@/components/brand/BrandLogo';
@@ -55,8 +56,9 @@ export function SiteFooter() {
           href={OPEN_SOURCE_REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:text-foreground"
+          className="inline-flex items-center gap-1.5 hover:text-foreground"
         >
+          <Github className="size-3.5" />
           {t('common.sourceCode')}
         </a>
       </div>

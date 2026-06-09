@@ -488,6 +488,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsNavAppLogSubtitleMobile => 'Manage log files and share';
 
   @override
+  String get settingsNavSourceCode => 'Source code';
+
+  @override
+  String get settingsNavSourceCodeSubtitle => 'View the app source on GitHub';
+
+  @override
   String get settingsS3StatusConfigured => 'Configured';
 
   @override

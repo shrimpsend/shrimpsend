@@ -611,7 +611,8 @@
   "about": {
     "title": "关于",
     "getClient": "获取客户端",
-    "versionLine": "版本 {version}"
+    "versionLine": "版本 {version}",
+    "sourceCodeSubtitle": "在 GitHub 查看应用源代码"
   },
   "shortcuts": {
     "sendTitle": "发送消息",

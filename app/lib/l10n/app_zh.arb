@@ -161,6 +161,8 @@
   "settingsNavAppLog": "应用日志",
   "settingsNavAppLogSubtitleDesktop": "管理日志文件，可在文件夹中打开",
   "settingsNavAppLogSubtitleMobile": "管理日志文件，可分享",
+  "settingsNavSourceCode": "源代码",
+  "settingsNavSourceCodeSubtitle": "在 GitHub 查看应用源代码",
   "settingsS3StatusConfigured": "已配置",
   "settingsS3StatusNotConfigured": "未配置",
   "settingsS3StatusHosted": "内置",

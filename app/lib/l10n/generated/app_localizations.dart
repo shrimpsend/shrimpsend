@@ -984,6 +984,18 @@ abstract class AppLocalizations {
   /// **'Manage log files and share'**
   String get settingsNavAppLogSubtitleMobile;
 
+  /// No description provided for @settingsNavSourceCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Source code'**
+  String get settingsNavSourceCode;
+
+  /// No description provided for @settingsNavSourceCodeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'View the app source on GitHub'**
+  String get settingsNavSourceCodeSubtitle;
+
   /// No description provided for @settingsS3StatusConfigured.
   ///
   /// In en, this message translates to:
