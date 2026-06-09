@@ -161,6 +161,7 @@
     "tryWeb": "打开网页版",
     "loginToTryWeb": "登录后打开网页版",
     "heroFootnote": "macOS、Windows、Android、iOS 与 Web 多端可用。",
+    "showcaseAlt": "虾传在 Mac、Web 与手机上的界面 — 多设备互传文件",
     "statSpeedValue": "局域网优先",
     "statSpeedLabel": "能直连就直连",
     "statSecurityValue": "断网可续传",

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useI18n } from '@/contexts/I18nContext';
 import { getClientReleaseDownloadUrl, isClientDownloadOverseas } from '@/lib/clientReleaseDownload';
+import { LandingShowcaseImage } from '@/components/landing/LandingShowcaseImage';
 import { SiteFooter } from '@/components/landing/SiteFooter';
 import { SiteNav } from '@/components/landing/SiteNav';
 import { buttonVariants } from '@/components/ui/button';
@@ -545,6 +546,8 @@ export function LandingPage({ localePath, siteOrigin }: { localePath: LocalePath
 
         <HeroVisual />
       </section>
+
+      <LandingShowcaseImage />
 
       <section className="relative z-10 mx-auto w-full max-w-7xl px-5 md:px-8">
         <div className="grid overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] shadow-2xl shadow-black/20 backdrop-blur-2xl sm:grid-cols-2 lg:grid-cols-4">
