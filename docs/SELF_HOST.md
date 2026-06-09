@@ -9,7 +9,7 @@ Chinese setup guide (including troubleshooting): [docs/README.zh-CN.md](README.z
 | Component | Default port | Notes |
 |-----------|--------------|-------|
 | MySQL 8 | 3306 | Primary database |
-| Centrifugo v5 | 8000 | Real-time WebSocket |
+| Centrifugo v6 | 8000 | Real-time WebSocket |
 | Spring Boot backend | 9000 | REST API |
 | Next.js web | 3000 | Web client |
 
@@ -65,8 +65,8 @@ Production runs on bare metal via `./scripts/deploy.sh`. Secrets live in an **op
 1. Clone the public app repo and an ops config repo **as siblings**:
 
 ```bash
-git clone git@github.com:shrimpsend/shrimpsend.git ultrasend
-cd ultrasend
+git clone git@github.com:shrimpsend/shrimpsend.git shrimpsend
+cd shrimpsend
 
 # Self-hosters: public samples (replace placeholders before production)
 git clone git@github.com:shrimpsend/public-ops.git ../ops

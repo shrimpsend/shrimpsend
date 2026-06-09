@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="../marketing/readme-banner.webp" alt="虾传 — 任意网络下都能稳定传文件" width="900" />
+  <img src="../marketing/readme-banner.png" alt="虾传 — 任意网络下都能稳定传文件" />
 </p>
 
 ## 官方托管版本
@@ -32,7 +32,7 @@
 
 你也可以在自有服务器上按 [AGPL](../LICENSE) [自托管](#部署指南) 完整服务栈。
 
-本仓库（**`ultrasend`**）是 **ShrimpSend / 虾传** 的开源源码。面向个人多设备，在手机、电脑与浏览器之间互传文本、剪贴板、图片、视频和大文件。它专为**复杂网络**设计：能直连时尽量跑满带宽，在 NAT 与受限 Wi‑Fi 下仍可用，大文件断网可续传。它不是网盘，也不是「上传生成链接再转发」的工具。
+本仓库（**`shrimpsend`**）是 **ShrimpSend / 虾传** 的开源源码。面向个人多设备，在手机、电脑与浏览器之间互传文本、剪贴板、图片、视频和大文件。它专为**复杂网络**设计：能直连时尽量跑满带宽，在 NAT 与受限 Wi‑Fi 下仍可用，大文件断网可续传。它不是网盘，也不是「上传生成链接再转发」的工具。
 
 ## 为何选择虾传
 
@@ -83,7 +83,7 @@ flowchart LR
 | 组件 | 端口 | 说明 |
 |------|------|------|
 | MySQL 8 | 3306 | 主数据库 |
-| Centrifugo v5 | 8000 | WebSocket 实时通道 |
+| Centrifugo v6 | 8000 | WebSocket 实时通道 |
 | Spring Boot 后端 | 9000 | REST API、认证、S3 编排 |
 | Next.js Web | 3000 | 浏览器客户端 |
 
@@ -158,8 +158,8 @@ stripe listen --forward-to localhost:9000/api/membership/stripe/webhook
 需 **ops** 配置目录同步到本仓。完整说明：[SELF_HOST.md](SELF_HOST.md)。
 
 ```bash
-git clone git@github.com:shrimpsend/shrimpsend.git ultrasend
-cd ultrasend
+git clone git@github.com:shrimpsend/shrimpsend.git shrimpsend
+cd shrimpsend
 git clone git@github.com:shrimpsend/public-ops.git ../ops   # 公开样例；生产前替换占位值
 # 维护者：git clone git@github.com:shrimpsend/ops.git ../ops
 # 可选：export ULTRASEND_OPS_DIR=/path/to/your-ops
@@ -263,7 +263,7 @@ OpenPanel 与客户端统计说明：[app/README.md](../app/README.md)。
 ## 项目结构
 
 ```
-ultrasend/
+shrimpsend/
 ├── backend/          # Spring Boot
 ├── web/              # Next.js
 ├── app/              # Flutter (iOS/Android/desktop)
@@ -306,7 +306,7 @@ Issue 与 Pull Request：[github.com/shrimpsend/shrimpsend](https://github.com/s
 
 **SPDX:** `AGPL-3.0-or-later`
 
-ShrimpSend / 虾传（本仓库 `ultrasend`）以 [GNU Affero General Public License v3.0 或更高版本](../LICENSE) 发布。你可以自由使用、修改与自托管；若修改后对外提供网络服务，须按 AGPL 向用户提供相应源码。中文摘要见 [LICENSE.zh-CN.md](../LICENSE.zh-CN.md)。
+ShrimpSend / 虾传（本仓库 `shrimpsend`）以 [GNU Affero General Public License v3.0 或更高版本](../LICENSE) 发布。你可以自由使用、修改与自托管；若修改后对外提供网络服务，须按 AGPL 向用户提供相应源码。中文摘要见 [LICENSE.zh-CN.md](../LICENSE.zh-CN.md)。
 
 | 文档 | 说明 |
 | --- | --- |

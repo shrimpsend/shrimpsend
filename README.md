@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="marketing/readme-banner.webp" alt="ShrimpSend — file transfer that works across any network" width="900" />
+  <img src="marketing/readme-banner.png" alt="ShrimpSend — file transfer that works across any network" />
 </p>
 
 ## Official hosted services
@@ -32,7 +32,7 @@ ShrimpSend / 虾传 runs two official hosted editions from the same open-source 
 
 You can also [self-host](#deployment) the full stack on your own infrastructure under AGPL.
 
-This repository (**`ultrasend`**) is the open-source codebase for **ShrimpSend** / **虾传** — a self-hostable relay for your personal devices. Send text, clipboard snippets, images, videos, and large files between phones, desktops, and browsers. It is built for **complex networks**: go as fast as your LAN allows on direct paths, keep transfers alive across NAT and restrictive Wi‑Fi, and resume large files after disconnects. It is not a cloud drive and not an “upload, get a link, forward the link” workflow.
+This repository (**`shrimpsend`**) is the open-source codebase for **ShrimpSend** / **虾传** — a self-hostable relay for your personal devices. Send text, clipboard snippets, images, videos, and large files between phones, desktops, and browsers. It is built for **complex networks**: go as fast as your LAN allows on direct paths, keep transfers alive across NAT and restrictive Wi‑Fi, and resume large files after disconnects. It is not a cloud drive and not an “upload, get a link, forward the link” workflow.
 
 ## Why ShrimpSend
 
@@ -83,7 +83,7 @@ flowchart LR
 | Component | Port | Role |
 |-----------|------|------|
 | MySQL 8 | 3306 | Primary database |
-| Centrifugo v5 | 8000 | WebSocket real-time |
+| Centrifugo v6 | 8000 | WebSocket real-time |
 | Spring Boot backend | 9000 | REST API, auth, S3 orchestration |
 | Next.js web | 3000 | Browser client |
 
@@ -157,8 +157,8 @@ Backend-only debugging (no Centrifugo/Web): `backend/scripts/run-dev-overseas.sh
 Requires an **ops** config directory synced into this repo. Full steps: [docs/SELF_HOST.md](docs/SELF_HOST.md#production-deployment).
 
 ```bash
-git clone git@github.com:shrimpsend/shrimpsend.git ultrasend
-cd ultrasend
+git clone git@github.com:shrimpsend/shrimpsend.git shrimpsend
+cd shrimpsend
 git clone git@github.com:shrimpsend/public-ops.git ../ops   # samples; replace placeholders for production
 # Maintainers: git clone git@github.com:shrimpsend/ops.git ../ops
 # Optional: export ULTRASEND_OPS_DIR=/path/to/your-ops
@@ -224,7 +224,7 @@ Official hosted services (reference only): [shrimpsend.com](https://shrimpsend.c
 ## Project layout
 
 ```
-ultrasend/
+shrimpsend/
 ├── backend/          # Spring Boot API
 ├── web/              # Next.js web app
 ├── app/              # Flutter clients

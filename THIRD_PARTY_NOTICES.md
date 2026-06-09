@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-ShrimpSend / 虾传 (ultrasend) is licensed under **AGPL-3.0-or-later**. See [LICENSE](LICENSE).
+ShrimpSend / 虾传 is licensed under **AGPL-3.0-or-later**. See [LICENSE](LICENSE).
 
 This file lists **direct dependencies** and their SPDX-style license identifiers. Transitive dependencies inherit licenses from their upstream packages; regenerate this list when upgrading major dependencies.
 

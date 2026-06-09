@@ -1,4 +1,4 @@
-# Ultrasend font assets
+# ShrimpSend font assets
 
 Downloads OFL-licensed **WenYuan Sans SC** for **Windows Flutter builds only**.
 

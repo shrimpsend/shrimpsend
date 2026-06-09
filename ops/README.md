@@ -1,6 +1,6 @@
 # ShrimpSend ops 运维配置
 
-本目录说明 **ultrasend / ShrimpSend** 运维配置（ops）的获取、校验与同步方式。真实密钥**不应**进入公开业务仓 Git 历史。
+本目录说明 **shrimpsend / ShrimpSend** 运维配置（ops）的获取、校验与同步方式。真实密钥**不应**进入公开业务仓 Git 历史。
 
 ## 获取 ops 配置
 
@@ -10,13 +10,13 @@
 
 ```
 /path/to/
-├── ultrasend/          # 业务仓 git@github.com:shrimpsend/shrimpsend.git
+├── shrimpsend/          # 业务仓 git@github.com:shrimpsend/shrimpsend.git
 └── ops/                # 配置仓（见下方 clone 源）
 ```
 
 ```bash
-git clone git@github.com:shrimpsend/shrimpsend.git ultrasend
-cd ultrasend
+git clone git@github.com:shrimpsend/shrimpsend.git shrimpsend
+cd shrimpsend
 
 # 自托管 / 贡献者：公开样例（占位值，生产前须替换）
 git clone git@github.com:shrimpsend/public-ops.git ../ops
