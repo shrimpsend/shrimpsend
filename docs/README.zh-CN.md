@@ -47,7 +47,7 @@
 ## 界面预览
 
 <p align="center">
-  <img src="../marketing/readme-screenshots/mobile.png" alt="虾传手机端 — 设备列表" width="320" />
+  <img src="../marketing/readme-screenshots/mobile.jpg" alt="虾传手机端 — 设备列表" width="320" />
 </p>
 
 <p align="center">
