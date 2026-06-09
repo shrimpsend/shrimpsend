@@ -47,7 +47,7 @@ This repository (**`shrimpsend`**) is the open-source codebase for **ShrimpSend*
 ## Screenshots
 
 <p align="center">
-  <img src="marketing/readme-screenshots/mobile.png" alt="ShrimpSend mobile app — device list" width="320" />
+  <img src="marketing/readme-screenshots/mobile.jpg" alt="ShrimpSend mobile app — device list" width="320" />
 </p>
 
 <p align="center">
