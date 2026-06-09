@@ -93,6 +93,7 @@ import '../webrtc/webrtc_manager.dart';
 import '../webrtc/signaling_channel.dart';
 import 'apk_picker_screen.dart';
 import 'qr_scanner_screen.dart';
+import '../services/native_tab_bar_service.dart';
 
 /// Number of messages per page for pagination. Adjust for debugging.
 const int kChatPageSize = 20;
@@ -527,6 +528,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   @override
   void initState() {
     super.initState();
+    if (Platform.isIOS) {
+      NativeTabBarService.instance.init();
+      NativeTabBarService.instance.onSelectTab = (index) {
+        if (mounted) {
+          setState(() {
+            _mobileMainTabIndex = index;
+            if (index == 1) {
+              _embeddedFileTabActivation++;
+            }
+          });
+          _syncNativeTabBarState();
+        }
+      };
+      NativeTabBarService.instance.onOpenPendingFiles = () {
+        if (mounted) {
+          showPendingFilesManageSheet(
+            context,
+            files: List.of(_pendingFiles),
+            onRemove: _removePendingFileRef,
+            onClearAll: _clearPendingFiles,
+          );
+        }
+      };
+    }
     _loadDevicePanelState();
     _chatController = InMemoryChatController();
     _webrtcManager = WebRTCManager();
@@ -8115,6 +8140,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
+  void _syncNativeTabBarState() {
+    if (!Platform.isIOS || !mounted) return;
+
+    final selectedDeviceId = ref.read(selectedDeviceIdProvider);
+    final mobileHomeFloatingBar =
+        selectedDeviceId == null &&
+        MediaQuery.sizeOf(context).width < kChatNarrowLayoutBreakpoint;
+
+    final theme = Theme.of(context);
+    final hexColor = '#${theme.colorScheme.primary.value.toRadixString(16).substring(2)}';
+    final l10n = AppLocalizations.of(context);
+
+    unawaited(NativeTabBarService.instance.updateState(
+      visible: mobileHomeFloatingBar,
+      selectedIndex: _mobileMainTabIndex,
+      badgeCount: _pendingFiles.length,
+      primaryColorHex: hexColor,
+      connectLabel: l10n.mobileHomeTabConnect,
+      filesLabel: l10n.mobileHomeTabFiles,
+      settingsLabel: l10n.mobileHomeTabSettings,
+    ));
+  }
+
   @override
   void dispose() {
     _initGeneration++;
@@ -8382,6 +8430,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (Platform.isIOS) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _syncNativeTabBarState();
+      });
+    }
     final isOffline = ref.watch(effectiveOfflineModeProvider);
     final isAuthOffline = ref.watch(isOfflineModeProvider);
 
@@ -8521,8 +8574,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           ),
                           // Floating glass bar: content scrolls underneath;
                           // stronger glass tint + no tab glow reduces ghost pill on light BG.
-                          Align(
-                            alignment: Alignment.bottomCenter,
+                          if (!Platform.isIOS)
+                            Align(
+                              alignment: Alignment.bottomCenter,
                             child: Padding(
                               padding: EdgeInsets.only(
                                 left: _kMobileFloatingBarEdge,

@@ -39,6 +39,28 @@ import UIKit
           result(FlutterError(code: "SET_FAILED", message: error.localizedDescription, details: nil))
         }
       }
+
+      // Set up the native tab bar channel and its coordinator controller
+      let nativeTabBarChannel = FlutterMethodChannel(
+        name: "dev.ultrasend/native_tab_bar",
+        binaryMessenger: controller.binaryMessenger
+      )
+      let nativeTabBarController = NativeTabBarController(
+        flutterViewController: controller,
+        channel: nativeTabBarChannel
+      )
+      nativeTabBarChannel.setMethodCallHandler { call, result in
+        if call.method == "updateState" {
+          if let args = call.arguments as? [String: Any] {
+            nativeTabBarController.updateState(arguments: args)
+            result(true)
+          } else {
+            result(FlutterError(code: "INVALID_ARG", message: "arguments must be a dictionary", details: nil))
+          }
+        } else {
+          result(FlutterMethodNotImplemented)
+        }
+      }
     }
     return didFinish
   }
@@ -54,4 +76,119 @@ import UIKit
     }
     return super.application(app, open: url, options: options)
   }
+}
+
+class NativeTabBarController: NSObject, NativeTabBarViewDelegate {
+    private let flutterViewController: FlutterViewController
+    private let channel: FlutterMethodChannel
+    
+    private var containerView: UIView?
+    private var tabBarView: NativeTabBarView?
+    private var bottomConstraint: NSLayoutConstraint?
+    
+    private var isBarVisible = false
+    
+    init(flutterViewController: FlutterViewController, channel: FlutterMethodChannel) {
+        self.flutterViewController = flutterViewController
+        self.channel = channel
+        super.init()
+        setupTabBar()
+    }
+    
+    private func setupTabBar() {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = .clear
+        container.layer.masksToBounds = false
+        
+        let bar = NativeTabBarView()
+        bar.delegate = self
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        
+        container.addSubview(bar)
+        flutterViewController.view.addSubview(container)
+        
+        self.containerView = container
+        self.tabBarView = bar
+        
+        NSLayoutConstraint.activate([
+            container.leadingAnchor.constraint(equalTo: flutterViewController.view.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: flutterViewController.view.trailingAnchor),
+            container.heightAnchor.constraint(equalToConstant: 140),
+            
+            bar.topAnchor.constraint(equalTo: container.topAnchor),
+            bar.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: container.trailingAnchor)
+        ])
+        
+        let constraint = container.bottomAnchor.constraint(equalTo: flutterViewController.view.bottomAnchor, constant: 0)
+        constraint.isActive = true
+        self.bottomConstraint = constraint
+        
+        container.alpha = 0
+        container.transform = CGAffineTransform(translationX: 0, y: 150)
+    }
+    
+    func updateState(arguments: [String: Any]) {
+        guard let visible = arguments["visible"] as? Bool,
+              let selectedIndex = arguments["selectedIndex"] as? Int,
+              let badgeCount = arguments["badgeCount"] as? Int,
+              let primaryColorHex = arguments["primaryColorHex"] as? String,
+              let connectLabel = arguments["connectLabel"] as? String,
+              let filesLabel = arguments["filesLabel"] as? String,
+              let settingsLabel = arguments["settingsLabel"] as? String else {
+            return
+        }
+        
+        tabBarView?.update(
+            selectedIndex: selectedIndex,
+            badgeCount: badgeCount,
+            primaryColorHex: primaryColorHex,
+            connectLabel: connectLabel,
+            filesLabel: filesLabel,
+            settingsLabel: settingsLabel
+        )
+        
+        setVisible(visible)
+    }
+    
+    private func setVisible(_ visible: Bool) {
+        guard isBarVisible != visible else { return }
+        isBarVisible = visible
+        
+        flutterViewController.view.layoutIfNeeded()
+        
+        UIView.animate(
+            withDuration: 0.35,
+            delay: 0,
+            usingSpringWithDamping: 0.85,
+            initialSpringVelocity: 0.5,
+            options: [.curveEaseInOut, .allowUserInteraction],
+            animations: { [weak self] in
+                guard let self = self else { return }
+                if visible {
+                    self.containerView?.alpha = 1
+                    self.containerView?.transform = .identity
+                    self.bottomConstraint?.constant = 0
+                } else {
+                    self.containerView?.alpha = 0
+                    self.containerView?.transform = CGAffineTransform(translationX: 0, y: 150)
+                    self.bottomConstraint?.constant = 150
+                }
+                self.flutterViewController.view.layoutIfNeeded()
+            },
+            completion: nil
+        )
+    }
+    
+    // MARK: - NativeTabBarViewDelegate
+    
+    func tabBarView(_ tabBarView: NativeTabBarView, didSelectTabAt index: Int) {
+        channel.invokeMethod("selectTab", arguments: index)
+    }
+    
+    func tabBarViewDidTapOutbox(_ tabBarView: NativeTabBarView) {
+        channel.invokeMethod("openPendingFiles", arguments: nil)
+    }
 }

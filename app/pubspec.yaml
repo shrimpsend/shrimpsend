@@ -34,7 +34,7 @@ dependencies:
     sdk: flutter
   intl: any
   lucide_icons_flutter: ^3.1.10
-  simple_icons: ^10.1.2
+  simple_icons: ^16.23.0
   centrifuge: ^0.18.0
   flutter_chat_core: ^2.0.0
   flutter_chat_ui: ^2.0.0
@@ -59,7 +59,7 @@ dependencies:
   photo_manager: ^3.9.0
   permission_handler: ^12.0.1
   installed_apps: ^2.1.1
-  mobile_scanner: ^6.0.2
+  mobile_scanner: ^7.2.0
   qr_flutter: ^4.1.0
   share_plus: ^10.1.4
   video_player: ^2.9.2

@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:flutter_desktop_updater/flutter_desktop_updater.dart'
     as desktop_upd;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:simple_icons/simple_icons.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../api/api.dart';
 import '../color_theme.dart';
@@ -986,7 +987,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             Divider(height: 1, color: colors.border),
                             _buildNavItem(
                               context: context,
-                              icon: LucideIcons.github,
+                              icon: SimpleIcons.github,
                               iconBgColor: colors.surfaceMuted,
                               iconColor: colors.textSecondary,
                               title: l10n.settingsNavSourceCode,
