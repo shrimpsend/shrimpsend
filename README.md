@@ -47,13 +47,19 @@ This repository (**`shrimpsend`**) is the open-source codebase for **ShrimpSend*
 ## Screenshots
 
 <p align="center">
-  <img src="marketing/app-store-screenshots/public/screenshots/apple/iphone/en/01-connect.png" alt="Device discovery and connection" width="240" />
-  <img src="marketing/app-store-screenshots/public/screenshots/apple/iphone/en/02-transfer.png" alt="Device conversation and transfers" width="240" />
-  <img src="marketing/app-store-screenshots/public/screenshots/apple/iphone/en/03-s3-relay.png" alt="S3 relay and send modes" width="240" />
+  <img src="marketing/readme-screenshots/mobile.png" alt="ShrimpSend mobile app — device list" width="320" />
 </p>
 
 <p align="center">
-  <em>Left: discover peers on the LAN · Center: pick a path (LAN / relay / S3) · Right: cloud relay settings</em>
+  <img src="marketing/readme-screenshots/desktop.png" alt="ShrimpSend desktop app — file transfer" width="1024" />
+</p>
+
+<p align="center">
+  <img src="marketing/readme-screenshots/web.png" alt="ShrimpSend web app — browser client" width="1024" />
+</p>
+
+<p align="center">
+  <img src="marketing/readme-screenshots/connection-diagnostic.png" alt="ShrimpSend connection diagnostic — LAN, WebRTC, and S3 paths" width="1024" />
 </p>
 
 ## Architecture

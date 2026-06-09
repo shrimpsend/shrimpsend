@@ -47,13 +47,19 @@
 ## 界面预览
 
 <p align="center">
-  <img src="../marketing/app-store-screenshots/public/screenshots/apple/iphone/en/01-connect.png" alt="设备发现与连接" width="240" />
-  <img src="../marketing/app-store-screenshots/public/screenshots/apple/iphone/en/02-transfer.png" alt="设备会话与传输" width="240" />
-  <img src="../marketing/app-store-screenshots/public/screenshots/apple/iphone/en/03-s3-relay.png" alt="S3 中继与发送模式" width="240" />
+  <img src="../marketing/readme-screenshots/mobile.png" alt="虾传手机端 — 设备列表" width="320" />
 </p>
 
 <p align="center">
-  <em>左：局域网发现设备 · 中：选择传输路径（局域网 / 中继 / S3）· 右：云端中继配置</em>
+  <img src="../marketing/readme-screenshots/desktop.png" alt="虾传 PC 端 — 文件传输" width="1024" />
+</p>
+
+<p align="center">
+  <img src="../marketing/readme-screenshots/web.png" alt="虾传 Web 端 — 浏览器客户端" width="1024" />
+</p>
+
+<p align="center">
+  <img src="../marketing/readme-screenshots/connection-diagnostic.png" alt="虾传连接诊断 — 局域网、WebRTC 与 S3 路径" width="1024" />
 </p>
 
 ## 架构
