@@ -190,19 +190,18 @@ class NativeTabBarView: UIView, UITabBarDelegate {
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        updateOutboxAlignment()
-    }
-    
-    override func safeAreaInsetsDidChange() {
-        super.safeAreaInsetsDidChange()
-        updateOutboxAlignment()
-    }
-    
-    private func updateOutboxAlignment() {
-        let bottomInset = safeAreaInsets.bottom
-        let targetConstant: CGFloat = bottomInset > 0 ? -5 : -24.5
-        if outboxCenterYConstraint?.constant != targetConstant {
-            outboxCenterYConstraint?.constant = targetConstant
+        
+        systemTabBar.layoutIfNeeded()
+        
+        for subview in systemTabBar.subviews {
+            let className = NSStringFromClass(subview.classForCoder)
+            if className.contains("TabBarButton") {
+                let centerInSelf = systemTabBar.convert(subview.center, to: self)
+                if outboxCenterYConstraint?.constant != centerInSelf.y {
+                    outboxCenterYConstraint?.constant = centerInSelf.y
+                }
+                break
+            }
         }
     }
     
@@ -253,7 +252,7 @@ class NativeTabBarView: UIView, UITabBarDelegate {
             outboxButton.heightAnchor.constraint(equalToConstant: 56)
         ])
         
-        let centerYConstraint = outboxButton.centerYAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -24.5)
+        let centerYConstraint = outboxButton.centerYAnchor.constraint(equalTo: self.topAnchor, constant: 40)
         centerYConstraint.isActive = true
         self.outboxCenterYConstraint = centerYConstraint
         
