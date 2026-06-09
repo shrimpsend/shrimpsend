@@ -22,7 +22,7 @@ extension UIColor {
 }
 
 class OutboxButton: UIControl {
-    private let blurEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
+    private let blurEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
     private let colorOverlayView = UIView()
     private let iconView = UIImageView()
     private let badgeLabel = UILabel()
@@ -40,13 +40,13 @@ class OutboxButton: UIControl {
     
     private func setupView() {
         // Parent view has cornerRadius and masksToBounds = false to allow shadow
-        layer.cornerRadius = 28
+        layer.cornerRadius = 32
         layer.masksToBounds = false
         layer.borderWidth = 0.5
         updateBorderColor()
         
         // Subview blurEffectView clips its own content
-        blurEffectView.layer.cornerRadius = 28
+        blurEffectView.layer.cornerRadius = 32
         blurEffectView.layer.masksToBounds = true
         blurEffectView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(blurEffectView)
@@ -115,20 +115,20 @@ class OutboxButton: UIControl {
             layer.borderColor = UIColor { trait in
                 return trait.userInterfaceStyle == .dark
                     ? UIColor(white: 1.0, alpha: 0.15)
-                    : UIColor(white: 1.0, alpha: 0.45)
+                    : UIColor(white: 0.0, alpha: 0.06)
             }.cgColor
         } else {
-            layer.borderColor = UIColor(white: 1.0, alpha: 0.45).cgColor
+            layer.borderColor = UIColor(white: 0.0, alpha: 0.06).cgColor
         }
     }
     
     private func updateColorOverlay() {
         if #available(iOS 13.0, *) {
             colorOverlayView.backgroundColor = traitCollection.userInterfaceStyle == .dark
-                ? UIColor(white: 0.0, alpha: 0.12)
-                : UIColor(white: 1.0, alpha: 0.4)
+                ? UIColor(white: 0.0, alpha: 0.15)
+                : UIColor(white: 1.0, alpha: 0.75)
         } else {
-            colorOverlayView.backgroundColor = UIColor(white: 1.0, alpha: 0.4)
+            colorOverlayView.backgroundColor = UIColor(white: 1.0, alpha: 0.75)
         }
     }
     
@@ -222,17 +222,16 @@ class NativeTabBarView: UIView, UITabBarDelegate {
         addSubview(outboxButton)
         
         NSLayoutConstraint.activate([
-            // systemTabBar on the left: bottom at view bottom, top at safeAreaLayoutGuide.bottom - 49
             systemTabBar.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            systemTabBar.trailingAnchor.constraint(equalTo: outboxButton.leadingAnchor, constant: -14),
+            systemTabBar.trailingAnchor.constraint(equalTo: outboxButton.leadingAnchor, constant: -6),
             systemTabBar.bottomAnchor.constraint(equalTo: bottomAnchor),
             systemTabBar.topAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -49),
             
-            // outboxButton on the right: moved slightly to the left (constant: -24) and down (centerY at top + 32)
-            outboxButton.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -24),
-            outboxButton.widthAnchor.constraint(equalToConstant: 56),
-            outboxButton.heightAnchor.constraint(equalToConstant: 56),
-            outboxButton.centerYAnchor.constraint(equalTo: systemTabBar.topAnchor, constant: 32)
+            // outboxButton on the right: diameter 64, centerY adjusted to top + 30 to align with capsule bottom
+            outboxButton.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -28),
+            outboxButton.widthAnchor.constraint(equalToConstant: 64),
+            outboxButton.heightAnchor.constraint(equalToConstant: 64),
+            outboxButton.centerYAnchor.constraint(equalTo: systemTabBar.topAnchor, constant: 30)
         ])
         
         outboxButton.addTarget(self, action: #selector(outboxTapped), for: .touchUpInside)
