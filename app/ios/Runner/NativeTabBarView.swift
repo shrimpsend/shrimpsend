@@ -44,6 +44,7 @@ class OutboxButton: UIControl {
         layer.masksToBounds = false
         layer.borderWidth = 0.5
         updateBorderColor()
+        updateBackgroundColor()
         
         // Subview blurEffectView clips its own content
         blurEffectView.layer.cornerRadius = 32
@@ -104,13 +105,9 @@ class OutboxButton: UIControl {
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        if #available(iOS 13.0, *) {
-            layer.borderColor = UIColor { trait in
-                return trait.userInterfaceStyle == .dark
-                    ? UIColor(white: 1.0, alpha: 0.35)
-                    : UIColor(white: 1.0, alpha: 0.5)
-            }.resolvedColor(with: traitCollection).cgColor
-        }
+        updateBorderColor()
+        updateBackgroundColor()
+        updateColorOverlay()
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -124,23 +121,27 @@ class OutboxButton: UIControl {
         if #available(iOS 13.0, *) {
             layer.borderColor = UIColor { trait in
                 return trait.userInterfaceStyle == .dark
-                    ? UIColor(white: 1.0, alpha: 0.35)
-                    : UIColor(white: 1.0, alpha: 0.5)
+                    ? UIColor(white: 1.0, alpha: 0.15)
+                    : UIColor(white: 0.0, alpha: 0.06)
             }.resolvedColor(with: traitCollection).cgColor
         } else {
-            layer.borderColor = UIColor(white: 1.0, alpha: 0.5).cgColor
+            layer.borderColor = UIColor(white: 0.0, alpha: 0.06).cgColor
         }
+    }
+    
+    private func updateBackgroundColor() {
+        backgroundColor = .clear
     }
     
     private func updateColorOverlay() {
         if #available(iOS 13.0, *) {
             colorOverlayView.backgroundColor = UIColor { trait in
                 return trait.userInterfaceStyle == .dark
-                    ? UIColor(white: 0.1, alpha: 0.15)
-                    : UIColor(white: 1.0, alpha: 0.15)
-            }
+                    ? UIColor(red: 30/255.0, green: 30/255.0, blue: 32/255.0, alpha: 0.1)
+                    : UIColor(red: 247/255.0, green: 249/255.0, blue: 253/255.0, alpha: 0.1)
+            }.resolvedColor(with: traitCollection)
         } else {
-            colorOverlayView.backgroundColor = UIColor(white: 1.0, alpha: 0.15)
+            colorOverlayView.backgroundColor = UIColor(red: 247/255.0, green: 249/255.0, blue: 253/255.0, alpha: 0.1)
         }
     }
     
