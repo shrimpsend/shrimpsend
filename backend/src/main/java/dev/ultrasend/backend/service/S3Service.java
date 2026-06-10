@@ -31,6 +31,7 @@ public class S3Service {
     private final S3ConfigRepository s3ConfigRepository;
     private final UserRepository userRepository;
     private final HostedS3Service hostedS3Service;
+    private final UserDataEncryptionService userDataEncryption;
 
     @Value("${app.public-web-base-url:http://localhost:3000}")
     private String publicWebBaseUrl;
@@ -66,7 +67,7 @@ public class S3Service {
         config.setBucket(req.getBucket());
         config.setAccessKeyId(req.getAccessKeyId());
         if (req.getSecretAccessKey() != null && !req.getSecretAccessKey().isBlank()) {
-            config.setSecretAccessKey(req.getSecretAccessKey());
+            config.setSecretAccessKey(userDataEncryption.encryptForUser(userId, req.getSecretAccessKey()));
         }
         config.setPathStyleAccessEnabled(
                 req.getPathStyleAccessEnabled() != null ? req.getPathStyleAccessEnabled() : true);
@@ -173,7 +174,7 @@ public class S3Service {
             throw new IllegalArgumentException("S3 未配置");
         }
         S3Config config = byo.get();
-        S3Presigner presigner = buildPresigner(config);
+        S3Presigner presigner = buildPresigner(userId, config);
         try {
             HeadBucketRequest headReq = HeadBucketRequest.builder()
                     .bucket(config.getBucket())
@@ -205,12 +206,7 @@ public class S3Service {
         String key = "ultrasend/" + userId + "/" + UUID.randomUUID() + "/" + fileName;
         log.debug("s3 presignUpload userId={} key={}", userId, key);
 
-        S3Presigner presigner = S3Presigner.builder()
-                .region(Region.of(config.getRegion()))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(config.getAccessKeyId(), config.getSecretAccessKey())))
-                .endpointOverride(java.net.URI.create(config.getEndpoint()))
-                .build();
+        S3Presigner presigner = buildPresigner(userId, config);
 
         PutObjectRequest putRequest = PutObjectRequest.builder()
                 .bucket(config.getBucket())
@@ -242,12 +238,7 @@ public class S3Service {
             throw new IllegalArgumentException("Invalid key");
         }
         log.debug("s3 presignDownload userId={} key={}", userId, key);
-        S3Presigner presigner = S3Presigner.builder()
-                .region(Region.of(config.getRegion()))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(config.getAccessKeyId(), config.getSecretAccessKey())))
-                .endpointOverride(java.net.URI.create(config.getEndpoint()))
-                .build();
+        S3Presigner presigner = buildPresigner(userId, config);
         GetObjectRequest getRequest = GetObjectRequest.builder()
                 .bucket(config.getBucket())
                 .key(key)
@@ -275,7 +266,7 @@ public class S3Service {
         String key = "ultrasend/" + userId + "/" + UUID.randomUUID() + "/" + fileName;
         log.info("s3 initiateMultipart userId={} key={}", userId, key);
 
-        try (S3Client client = buildS3Client(config)) {
+        try (S3Client client = buildS3Client(userId, config)) {
             CreateMultipartUploadRequest req = CreateMultipartUploadRequest.builder()
                     .bucket(config.getBucket())
                     .key(key)
@@ -298,7 +289,7 @@ public class S3Service {
         validateKeyOwnership(userId, key);
         log.debug("s3 presignPart userId={} part={} key={}", userId, partNumber, key);
 
-        S3Presigner presigner = buildPresigner(config);
+        S3Presigner presigner = buildPresigner(userId, config);
         try {
             UploadPartRequest partReq = UploadPartRequest.builder()
                     .bucket(config.getBucket())
@@ -335,7 +326,7 @@ public class S3Service {
                         .build())
                 .toList();
 
-        try (S3Client client = buildS3Client(config)) {
+        try (S3Client client = buildS3Client(userId, config)) {
             CompleteMultipartUploadRequest req = CompleteMultipartUploadRequest.builder()
                     .bucket(config.getBucket())
                     .key(key)
@@ -358,7 +349,7 @@ public class S3Service {
         validateKeyOwnership(userId, key);
         log.info("s3 abortMultipart userId={} key={}", userId, key);
 
-        try (S3Client client = buildS3Client(config)) {
+        try (S3Client client = buildS3Client(userId, config)) {
             AbortMultipartUploadRequest req = AbortMultipartUploadRequest.builder()
                     .bucket(config.getBucket())
                     .key(key)
@@ -380,15 +371,20 @@ public class S3Service {
         return pathStyleAccessEnabled == null || pathStyleAccessEnabled;
     }
 
-    private S3Client buildS3Client(S3Config config) {
-        return buildS3Client(config, null);
+    private String resolveSecretAccessKey(Long userId, S3Config config) {
+        return userDataEncryption.decryptForUser(userId, config.getSecretAccessKey());
     }
 
-    private S3Client buildS3Client(S3Config config, ClientOverrideConfiguration overrideConfiguration) {
+    private S3Client buildS3Client(Long userId, S3Config config) {
+        return buildS3Client(userId, config, null);
+    }
+
+    private S3Client buildS3Client(Long userId, S3Config config, ClientOverrideConfiguration overrideConfiguration) {
+        String secretAccessKey = resolveSecretAccessKey(userId, config);
         var builder = S3Client.builder()
                 .region(Region.of(config.getRegion() != null ? config.getRegion() : "cn-east-1"))
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(config.getAccessKeyId(), config.getSecretAccessKey())))
+                        AwsBasicCredentials.create(config.getAccessKeyId(), secretAccessKey)))
                 .endpointOverride(java.net.URI.create(config.getEndpoint()))
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(resolvePathStyle(config.getPathStyleAccessEnabled()))
@@ -399,11 +395,12 @@ public class S3Service {
         return builder.build();
     }
 
-    private S3Presigner buildPresigner(S3Config config) {
+    private S3Presigner buildPresigner(Long userId, S3Config config) {
+        String secretAccessKey = resolveSecretAccessKey(userId, config);
         return S3Presigner.builder()
                 .region(Region.of(config.getRegion() != null ? config.getRegion() : "cn-east-1"))
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(config.getAccessKeyId(), config.getSecretAccessKey())))
+                        AwsBasicCredentials.create(config.getAccessKeyId(), secretAccessKey)))
                 .endpointOverride(java.net.URI.create(config.getEndpoint()))
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(resolvePathStyle(config.getPathStyleAccessEnabled()))

@@ -24,7 +24,8 @@ public class S3Config {
     private String region;
     private String bucket;
     private String accessKeyId;
-    private String secretAccessKey; // in production use encryption at rest
+    /** Stored as {@code enc:u:v1:} ciphertext (per-user DEK) after migration. */
+    private String secretAccessKey;
 
     /**
      * 用户偏好：true 表示当前主动使用平台内置 S3，但保留这份自建配置以便随时切回。

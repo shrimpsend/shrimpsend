@@ -62,6 +62,31 @@ PY
     echo "  已生成 backend/.env 消息加密 key (APP_MESSAGES_ENCRYPTION_KEY_BASE64)"
   fi
 
+  if [ -f "$ROOT/backend/.env" ] && ! grep -q '^APP_USER_DATA_ENCRYPTION_KEK_BASE64=.\+' "$ROOT/backend/.env" 2>/dev/null; then
+    USER_KEK="$(openssl rand -base64 32)"
+    if grep -q '^APP_USER_DATA_ENCRYPTION_KEK_BASE64=' "$ROOT/backend/.env" 2>/dev/null; then
+      if command -v python3 >/dev/null 2>&1; then
+        python3 - <<PY
+from pathlib import Path
+p = Path("$ROOT/backend/.env")
+lines = p.read_text().splitlines()
+out = []
+for line in lines:
+    if line.startswith("APP_USER_DATA_ENCRYPTION_KEK_BASE64="):
+        out.append("APP_USER_DATA_ENCRYPTION_KEK_BASE64=$USER_KEK")
+    else:
+        out.append(line)
+p.write_text("\n".join(out) + "\n")
+PY
+      else
+        echo "APP_USER_DATA_ENCRYPTION_KEK_BASE64=$USER_KEK" >> "$ROOT/backend/.env"
+      fi
+    else
+      echo "APP_USER_DATA_ENCRYPTION_KEK_BASE64=$USER_KEK" >> "$ROOT/backend/.env"
+    fi
+    echo "  已生成 backend/.env 用户数据加密 KEK (APP_USER_DATA_ENCRYPTION_KEK_BASE64)"
+  fi
+
   if grep -q 'dev-centrifugo-hmac-secret-change-me' "$ROOT/config.json" 2>/dev/null; then
     HMAC="$(openssl rand -base64 48 | tr -d '/+=' | head -c 64)"
     API_KEY="$(openssl rand -base64 48 | tr -d '/+=' | head -c 64)"

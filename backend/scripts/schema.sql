@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     email         VARCHAR(255) NOT NULL,
     username      VARCHAR(128) DEFAULT NULL COMMENT '可选展示名',
     password_hash VARCHAR(255) NOT NULL,
+    data_encryption_key_enc VARCHAR(512) DEFAULT NULL
+        COMMENT '用户 DEK，经服务端 KEK 包装，格式 enc:kek:v1:',
     PRIMARY KEY (id),
     UNIQUE KEY uk_users_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

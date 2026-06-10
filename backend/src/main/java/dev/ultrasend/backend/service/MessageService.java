@@ -36,6 +36,7 @@ public class MessageService {
     private final CentrifugoPublishService centrifugoPublishService;
     private final ObjectMapper objectMapper;
     private final MessageCryptoService messageCryptoService;
+    private final UserDataEncryptionService userDataEncryption;
 
     @Transactional
     public void send(String userId, Object data) {
@@ -57,7 +58,7 @@ public class MessageService {
             String json;
             try {
                 Object storedData = data instanceof Map<?, ?> rawMap
-                        ? messageCryptoService.encryptTextPayloadInEnvelope(asStringObjectMap(rawMap))
+                        ? encryptTextPayloadWithUserKey(uid, asStringObjectMap(rawMap))
                         : data;
                 json = objectMapper.writeValueAsString(storedData);
             } catch (Exception e) {
@@ -131,6 +132,7 @@ public class MessageService {
         try {
             String json = messageCryptoService.decryptIfNeeded(message.getData());
             Map<String, Object> map = objectMapper.readValue(json, MAP_TYPE);
+            decryptTextPayload(message.getUserId(), map);
             return matchesThreadKeyFilter(threadKey, map);
         } catch (Exception e) {
             log.warn("message threadKey parse failed id={}: {}", message.getId(), e.getMessage());
@@ -174,7 +176,7 @@ public class MessageService {
                     try {
                         String json = messageCryptoService.decryptIfNeeded(m.getData());
                         Map<String, Object> map = objectMapper.readValue(json, MAP_TYPE);
-                        messageCryptoService.decryptTextPayloadInEnvelope(map);
+                        decryptTextPayload(m.getUserId(), map);
                         map.put("id", m.getId());
                         return map;
                     } catch (Exception e) {
@@ -194,5 +196,52 @@ public class MessageService {
         Map<String, Object> map = new LinkedHashMap<>();
         rawMap.forEach((key, value) -> map.put(String.valueOf(key), value));
         return map;
+    }
+
+    private Map<String, Object> encryptTextPayloadWithUserKey(Long userId, Map<String, Object> envelope) {
+        Map<String, Object> copy = new LinkedHashMap<>(envelope);
+        if (!isTextEnvelope(copy)) {
+            return copy;
+        }
+        Object payloadObj = copy.get("payload");
+        if (!(payloadObj instanceof Map<?, ?> payload)) {
+            return copy;
+        }
+        Map<String, Object> payloadCopy = new LinkedHashMap<>();
+        payload.forEach((key, value) -> payloadCopy.put(String.valueOf(key), value));
+        Object text = payloadCopy.get("text");
+        if (text instanceof String value
+                && !userDataEncryption.isUserEncrypted(value)
+                && !messageCryptoService.isEncrypted(value)) {
+            payloadCopy.put("text", userDataEncryption.encryptForUser(userId, value));
+        }
+        copy.put("payload", payloadCopy);
+        return copy;
+    }
+
+    private void decryptTextPayload(Long userId, Map<String, Object> envelope) {
+        if (!isTextEnvelope(envelope)) {
+            return;
+        }
+        Object payloadObj = envelope.get("payload");
+        if (!(payloadObj instanceof Map<?, ?> payload)) {
+            return;
+        }
+        Object text = payload.get("text");
+        if (!(text instanceof String value)) {
+            return;
+        }
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> mutablePayload = (Map<Object, Object>) payload;
+        if (userDataEncryption.isUserEncrypted(value)) {
+            mutablePayload.put("text", userDataEncryption.decryptForUser(userId, value));
+        } else if (messageCryptoService.isEncrypted(value)) {
+            mutablePayload.put("text", messageCryptoService.decryptIfNeeded(value));
+        }
+    }
+
+    private static boolean isTextEnvelope(Map<String, Object> envelope) {
+        Object type = envelope.get("type");
+        return type != null && "text".equals(type.toString());
     }
 }

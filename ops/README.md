@@ -160,7 +160,8 @@ ULTRASEND_OPS_DIR=/path/to/ops ./scripts/deploy.sh
 |------|----------|
 | MySQL | 国内 / 海外数据库密码 |
 | JWT | `access-secret` / `refresh-secret`（国内与海外独立） |
-| 消息加密 | `APP_MESSAGES_ENCRYPTION_KEY_BASE64` |
+| 消息加密（历史 enc:v1:） | `APP_MESSAGES_ENCRYPTION_KEY_BASE64` |
+| 用户数据加密 KEK | `APP_USER_DATA_ENCRYPTION_KEK_BASE64` |
 | 支付宝 | RSA 私钥（最高优先级） |
 | Stripe | `sk_live_*`、`whsec_*` |
 | RevenueCat | Webhook Bearer token |

@@ -37,4 +37,10 @@ public class User {
 
     @Column(name = "mobile_migration_verified_at")
     private java.time.Instant mobileMigrationVerifiedAt; // 手机号验证时间
+
+    /**
+     * Per-user data encryption DEK wrapped by server KEK ({@code enc:kek:v1:}).
+     */
+    @Column(name = "data_encryption_key_enc", length = 512)
+    private String dataEncryptionKeyEnc;
 }

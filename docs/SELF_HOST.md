@@ -135,7 +135,9 @@ See [backend/.env.example](../backend/.env.example). Critical production values:
 
 - `SPRING_DATASOURCE_*` — database
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
-- `APP_MESSAGES_ENCRYPTION_KEY_BASE64` — AES-GCM key for cloud-stored message text
+- `APP_MESSAGES_ENCRYPTION_KEY_BASE64` — AES-GCM key for legacy cloud-stored message text (`enc:v1:`)
+- `APP_USER_DATA_ENCRYPTION_KEK_BASE64` — server KEK wrapping per-user DEKs (S3 SK, new message text `enc:u:v1:`)
+- `APP_USER_DATA_ENCRYPTION_MIGRATE_S3_ON_STARTUP` / `APP_USER_DATA_ENCRYPTION_MIGRATE_MESSAGES_ON_STARTUP` — one-shot migration switches
 - `CENTRIFUGO_HTTP_API_KEY`, `CENTRIFUGO_TOKEN_HMAC_SECRET` (must match Centrifugo JSON)
 - `ALIPAY_*` — China payments (optional overseas)
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` — overseas

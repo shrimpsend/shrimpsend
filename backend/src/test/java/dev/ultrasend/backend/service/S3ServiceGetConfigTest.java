@@ -30,13 +30,15 @@ class S3ServiceGetConfigTest {
     private UserRepository userRepository;
     @Mock
     private HostedS3Service hostedS3Service;
+    @Mock
+    private UserDataEncryptionService userDataEncryption;
 
     private S3Service s3Service;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
-        s3Service = new S3Service(s3ConfigRepository, userRepository, hostedS3Service);
+        s3Service = new S3Service(s3ConfigRepository, userRepository, hostedS3Service, userDataEncryption);
         ReflectionTestUtils.setField(s3Service, "publicWebBaseUrl", "http://localhost:3000");
         ReflectionTestUtils.setField(s3Service, "s3DocsPath", "/zh/docs/s3/overview");
     }

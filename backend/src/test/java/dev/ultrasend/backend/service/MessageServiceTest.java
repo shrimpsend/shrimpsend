@@ -3,8 +3,11 @@ package dev.ultrasend.backend.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.ultrasend.backend.centrifugo.CentrifugoPublishService;
 import dev.ultrasend.backend.config.MessageEncryptionProperties;
+import dev.ultrasend.backend.config.UserDataEncryptionProperties;
 import dev.ultrasend.backend.entity.Message;
+import dev.ultrasend.backend.entity.User;
 import dev.ultrasend.backend.repository.MessageRepository;
+import dev.ultrasend.backend.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -31,11 +35,16 @@ class MessageServiceTest {
     @Mock
     private CentrifugoPublishService centrifugoPublishService;
     @Mock
+    private UserRepository userRepository;
+    @Mock
     private Environment environment;
 
     private MessageCryptoService cryptoService;
+    private UserDataEncryptionService userDataEncryption;
     private MessageService messageService;
     private ObjectMapper objectMapper;
+
+    private static final byte[] USER_KEK = "01234567890123456789012345678901".getBytes(StandardCharsets.UTF_8);
 
     @BeforeEach
     void setUp() {
@@ -44,12 +53,23 @@ class MessageServiceTest {
                 "12345678901234567890123456789012".getBytes(StandardCharsets.UTF_8)));
         cryptoService = new MessageCryptoService(properties, environment);
         cryptoService.init();
+
+        UserDataEncryptionProperties userProperties = new UserDataEncryptionProperties();
+        userProperties.setKekBase64(Base64.getEncoder().encodeToString(USER_KEK));
+        userDataEncryption = new UserDataEncryptionService(userProperties, userRepository, environment);
+        userDataEncryption.init();
+
+        User user = User.builder().id(1L).build();
+        lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        lenient().when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
         objectMapper = new ObjectMapper();
         messageService = new MessageService(
                 messageRepository,
                 centrifugoPublishService,
                 objectMapper,
-                cryptoService);
+                cryptoService,
+                userDataEncryption);
     }
 
     @Test
@@ -73,7 +93,7 @@ class MessageServiceTest {
         Map<String, Object> stored = objectMapper.readValue(saved.getData(), Map.class);
         @SuppressWarnings("unchecked")
         Map<String, Object> payload = (Map<String, Object>) stored.get("payload");
-        assertTrue(cryptoService.isEncrypted(payload.get("text").toString()));
+        assertTrue(userDataEncryption.isUserEncrypted(payload.get("text").toString()));
         verify(centrifugoPublishService).publishToUser(eq("1"), same(envelope));
     }
 
@@ -93,6 +113,32 @@ class MessageServiceTest {
         assertFalse(cryptoService.isEncrypted(data));
         assertTrue(data.contains("report.pdf"));
         assertTrue(data.contains("files/report.pdf"));
+    }
+
+    @Test
+    void getHistoryDecryptsUserEncryptedTextPayloadField() throws Exception {
+        String encryptedText = userDataEncryption.encryptForUser(1L, "user secret");
+        String plaintext = objectMapper.writeValueAsString(Map.of(
+                "type", "text",
+                "payload", Map.of("text", encryptedText),
+                "fromDeviceId", "device_a",
+                "ts", 1L,
+                "threadKey", "u:1|kind:legacy_broadcast"));
+        Message message = Message.builder()
+                .id(9L)
+                .userId(1L)
+                .data(plaintext)
+                .build();
+        when(messageRepository.findByUserIdOrderByCreatedAtDesc(eq(1L), any(Pageable.class)))
+                .thenReturn(List.of(message));
+        when(messageRepository.findByUserIdAndIdLessThanOrderByCreatedAtDesc(eq(1L), eq(9L), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        List<Map<String, Object>> history = messageService.getHistory(1L, 50, null, null);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) history.get(0).get("payload");
+        assertEquals("user secret", payload.get("text"));
     }
 
     @Test

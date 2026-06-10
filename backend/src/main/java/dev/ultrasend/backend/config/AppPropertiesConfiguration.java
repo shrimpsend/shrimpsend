@@ -7,7 +7,8 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties({
         AdminProperties.class,
         MessageEncryptionProperties.class,
-        StorageS3Properties.class
+        StorageS3Properties.class,
+        UserDataEncryptionProperties.class
 })
 public class AppPropertiesConfiguration {
 }

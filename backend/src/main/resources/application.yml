@@ -46,6 +46,12 @@ app:
       key-base64: "${APP_MESSAGES_ENCRYPTION_KEY_BASE64:}"
       allow-dev-fallback-key: ${APP_MESSAGES_ENCRYPTION_ALLOW_DEV_FALLBACK:true}
       migrate-on-startup: ${APP_MESSAGES_ENCRYPTION_MIGRATE_ON_STARTUP:false}
+  user-data:
+    encryption:
+      kek-base64: "${APP_USER_DATA_ENCRYPTION_KEK_BASE64:}"
+      allow-dev-fallback-kek: ${APP_USER_DATA_ENCRYPTION_ALLOW_DEV_FALLBACK:true}
+      migrate-s3-on-startup: ${APP_USER_DATA_ENCRYPTION_MIGRATE_S3_ON_STARTUP:false}
+      migrate-messages-on-startup: ${APP_USER_DATA_ENCRYPTION_MIGRATE_MESSAGES_ON_STARTUP:false}
   cors:
     allowed-origins: "http://localhost:*,http://127.0.0.1:*,http://192.168.*.*:*,http://10.*.*.*:*"
   jwt:
