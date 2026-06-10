@@ -22,7 +22,7 @@ extension UIColor {
 }
 
 class OutboxButton: UIControl {
-    private let blurEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+    private let blurEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
     private let colorOverlayView = UIView()
     private let iconView = UIImageView()
     private let badgeLabel = UILabel()
@@ -44,6 +44,7 @@ class OutboxButton: UIControl {
         layer.masksToBounds = false
         layer.borderWidth = 0.5
         updateBorderColor()
+        updateBackgroundColor()
         
         // Subview blurEffectView clips its own content
         blurEffectView.layer.cornerRadius = 32
@@ -102,11 +103,17 @@ class OutboxButton: UIControl {
         setBadge(count: 0)
     }
     
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateBorderColor()
+        updateBackgroundColor()
+        updateColorOverlay()
+    }
+    
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            updateBorderColor()
-            updateColorOverlay()
+            setNeedsLayout()
         }
     }
     
@@ -116,19 +123,25 @@ class OutboxButton: UIControl {
                 return trait.userInterfaceStyle == .dark
                     ? UIColor(white: 1.0, alpha: 0.15)
                     : UIColor(white: 0.0, alpha: 0.06)
-            }.cgColor
+            }.resolvedColor(with: traitCollection).cgColor
         } else {
             layer.borderColor = UIColor(white: 0.0, alpha: 0.06).cgColor
         }
     }
     
+    private func updateBackgroundColor() {
+        backgroundColor = .clear
+    }
+    
     private func updateColorOverlay() {
         if #available(iOS 13.0, *) {
-            colorOverlayView.backgroundColor = traitCollection.userInterfaceStyle == .dark
-                ? UIColor(white: 0.0, alpha: 0.15)
-                : UIColor(white: 1.0, alpha: 0.75)
+            colorOverlayView.backgroundColor = UIColor { trait in
+                return trait.userInterfaceStyle == .dark
+                    ? UIColor(red: 30/255.0, green: 30/255.0, blue: 32/255.0, alpha: 0.1)
+                    : UIColor(red: 247/255.0, green: 249/255.0, blue: 253/255.0, alpha: 0.1)
+            }.resolvedColor(with: traitCollection)
         } else {
-            colorOverlayView.backgroundColor = UIColor(white: 1.0, alpha: 0.75)
+            colorOverlayView.backgroundColor = UIColor(red: 247/255.0, green: 249/255.0, blue: 253/255.0, alpha: 0.1)
         }
     }
     
@@ -187,6 +200,43 @@ class NativeTabBarView: UIView, UITabBarDelegate {
         setupView()
     }
     
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            updateAppearance()
+        }
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            updateAppearance()
+        }
+    }
+    
+    private func updateAppearance() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithDefaultBackground()
+        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+        
+        if #available(iOS 13.0, *) {
+            appearance.backgroundColor = UIColor { trait in
+                return trait.userInterfaceStyle == .dark
+                    ? UIColor(white: 0.1, alpha: 0.15)
+                    : UIColor(white: 1.0, alpha: 0.15)
+            }
+        } else {
+            appearance.backgroundColor = UIColor(white: 1.0, alpha: 0.15)
+        }
+        
+        appearance.shadowColor = .clear
+        
+        systemTabBar.standardAppearance = appearance
+        if #available(iOS 15.0, *) {
+            systemTabBar.scrollEdgeAppearance = appearance
+        }
+    }
+    
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         let tabBarPoint = convert(point, to: systemTabBar)
         let outboxPoint = convert(point, to: outboxButton)
@@ -203,12 +253,7 @@ class NativeTabBarView: UIView, UITabBarDelegate {
         systemTabBar.translatesAutoresizingMaskIntoConstraints = false
         addSubview(systemTabBar)
         
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
-        systemTabBar.standardAppearance = appearance
-        if #available(iOS 15.0, *) {
-            systemTabBar.scrollEdgeAppearance = appearance
-        }
+        updateAppearance()
         
         // 2. Outbox Glass Button Layout
         outboxButton.translatesAutoresizingMaskIntoConstraints = false

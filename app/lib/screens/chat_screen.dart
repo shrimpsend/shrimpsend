@@ -8149,6 +8149,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         MediaQuery.sizeOf(context).width < kChatNarrowLayoutBreakpoint;
 
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     final hexColor = '#${theme.colorScheme.primary.value.toRadixString(16).substring(2)}';
     final l10n = AppLocalizations.of(context);
 
@@ -8160,6 +8161,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       connectLabel: l10n.mobileHomeTabConnect,
       filesLabel: l10n.mobileHomeTabFiles,
       settingsLabel: l10n.mobileHomeTabSettings,
+      isDarkMode: isDarkMode,
     ));
   }
 

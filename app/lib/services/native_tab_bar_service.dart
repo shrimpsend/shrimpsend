@@ -21,6 +21,7 @@ class NativeTabBarService {
   String? _lastConnectLabel;
   String? _lastFilesLabel;
   String? _lastSettingsLabel;
+  bool? _lastIsDarkMode;
 
   void init() {
     _channel.setMethodCallHandler((call) async {
@@ -44,6 +45,7 @@ class NativeTabBarService {
     required String connectLabel,
     required String filesLabel,
     required String settingsLabel,
+    required bool isDarkMode,
   }) async {
     if (visible == _lastVisible &&
         selectedIndex == _lastSelectedIndex &&
@@ -51,7 +53,8 @@ class NativeTabBarService {
         primaryColorHex == _lastPrimaryColorHex &&
         connectLabel == _lastConnectLabel &&
         filesLabel == _lastFilesLabel &&
-        settingsLabel == _lastSettingsLabel) {
+        settingsLabel == _lastSettingsLabel &&
+        isDarkMode == _lastIsDarkMode) {
       return;
     }
     _lastVisible = visible;
@@ -61,6 +64,7 @@ class NativeTabBarService {
     _lastConnectLabel = connectLabel;
     _lastFilesLabel = filesLabel;
     _lastSettingsLabel = settingsLabel;
+    _lastIsDarkMode = isDarkMode;
 
     try {
       await _channel.invokeMethod('updateState', {
@@ -71,6 +75,7 @@ class NativeTabBarService {
         'connectLabel': connectLabel,
         'filesLabel': filesLabel,
         'settingsLabel': settingsLabel,
+        'isDarkMode': isDarkMode,
       });
     } on PlatformException catch (e) {
       print('NativeTabBarService: failed to update state: $e');
