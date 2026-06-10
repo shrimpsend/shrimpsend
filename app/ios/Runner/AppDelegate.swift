@@ -164,6 +164,11 @@ class NativeTabBarController: NSObject, NativeTabBarViewDelegate {
             return
         }
         
+        let isDarkMode = arguments["isDarkMode"] as? Bool ?? false
+        if #available(iOS 13.0, *) {
+            containerView?.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
+        }
+        
         tabBarView?.update(
             selectedIndex: selectedIndex,
             badgeCount: badgeCount,
