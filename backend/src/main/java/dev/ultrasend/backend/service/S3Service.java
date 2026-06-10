@@ -21,12 +21,14 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.*;
 
 import java.time.Duration;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class S3Service {
+
+    /** Legacy BYO object key prefix used by pre-refactor Web direct upload. */
+    static final String LEGACY_UPLOAD_PREFIX = "uploads/";
 
     private final S3ConfigRepository s3ConfigRepository;
     private final UserRepository userRepository;
@@ -203,15 +205,16 @@ public class S3Service {
         }
         S3Config config = s3ConfigRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("S3 not configured"));
-        String key = "ultrasend/" + userId + "/" + UUID.randomUUID() + "/" + fileName;
+        String key = generateByoUploadKey(fileName);
         log.debug("s3 presignUpload userId={} key={}", userId, key);
 
         S3Presigner presigner = buildPresigner(userId, config);
 
+        // Do not sign Content-Type: legacy Web presign only signed host, and browser may send
+        // a Content-Type that differs from the presign default.
         PutObjectRequest putRequest = PutObjectRequest.builder()
                 .bucket(config.getBucket())
                 .key(key)
-                .contentType(contentType != null ? contentType : "application/octet-stream")
                 .build();
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofHours(1))
@@ -233,10 +236,7 @@ public class S3Service {
         }
         S3Config config = s3ConfigRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("S3 not configured"));
-        if (!key.startsWith("ultrasend/" + userId + "/")) {
-            log.warn("s3 presignDownload invalid key userId={} key={}", userId, key);
-            throw new IllegalArgumentException("Invalid key");
-        }
+        validateKeyOwnership(userId, key);
         log.debug("s3 presignDownload userId={} key={}", userId, key);
         S3Presigner presigner = buildPresigner(userId, config);
         GetObjectRequest getRequest = GetObjectRequest.builder()
@@ -263,7 +263,7 @@ public class S3Service {
         }
         S3Config config = s3ConfigRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("S3 not configured"));
-        String key = "ultrasend/" + userId + "/" + UUID.randomUUID() + "/" + fileName;
+        String key = generateByoUploadKey(fileName);
         log.info("s3 initiateMultipart userId={} key={}", userId, key);
 
         try (S3Client client = buildS3Client(userId, config)) {
@@ -361,10 +361,30 @@ public class S3Service {
 
     // ── Helpers ────────────────────────────────────────────────────────
 
-    private void validateKeyOwnership(Long userId, String key) {
-        if (!key.startsWith("ultrasend/" + userId + "/")) {
+    void validateKeyOwnership(Long userId, String key) {
+        if (key == null || key.isBlank() || key.startsWith("/") || key.contains("..")) {
             throw new IllegalArgumentException("Invalid key");
         }
+        if (key.startsWith("ultrasend/" + userId + "/")) {
+            return;
+        }
+        if (key.startsWith(LEGACY_UPLOAD_PREFIX)) {
+            return;
+        }
+        throw new IllegalArgumentException("Invalid key");
+    }
+
+    /**
+     * Legacy BYO upload key: uploads/{timestamp}-{safeBase}{ext}.
+     * Matches pre-refactor Web {@code s3DirectClient.generateKey()}.
+     */
+    static String generateByoUploadKey(String fileName) {
+        long ts = System.currentTimeMillis();
+        int dotIdx = fileName.lastIndexOf('.');
+        String ext = dotIdx >= 0 ? fileName.substring(dotIdx) : "";
+        String baseName = dotIdx >= 0 ? fileName.substring(0, dotIdx) : fileName;
+        String safeBase = baseName.replaceAll("[^a-zA-Z0-9\\-_]", "_");
+        return LEGACY_UPLOAD_PREFIX + ts + "-" + safeBase + ext;
     }
 
     private static boolean resolvePathStyle(Boolean pathStyleAccessEnabled) {
