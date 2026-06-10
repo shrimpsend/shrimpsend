@@ -385,7 +385,7 @@ final selectedDeviceIdProvider =
 
 final s3ConfiguredProvider = StateProvider<bool>((_) => false);
 
-/// True when [hasS3Config] and [testS3Config] succeed (actual S3 connectivity).
+/// True when [hasS3Config] and [checkS3Online] succeed (actual S3 connectivity).
 final s3OnlineProvider = StateProvider<bool>((_) => false);
 final s3CheckingProvider = StateProvider<bool>((_) => true);
 

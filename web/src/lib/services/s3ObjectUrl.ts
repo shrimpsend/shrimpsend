@@ -5,6 +5,12 @@ export type S3ObjectUrlParams = {
   pathStyleAccessEnabled?: boolean;
 };
 
+export type S3BucketUrlParams = {
+  endpoint: string;
+  bucket: string;
+  pathStyleAccessEnabled?: boolean;
+};
+
 function normalizeEndpoint(endpoint: string): string {
   return endpoint.replace(/\/$/, '');
 }

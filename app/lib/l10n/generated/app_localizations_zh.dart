@@ -1356,7 +1356,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get s3SettingsClearTitle => '清空配置';
 
   @override
-  String get s3SettingsClearBody => '确定要清空所有配置项吗？将删除服务端与本地缓存中的 S3 配置。';
+  String get s3SettingsClearBody => '确定要清空所有配置项吗？将删除服务端保存的 S3 配置。';
 
   @override
   String get s3SettingsClearConfirm => '清空';
@@ -2191,13 +2191,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connectionDiagStatusSkipped => '已跳过';
 
   @override
-  String get connectionDiagReasonS3Online => 'S3 配置正常，云端可达';
+  String get connectionDiagReasonS3Online => 'S3 配置正常，本机可达';
 
   @override
   String get connectionDiagReasonS3NotConfigured => 'S3 未配置';
 
   @override
-  String get connectionDiagReasonS3Unavailable => 'S3 已配置但云端不可达';
+  String get connectionDiagReasonS3Unavailable => 'S3 已配置但本机不可达';
 
   @override
   String get connectionDiagReasonHttpDirectOk => '局域网 HTTP 直连成功';
@@ -2294,7 +2294,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get connectionDiagHelpS3Body =>
-      '检测账号的 S3 存储配置是否完整，并向云端发起连通性测试。\n\n用于确认：当所有局域网/直连方式均不可用时，是否可降级到 S3 云中转传输文件。';
+      '检测账号的 S3 存储配置是否完整；自建模式下由服务端签发探测链接，在本机 HEAD 验证 S3 可达。\n\n用于确认：当所有局域网/直连方式均不可用时，是否可降级到 S3 云中转传输文件。';
 
   @override
   String get connectionDiagHelpTooltip => '了解检测原理';

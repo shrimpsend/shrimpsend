@@ -31,6 +31,7 @@ export {
   saveS3Config,
   clearS3Config,
   testS3Config,
+  checkS3Online,
   presignUpload,
   getDownloadUrl,
   switchToHostedS3,

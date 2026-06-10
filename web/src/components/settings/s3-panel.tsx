@@ -18,7 +18,6 @@ import {
 } from '@/lib/api';
 import { analyticsTrack } from '@/lib/analytics';
 import { AnalyticsEvents } from '@/lib/analyticsEvents';
-import { s3ConfigCache } from '@/lib/services/s3ConfigCache';
 import { logger } from '@/lib/logger';
 import { formatUiMessage } from '@/lib/uiMessage';
 import { formatFileSize } from '@/lib/fileUtils';
@@ -151,29 +150,6 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
       try {
         await saveS3Config(form);
 
-        if (form.secretAccessKey) {
-          s3ConfigCache.save({
-            endpoint: form.endpoint,
-            region: form.region || 'cn-east-1',
-            bucket: form.bucket,
-            accessKeyId: form.accessKeyId,
-            secretAccessKey: form.secretAccessKey,
-            pathStyleAccessEnabled: form.pathStyleAccessEnabled ?? true,
-          });
-        } else {
-          const cached = s3ConfigCache.load();
-          if (cached) {
-            s3ConfigCache.save({
-              ...cached,
-              endpoint: form.endpoint,
-              region: form.region || 'cn-east-1',
-              bucket: form.bucket,
-              accessKeyId: form.accessKeyId,
-              pathStyleAccessEnabled: form.pathStyleAccessEnabled ?? true,
-            });
-          }
-        }
-
         setMode('CUSTOM');
         setCustomSaved(true);
         setCustomFormRevealed(false);
@@ -255,7 +231,6 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
     setErrorMessage(null);
     try {
       await switchToCustomS3();
-      // 同步本地缓存（含密钥），后续直传走本地 SigV4
       const data = await getS3Config();
       setMode(data.mode);
       setHostedAvailable(data.hostedAvailable);
@@ -362,15 +337,6 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
         </div>
       )}
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <Button
-          type="button"
-          variant="outline"
-          className="sm:flex-1"
-          onClick={onTest}
-          disabled={testing}
-        >
-          {testing ? t('s3.testTesting') : t('s3.testButton')}
-        </Button>
         {customFormRevealed ? (
           <Button
             type="button"

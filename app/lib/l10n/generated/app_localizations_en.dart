@@ -1401,7 +1401,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get s3SettingsClearBody =>
-      'Clear all fields? This removes S3 settings from the server and local cache.';
+      'Clear all fields? This removes S3 settings saved on the server.';
 
   @override
   String get s3SettingsClearConfirm => 'Clear';
@@ -2277,14 +2277,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connectionDiagReasonS3Online =>
-      'S3 configured and cloud reachable';
+      'S3 configured and reachable from this device';
 
   @override
   String get connectionDiagReasonS3NotConfigured => 'S3 not configured';
 
   @override
   String get connectionDiagReasonS3Unavailable =>
-      'S3 configured but cloud unreachable';
+      'S3 configured but unreachable from this device';
 
   @override
   String get connectionDiagReasonHttpDirectOk =>
@@ -2397,7 +2397,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connectionDiagHelpS3Body =>
-      'Verifies that S3 storage is configured for your account and tests cloud reachability.\n\nThis checks whether files can fall back to S3 cloud relay when all LAN/direct paths are unavailable.';
+      'Checks that S3 storage is configured. For custom S3, the server issues a presigned probe URL and this device runs HEAD to verify reachability.\n\nThis checks whether files can fall back to S3 cloud relay when all LAN/direct paths are unavailable.';
 
   @override
   String get connectionDiagHelpTooltip => 'How this check works';

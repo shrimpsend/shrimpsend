@@ -20,7 +20,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     runtimeOnly("com.mysql:mysql-connector-j")
-    implementation("software.amazon.awssdk:s3:2.21.0")
+    implementation("software.amazon.awssdk:s3:2.31.77")
     implementation("com.stripe:stripe-java:24.16.0")
     implementation("io.jsonwebtoken:jjwt-api:0.12.3")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.3")

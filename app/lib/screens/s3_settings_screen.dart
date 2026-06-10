@@ -8,7 +8,6 @@ import '../l10n/generated/app_localizations.dart';
 import '../logger.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
-import '../services/s3_config_cache.dart';
 import '../ui/app_ui.dart';
 import '../utils/auth_route_guard.dart';
 import '../utils/file_utils.dart';
@@ -169,38 +168,6 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
         ),
       );
 
-      String effectiveSecret = secretAccessKey;
-      if (effectiveSecret.isEmpty) {
-        final cached = await S3ConfigCache.instance.load();
-        if (cached != null) effectiveSecret = cached.secretAccessKey;
-      }
-      if (effectiveSecret.isNotEmpty) {
-        await S3ConfigCache.instance.save(
-          S3LocalConfig(
-            endpoint: endpoint,
-            region: region,
-            bucket: bucket,
-            accessKeyId: accessKeyId,
-            secretAccessKey: effectiveSecret,
-            pathStyleAccessEnabled: _pathStyleAccessEnabled,
-          ),
-        );
-      } else {
-        final cached = await S3ConfigCache.instance.load();
-        if (cached != null) {
-          await S3ConfigCache.instance.save(
-            S3LocalConfig(
-              endpoint: endpoint,
-              region: region,
-              bucket: bucket,
-              accessKeyId: accessKeyId,
-              secretAccessKey: cached.secretAccessKey,
-              pathStyleAccessEnabled: _pathStyleAccessEnabled,
-            ),
-          );
-        }
-      }
-
       if (mounted) {
         setState(() {
           _mode = S3StorageMode.custom;
@@ -270,7 +237,6 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
     });
     try {
       await clearS3Config();
-      await S3ConfigCache.instance.clear();
       if (!mounted) return;
       _resetFormFields();
       _formKey.currentState?.reset();
@@ -316,7 +282,6 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
     try {
       // 仅切换偏好，后端保留 BYO 凭证以便后续一键切回
       await useHostedS3();
-      await S3ConfigCache.instance.clear();
       if (!mounted) return;
       _resetFormFields();
       _formKey.currentState?.reset();
@@ -348,7 +313,6 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
     });
     try {
       await useCustomS3();
-      // 重新拉取以同步本地缓存（含密钥），后续直传走本地 SigV4
       await getS3Config();
       if (!mounted) return;
       await _load();
@@ -538,48 +502,26 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
               ),
             ],
             const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _testing ? null : _test,
-                    icon: const Icon(LucideIcons.activity, size: 16),
-                    label: Text(
-                      _testing
-                          ? l10n.s3SettingsTesting
-                          : l10n.s3SettingsTestConnection,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _customFormRevealed
-                      ? TextButton(
-                          onPressed: () =>
-                              setState(() => _customFormRevealed = false),
-                          child: Text(l10n.s3SettingsCollapseCustomForm),
-                        )
-                      : (_customSaved
-                          ? OutlinedButton.icon(
-                              onPressed: _switchingToCustom
-                                  ? null
-                                  : _switchToSavedCustom,
-                              icon: const Icon(LucideIcons.refreshCw, size: 16),
-                              label: Text(
-                                _switchingToCustom
-                                    ? l10n.s3SettingsSwitching
-                                    : l10n.s3SettingsUseSavedCustom,
-                              ),
-                            )
-                          : OutlinedButton.icon(
-                              onPressed: () =>
-                                  setState(() => _customFormRevealed = true),
-                              icon: const Icon(LucideIcons.settings2, size: 16),
-                              label: Text(l10n.s3SettingsSwitchToCustom),
-                            )),
-                ),
-              ],
-            ),
+            _customFormRevealed
+                ? TextButton(
+                    onPressed: () => setState(() => _customFormRevealed = false),
+                    child: Text(l10n.s3SettingsCollapseCustomForm),
+                  )
+                : (_customSaved
+                    ? OutlinedButton.icon(
+                        onPressed: _switchingToCustom ? null : _switchToSavedCustom,
+                        icon: const Icon(LucideIcons.refreshCw, size: 16),
+                        label: Text(
+                          _switchingToCustom
+                              ? l10n.s3SettingsSwitching
+                              : l10n.s3SettingsUseSavedCustom,
+                        ),
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: () => setState(() => _customFormRevealed = true),
+                        icon: const Icon(LucideIcons.settings2, size: 16),
+                        label: Text(l10n.s3SettingsSwitchToCustom),
+                      )),
           ],
         ),
       ),

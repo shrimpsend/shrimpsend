@@ -2,7 +2,6 @@ import {
   abortMultipartUpload as apiAbortMultipart,
   completeMultipartUpload as apiCompleteMultipart,
   getDownloadUrl as apiGetDownloadUrl,
-  getS3Config,
   initiateMultipartUpload as apiInitiateMultipart,
   presignUpload as apiPresignUpload,
   presignUploadPart as apiPresignUploadPart,
@@ -15,8 +14,6 @@ import type {
   CloudDownloadResult,
   OnTransferProgress,
 } from './cloudTransfer';
-import { S3DirectClient } from './s3DirectClient';
-import { s3ConfigCache } from './s3ConfigCache';
 import { transferStateManager } from './transferStateManager';
 import type { CompletedPart } from './transferRecord';
 import {
@@ -29,70 +26,24 @@ const TAG = 's3Transfer';
 const MULTIPART_THRESHOLD = 5 * 1024 * 1024; // 5 MB
 const PART_SIZE = 10 * 1024 * 1024; // 10 MB
 
-/**
- * 没有本地 BYO 凭证时所有上传/下载都走后端 presign。
- * 后端会按用户当前 mode（HOSTED 走平台桶；CUSTOM 走用户桶）自动路由，
- * 因此前端只需要按「本地缓存有无」选择直连还是后端代理路径即可。
- */
-function shouldUseBackendRouting(): boolean {
-  return s3ConfigCache.load() == null;
-}
-
-async function getDirectClient(): Promise<S3DirectClient> {
-  let client = S3DirectClient.create();
-  if (!client) {
-    logger.info(TAG, 'no local cache, fetching config to sync');
-    await getS3Config();
-    client = S3DirectClient.create();
-  }
-  if (!client) throw new Error('errors.s3NoCustomCreds');
-  return client;
-}
-
+/** 上传/下载统一走后端 presign，客户端直连 S3 URL（密钥不落地）。 */
 export class S3TransferService implements CloudTransferService {
   async upload(
     file: File,
     onProgress?: OnTransferProgress,
     abortSignal?: AbortSignal,
   ): Promise<CloudUploadResult> {
-    if (shouldUseBackendRouting()) {
-      if (file.size >= MULTIPART_THRESHOLD) {
-        try {
-          return await this._hostedBackendMultipartUpload(file, onProgress, abortSignal);
-        } catch (e) {
-          logger.warn(TAG, 'hosted multipart upload failed, falling back to simple', e);
-        }
-      }
-      return this._hostedBackendSimpleUpload(file, onProgress, abortSignal);
-    }
-
     if (file.size >= MULTIPART_THRESHOLD) {
       try {
-        return await this._multipartUpload(file, onProgress, abortSignal);
+        return await this._backendMultipartUpload(file, onProgress, abortSignal);
       } catch (e) {
-        logger.warn(TAG, 'multipart upload failed, falling back to simple upload', e);
-        return this._simpleUpload(file, onProgress, abortSignal);
+        logger.warn(TAG, 'multipart upload failed, falling back to simple', e);
       }
     }
-    return this._simpleUpload(file, onProgress, abortSignal);
+    return this._backendSimpleUpload(file, onProgress, abortSignal);
   }
 
-  private async _simpleUpload(
-    file: File,
-    onProgress?: OnTransferProgress,
-    abortSignal?: AbortSignal,
-  ): Promise<CloudUploadResult> {
-    const s3 = await getDirectClient();
-    const key = s3.generateKey(file.name);
-    const uploadUrl = await s3.presignPutUrl(key);
-    await this._putViaXhr(uploadUrl, file, onProgress, abortSignal);
-    onProgress?.(file.size, file.size);
-    logger.info(TAG, 'simple upload ok', file.name, 'key=', key);
-    return { key, fileName: file.name };
-  }
-
-  /** 通过后端 presign 的简单上传（HOSTED 用户走平台桶）。 */
-  private async _hostedBackendSimpleUpload(
+  private async _backendSimpleUpload(
     file: File,
     onProgress?: OnTransferProgress,
     abortSignal?: AbortSignal,
@@ -100,7 +51,7 @@ export class S3TransferService implements CloudTransferService {
     const pres = await apiPresignUpload(file.name, file.type || undefined, file.size);
     await this._putViaXhr(pres.uploadUrl, file, onProgress, abortSignal);
     onProgress?.(file.size, file.size);
-    logger.info(TAG, 'hosted simple upload ok', file.name, 'key=', pres.key);
+    logger.info(TAG, 'simple upload ok', file.name, 'key=', pres.key);
     return { key: pres.key, fileName: file.name };
   }
 
@@ -144,12 +95,11 @@ export class S3TransferService implements CloudTransferService {
     });
   }
 
-  private async _multipartUpload(
+  private async _backendMultipartUpload(
     file: File,
     onProgress?: OnTransferProgress,
     abortSignal?: AbortSignal,
   ): Promise<CloudUploadResult> {
-    const s3 = await getDirectClient();
     const mgr = transferStateManager;
 
     let record = mgr.findResumable({
@@ -168,72 +118,6 @@ export class S3TransferService implements CloudTransferService {
       key = record.s3Key;
       completedParts = [...(record.s3CompletedParts ?? [])];
       logger.info(TAG, 'multipart resume uploadId=', uploadId, 'completed=', completedParts.length);
-    } else {
-      const newKey = s3.generateKey(file.name);
-      const initResp = await s3.initiateMultipartUpload(
-        newKey,
-        file.type || 'application/octet-stream',
-      );
-      uploadId = initResp.uploadId;
-      key = initResp.key;
-      completedParts = [];
-
-      const now = new Date().toISOString();
-      record = {
-        transferId: generateUUID(),
-        fileName: file.name,
-        fileSize: file.size,
-        channel: 's3',
-        direction: 'upload',
-        status: 'in_progress',
-        transferredBytes: 0,
-        createdAt: now,
-        updatedAt: now,
-        s3UploadId: uploadId,
-        s3Key: key,
-        s3CompletedParts: [],
-      };
-      mgr.saveRecord(record);
-    }
-
-    return this._runMultipartLoop({
-      file,
-      uploadId,
-      key,
-      completedParts,
-      record,
-      mgr,
-      presignPart: (n) => s3.presignUploadPartUrl(key, uploadId, n),
-      complete: (parts) => s3.completeMultipartUpload(key, uploadId, parts),
-      onProgress,
-      abortSignal,
-    });
-  }
-
-  /** 通过后端 presign 的分片上传（HOSTED 用户走平台桶）。 */
-  private async _hostedBackendMultipartUpload(
-    file: File,
-    onProgress?: OnTransferProgress,
-    abortSignal?: AbortSignal,
-  ): Promise<CloudUploadResult> {
-    const mgr = transferStateManager;
-
-    let record = mgr.findResumable({
-      channel: 's3',
-      direction: 'upload',
-      fileName: file.name,
-      fileSize: file.size,
-    });
-
-    let uploadId: string;
-    let key: string;
-    let completedParts: CompletedPart[];
-
-    if (record?.s3UploadId && record?.s3Key) {
-      uploadId = record.s3UploadId;
-      key = record.s3Key;
-      completedParts = [...(record.s3CompletedParts ?? [])];
-      logger.info(TAG, 'hosted multipart resume uploadId=', uploadId, 'completed=', completedParts.length);
     } else {
       const initResp = await apiInitiateMultipart(
         file.name,
@@ -272,7 +156,7 @@ export class S3TransferService implements CloudTransferService {
       presignPart: (n) => apiPresignUploadPart(uploadId, key, n),
       complete: (parts) => apiCompleteMultipart(uploadId, key, parts),
       abortRemote: () => apiAbortMultipart(uploadId, key).catch((e) => {
-        logger.warn(TAG, 'hosted abortMultipartUpload failed', e);
+        logger.warn(TAG, 'abortMultipartUpload failed', e);
       }),
       onProgress,
       abortSignal,
@@ -413,14 +297,7 @@ export class S3TransferService implements CloudTransferService {
   }
 }
 
-/**
- * 解析任意 S3 对象的下载 URL。优先使用本地 BYO 直连（SigV4），
- * 没有缓存则走后端 `/api/s3/download-url`，让后端按用户当前 mode 自动签名。
- */
+/** 解析 S3 对象下载 URL（统一走后端 presign）。 */
 export async function resolveDownloadUrl(key: string): Promise<string> {
-  const client = S3DirectClient.create();
-  if (client) {
-    return client.presignGetUrl(key);
-  }
   return apiGetDownloadUrl(key);
 }

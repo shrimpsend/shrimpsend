@@ -2619,7 +2619,7 @@ abstract class AppLocalizations {
   /// No description provided for @s3SettingsClearBody.
   ///
   /// In en, this message translates to:
-  /// **'Clear all fields? This removes S3 settings from the server and local cache.'**
+  /// **'Clear all fields? This removes S3 settings saved on the server.'**
   String get s3SettingsClearBody;
 
   /// No description provided for @s3SettingsClearConfirm.
@@ -4095,7 +4095,7 @@ abstract class AppLocalizations {
   /// No description provided for @connectionDiagReasonS3Online.
   ///
   /// In en, this message translates to:
-  /// **'S3 configured and cloud reachable'**
+  /// **'S3 configured and reachable from this device'**
   String get connectionDiagReasonS3Online;
 
   /// No description provided for @connectionDiagReasonS3NotConfigured.
@@ -4107,7 +4107,7 @@ abstract class AppLocalizations {
   /// No description provided for @connectionDiagReasonS3Unavailable.
   ///
   /// In en, this message translates to:
-  /// **'S3 configured but cloud unreachable'**
+  /// **'S3 configured but unreachable from this device'**
   String get connectionDiagReasonS3Unavailable;
 
   /// No description provided for @connectionDiagReasonHttpDirectOk.
@@ -4281,7 +4281,7 @@ abstract class AppLocalizations {
   /// No description provided for @connectionDiagHelpS3Body.
   ///
   /// In en, this message translates to:
-  /// **'Verifies that S3 storage is configured for your account and tests cloud reachability.\n\nThis checks whether files can fall back to S3 cloud relay when all LAN/direct paths are unavailable.'**
+  /// **'Checks that S3 storage is configured. For custom S3, the server issues a presigned probe URL and this device runs HEAD to verify reachability.\n\nThis checks whether files can fall back to S3 cloud relay when all LAN/direct paths are unavailable.'**
   String get connectionDiagHelpS3Body;
 
   /// No description provided for @connectionDiagHelpTooltip.

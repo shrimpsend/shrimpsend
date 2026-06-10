@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCentrifuge, type CentrifugeLifecycle } from '@/hooks/useCentrifuge';
 import { useSendTargetProbes, isReachOnline, type ReachStatus, type DeviceReachEntry, type DeviceReachDetail } from '@/hooks/useSendTargetProbes';
-import { listDevices, registerDevice, updateDevicePresence, sendMessage, getMessageHistory, deleteMessage, deleteThreadMessages, hasS3Config, testS3Config, updateDevice } from '@/lib/api';
+import { listDevices, registerDevice, updateDevicePresence, sendMessage, getMessageHistory, deleteMessage, deleteThreadMessages, hasS3Config, checkS3Online, updateDevice } from '@/lib/api';
 import type { DeviceDto, MessageEnvelope, ChatMessage } from '@/lib/api';
 import { getOrCreateDeviceId, getDeviceName, getOrCreatePresenceSessionId, generateUUID } from '@/lib/deviceId';
 import { logger } from '@/lib/logger';
@@ -1054,7 +1054,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     };
   }, [userId, presenceSessionId, loadDevices]);
 
-  // Config flag + connectivity test (/api/s3/test)
+  // Config flag + connectivity (CUSTOM: presigned HEAD from client; HOSTED: configured only)
   const runS3ConfigCheck = useCallback(async (seq: number) => {
     try {
       const ok = await hasS3Config();
@@ -1062,12 +1062,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setS3Configured(ok);
       let online = false;
       if (ok && userId) {
-        try {
-          await testS3Config();
-          online = true;
-        } catch {
-          online = false;
-        }
+        online = await checkS3Online();
       }
       if (seq !== checkS3SeqRef.current) return;
       setS3Online(online);
@@ -1103,12 +1098,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const configured = await hasS3Config();
       if (!configured) return { configured: false, online: false };
       if (!userId) return { configured: true, online: false };
-      try {
-        await testS3Config();
-        return { configured: true, online: true };
-      } catch {
-        return { configured: true, online: false };
-      }
+      const online = await checkS3Online();
+      return { configured: true, online };
     } catch {
       return { configured: false, online: false };
     }

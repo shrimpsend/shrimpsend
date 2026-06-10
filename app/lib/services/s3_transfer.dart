@@ -9,8 +9,6 @@ import 'cancel_token.dart';
 import 'cloud_transfer.dart';
 import 'file_hash.dart';
 import 'file_times_apply.dart';
-import 's3_config_cache.dart';
-import 's3_direct_client.dart';
 import 'transfer_protocol.dart';
 import 'transfer_record.dart';
 import 'transfer_state_manager.dart';
@@ -20,27 +18,7 @@ const _multipartThreshold = 5 * 1024 * 1024; // 5 MB
 const _partSize = 10 * 1024 * 1024; // 10 MB per part
 
 class S3TransferService extends CloudTransferService {
-  /// 没有本地 BYO 缓存时，所有上传/下载都走后端 presign。
-  /// 后端会按用户当前 mode（HOSTED 走平台桶；CUSTOM 走用户桶）自动路由。
-  Future<bool> _useBackendRouting() async {
-    return (await S3ConfigCache.instance.load()) == null;
-  }
-
-  Future<S3DirectClient> _getDirectClient() async {
-    S3DirectClient? client = await S3DirectClient.create();
-    if (client == null) {
-      logChat.info(
-        'S3TransferService: no local cache, fetching config to sync',
-      );
-      await getS3Config();
-      client = await S3DirectClient.create();
-    }
-    if (client == null) {
-      throw Exception('S3 直连客户端不可用：缺少自建 S3 凭证');
-    }
-    return client;
-  }
-
+  /// 上传/下载统一走后端 presign，客户端直连 S3 URL（密钥不落地）。
   @override
   Future<CloudUploadResult> upload({
     required String fileName,
@@ -55,37 +33,9 @@ class S3TransferService extends CloudTransferService {
       throw Exception('无法读取文件');
     }
 
-    if (await _useBackendRouting()) {
-      if (fileSize >= _multipartThreshold && filePath != null) {
-        try {
-          return await _hostedBackendMultipartUpload(
-            fileName: fileName,
-            fileSize: fileSize,
-            filePath: filePath,
-            contentType: contentType,
-            cancelToken: cancelToken,
-            onProgress: onProgress,
-          );
-        } catch (e) {
-          logChat.warning(
-            'hosted multipart upload failed, falling back to simple: $e',
-          );
-        }
-      }
-      return _hostedBackendUpload(
-        fileName: fileName,
-        fileSize: fileSize,
-        filePath: filePath,
-        bytes: bytes,
-        contentType: contentType,
-        cancelToken: cancelToken,
-        onProgress: onProgress,
-      );
-    }
-
     if (fileSize >= _multipartThreshold && filePath != null) {
       try {
-        return await _multipartUpload(
+        return await _hostedBackendMultipartUpload(
           fileName: fileName,
           fileSize: fileSize,
           filePath: filePath,
@@ -95,21 +45,11 @@ class S3TransferService extends CloudTransferService {
         );
       } catch (e) {
         logChat.warning(
-          'S3 multipart upload failed, falling back to simple upload: $e',
-        );
-        return _simpleUpload(
-          fileName: fileName,
-          fileSize: fileSize,
-          filePath: filePath,
-          bytes: null,
-          contentType: contentType,
-          cancelToken: cancelToken,
-          onProgress: onProgress,
+          'hosted multipart upload failed, falling back to simple: $e',
         );
       }
     }
-
-    return _simpleUpload(
+    return _hostedBackendUpload(
       fileName: fileName,
       fileSize: fileSize,
       filePath: filePath,
@@ -120,62 +60,7 @@ class S3TransferService extends CloudTransferService {
     );
   }
 
-  Future<CloudUploadResult> _simpleUpload({
-    required String fileName,
-    required int fileSize,
-    String? filePath,
-    List<int>? bytes,
-    String? contentType,
-    CancelToken? cancelToken,
-    OnTransferProgress? onProgress,
-  }) async {
-    final s3 = await _getDirectClient();
-    final key = s3.generateKey(fileName);
-    final uploadUrl = s3.presignPutUrl(key);
-    if (cancelToken?.isCancelled == true) throw Exception('已取消');
-
-    const maxRetries = 2;
-    Exception? lastError;
-    for (var attempt = 0; attempt < maxRetries; attempt++) {
-      if (cancelToken?.isCancelled == true) throw Exception('已取消');
-      try {
-        await _simpleUploadOnce(
-          uploadUrl: uploadUrl,
-          fileName: fileName,
-          fileSize: fileSize,
-          filePath: filePath,
-          bytes: bytes,
-          contentType: contentType,
-          cancelToken: cancelToken,
-          onProgress: onProgress,
-        );
-        return CloudUploadResult(key: key, fileName: fileName);
-      } on SocketException catch (e) {
-        lastError = e;
-        if (attempt < maxRetries - 1) {
-          logChat.warning('S3 simple upload connection error, retrying: $e');
-        }
-      } on Exception catch (e) {
-        lastError = e;
-        if (attempt < maxRetries - 1 && _isConnectionError(e)) {
-          logChat.warning('S3 simple upload failed, retrying: $e');
-        } else {
-          rethrow;
-        }
-      }
-    }
-    throw lastError ?? Exception('上传失败');
-  }
-
-  bool _isConnectionError(Exception e) {
-    final msg = e.toString().toLowerCase();
-    return msg.contains('connection reset') ||
-        msg.contains('connection refused') ||
-        msg.contains('socketexception') ||
-        msg.contains('broken pipe'    );
-  }
-
-  /// Built-in R2 / 任意经后端 presign 的简单上传（无需本地凭证）。
+  /// 经后端 presign 的简单上传。
   Future<CloudUploadResult> _hostedBackendUpload({
     required String fileName,
     required int fileSize,
@@ -425,156 +310,6 @@ class S3TransferService extends CloudTransferService {
     }
   }
 
-  Future<CloudUploadResult> _multipartUpload({
-    required String fileName,
-    required int fileSize,
-    required String filePath,
-    String? contentType,
-    CancelToken? cancelToken,
-    OnTransferProgress? onProgress,
-  }) async {
-    final s3 = await _getDirectClient();
-    final mgr = TransferStateManager.instance;
-
-    String? fileHash;
-    try {
-      fileHash = await computeFileHash(filePath);
-      logChat.info('S3 multipart file hash=$fileHash');
-    } catch (e) {
-      logChat.warning('S3 multipart hash computation failed: $e');
-    }
-
-    TransferRecord? existing = await mgr.findResumable(
-      channel: 's3',
-      direction: 'upload',
-      fileName: fileName,
-      fileSize: fileSize,
-    );
-    if (existing != null &&
-        (existing.s3UploadId == null || existing.s3Key == null)) {
-      logChat.info(
-        'S3 multipart found stub record (no uploadId/key), removing and starting fresh',
-      );
-      await mgr.removeRecord(existing.transferId);
-      existing = null;
-    }
-
-    String uploadId;
-    String key;
-    List<CompletedPart> completedParts;
-    late TransferRecord record;
-
-    if (existing != null &&
-        existing.s3UploadId != null &&
-        existing.s3Key != null) {
-      record = existing;
-      uploadId = existing.s3UploadId!;
-      key = existing.s3Key!;
-      completedParts = List.of(existing.s3CompletedParts ?? []);
-      logChat.info(
-        'S3 multipart resume uploadId=$uploadId completed=${completedParts.length}',
-      );
-    } else {
-      final newKey = s3.generateKey(fileName);
-      final initResp = await s3.initiateMultipartUpload(
-        newKey,
-        contentType: contentType ?? 'application/octet-stream',
-      );
-      if (cancelToken?.isCancelled == true) throw Exception('已取消');
-      uploadId = initResp.uploadId;
-      key = initResp.key;
-      completedParts = [];
-
-      record = TransferRecord(
-        transferId: const Uuid().v4(),
-        fileName: fileName,
-        fileSize: fileSize,
-        filePath: filePath,
-        channel: 's3',
-        direction: 'upload',
-        fileHash: fileHash,
-        s3UploadId: uploadId,
-        s3Key: key,
-        s3CompletedParts: [],
-      );
-      await mgr.saveRecord(record);
-    }
-
-    final totalParts = (fileSize / _partSize).ceil();
-    final completedNumbers = completedParts.map((p) => p.partNumber).toSet();
-
-    int totalSent = completedParts.fold(0, (sum, p) {
-      final start = (p.partNumber - 1) * _partSize;
-      final end = (start + _partSize).clamp(0, fileSize);
-      return sum + (end - start);
-    });
-    onProgress?.call(totalSent, fileSize);
-
-    try {
-      for (int partNum = 1; partNum <= totalParts; partNum++) {
-        if (cancelToken?.isCancelled == true) {
-          throw Exception('已取消');
-        }
-
-        if (completedNumbers.contains(partNum)) continue;
-
-        final start = (partNum - 1) * _partSize;
-        final end = (start + _partSize).clamp(0, fileSize);
-        final partLength = end - start;
-
-        final presignedUrl = s3.presignUploadPartUrl(key, uploadId, partNum);
-
-        final eTag = await _uploadPart(
-          presignedUrl: presignedUrl.toString(),
-          filePath: filePath,
-          start: start,
-          length: partLength,
-          contentType: contentType,
-          cancelToken: cancelToken,
-          onPartProgress: (sent) {
-            onProgress?.call(totalSent + sent, fileSize);
-          },
-        );
-
-        completedParts.add(CompletedPart(partNumber: partNum, eTag: eTag));
-        totalSent += partLength;
-        onProgress?.call(totalSent, fileSize);
-
-        await mgr.updateProgress(
-          record.transferId,
-          totalSent,
-          completedParts: List.of(completedParts),
-        );
-      }
-
-      final partsForComplete =
-          completedParts
-              .map((p) => (partNumber: p.partNumber, etag: p.eTag))
-              .toList()
-            ..sort((a, b) => a.partNumber.compareTo(b.partNumber));
-
-      await s3.completeMultipartUpload(key, uploadId, partsForComplete);
-
-      await mgr.markStatus(record.transferId, TransferStatus.completed);
-      onProgress?.call(fileSize, fileSize);
-      logChat.info('S3 multipart upload ok key=$key parts=$totalParts');
-
-      return CloudUploadResult(key: key, fileName: fileName);
-    } catch (e) {
-      if (cancelToken?.isCancelled == true) {
-        await mgr.markStatus(record.transferId, TransferStatus.paused);
-      } else {
-        await mgr.markStatus(record.transferId, TransferStatus.failed);
-        try {
-          await s3.abortMultipartUpload(key, uploadId);
-        } catch (abortErr) {
-          logChat.warning('S3 abortMultipartUpload failed: $abortErr');
-        }
-      }
-      rethrow;
-    }
-  }
-
   Future<String> _uploadPart({
     required String presignedUrl,
     required String filePath,
@@ -625,14 +360,8 @@ class S3TransferService extends CloudTransferService {
     OnTransferProgress? onProgress,
     int? lastModifiedMs,
   }) async {
-    final Uri downloadUrl;
-    if (await _useBackendRouting()) {
-      final urlStr = await s3_api.getDownloadUrl(key);
-      downloadUrl = Uri.parse(urlStr);
-    } else {
-      final s3 = await _getDirectClient();
-      downloadUrl = s3.presignGetUrl(key);
-    }
+    final urlStr = await s3_api.getDownloadUrl(key);
+    final downloadUrl = Uri.parse(urlStr);
     logChat.info('S3TransferService download start key=$key');
 
     final mgr = TransferStateManager.instance;

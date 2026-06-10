@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -105,7 +104,6 @@ public class S3Service {
                             .region(c.getRegion())
                             .bucket(c.getBucket())
                             .accessKeyId(c.getAccessKeyId())
-                            .secretAccessKey(c.getSecretAccessKey())
                             .pathStyleAccessEnabled(resolvePathStyle(c.getPathStyleAccessEnabled()))
                             .build();
                 })
@@ -158,45 +156,42 @@ public class S3Service {
         log.info("s3 preferCustom userId={} bucket={}", userId, config.getBucket());
     }
 
-    /** Verifies the user's S3 config by performing HeadBucket. */
-    public void testConfig(Long userId) {
+    /**
+     * 为 CUSTOM 自建 S3 签发 HeadBucket 预签名 URL，供客户端在本机网络探测。
+     * 不在服务端执行 HeadBucket；HOSTED 或未配置 BYO 时拒绝。
+     */
+    public S3TestUrlResponse presignTestUrl(Long userId) {
         var byo = s3ConfigRepository.findByUserId(userId);
-        // 当前实际生效的存储模式决定测谁：BYO 不存在或用户偏好 HOSTED → 测托管；否则测 BYO
         boolean useHosted = byo.map(c -> Boolean.TRUE.equals(c.getPrefersHosted()))
                 .orElse(true) && hostedS3Service.isActive();
         if (useHosted) {
-            hostedS3Service.verifyConnectivity();
-            log.info("s3 testConfig hosted ok userId={}", userId);
-            return;
+            log.warn("s3 presignTestUrl rejected hosted mode userId={}", userId);
+            throw new IllegalArgumentException("内置 S3 无需测试连接");
         }
         if (byo.isEmpty()) {
-            log.warn("s3 testConfig not configured userId={}", userId);
+            log.warn("s3 presignTestUrl not configured userId={}", userId);
             throw new IllegalArgumentException("S3 未配置");
         }
         S3Config config = byo.get();
-        String region = config.getRegion() != null ? config.getRegion() : "cn-east-1";
-        try (S3Client client = buildS3Client(config, ClientOverrideConfiguration.builder()
-                .apiCallTimeout(Duration.ofSeconds(15))
-                .apiCallAttemptTimeout(Duration.ofSeconds(15))
-                .build())) {
-            client.headBucket(HeadBucketRequest.builder().bucket(config.getBucket()).build());
-            log.info("s3 testConfig ok userId={} bucket={}", userId, config.getBucket());
-        } catch (S3Exception e) {
-            String detail = e.awsErrorDetails() != null && e.awsErrorDetails().errorMessage() != null
-                    ? e.awsErrorDetails().errorMessage()
-                    : (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
-            log.warn("s3 testConfig failed userId={} httpStatus={} error={}", userId, e.statusCode(), detail);
-            throw new IllegalArgumentException("S3 连接失败: " + detail);
-        } catch (SdkClientException e) {
-            log.warn("s3 testConfig sdk client error userId={}", userId, e);
-            throw new IllegalArgumentException("S3 连接失败: "
-                    + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
-        } catch (IllegalArgumentException e) {
-            throw e;
+        S3Presigner presigner = buildPresigner(config);
+        try {
+            HeadBucketRequest headReq = HeadBucketRequest.builder()
+                    .bucket(config.getBucket())
+                    .build();
+            HeadBucketPresignRequest presignReq = HeadBucketPresignRequest.builder()
+                    .signatureDuration(Duration.ofSeconds(60))
+                    .headBucketRequest(headReq)
+                    .build();
+            PresignedHeadBucketRequest presigned = presigner.presignHeadBucket(presignReq);
+            String url = presigned.url().toString();
+            log.info("s3 presignTestUrl ok userId={} bucket={}", userId, config.getBucket());
+            return S3TestUrlResponse.builder().url(url).build();
         } catch (Exception e) {
-            log.warn("s3 testConfig unexpected userId={}", userId, e);
+            log.warn("s3 presignTestUrl failed userId={}", userId, e);
             throw new IllegalArgumentException("S3 连接失败: "
                     + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+        } finally {
+            presigner.close();
         }
     }
 

@@ -48,7 +48,7 @@ class SelectedConnectionContext {
   final List<SmartLinkKind> chain;
   final DeviceReachDetail reach;
   final bool s3Configured;
-  /// Backend saved config and `/api/s3/test` passed.
+  /// CUSTOM: presigned HEAD from client; HOSTED: configured only.
   final bool s3Online;
   final bool isLoggedIn;
   /// Peer is registered under the current account (not LAN-only external).

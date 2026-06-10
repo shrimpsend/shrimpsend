@@ -1,5 +1,6 @@
 import { logger } from '../logger';
 import { getApiUrl, TAG, AuthError, getToken, isAuthFailure, withAuthRetry } from './client';
+import { clearLegacyS3ConfigCache, headPresignedUrl } from '../services/s3LocalTest';
 
 export type S3ConfigRequest = {
   endpoint: string;
@@ -37,7 +38,6 @@ export type S3ConfigResponse = {
   region?: string;
   bucket?: string;
   accessKeyId?: string;
-  secretAccessKey?: string;
   pathStyleAccessEnabled?: boolean;
 };
 
@@ -67,13 +67,13 @@ function normalizeS3Response(raw: unknown): S3ConfigResponse {
     region: typeof obj.region === 'string' ? obj.region : undefined,
     bucket: typeof obj.bucket === 'string' ? obj.bucket : undefined,
     accessKeyId: typeof obj.accessKeyId === 'string' ? obj.accessKeyId : undefined,
-    secretAccessKey: typeof obj.secretAccessKey === 'string' ? obj.secretAccessKey : undefined,
     pathStyleAccessEnabled:
       typeof obj.pathStyleAccessEnabled === 'boolean' ? obj.pathStyleAccessEnabled : undefined,
   };
 }
 
 export async function getS3Config(): Promise<S3ConfigResponse> {
+  clearLegacyS3ConfigCache();
   if (!getToken()) {
     logger.debug(TAG, 'getS3Config: no token');
     return disabledResponse();
@@ -88,29 +88,6 @@ export async function getS3Config(): Promise<S3ConfigResponse> {
     if (!res.ok) return disabledResponse();
     const data = normalizeS3Response(await res.json());
     logger.info(TAG, 'getS3Config mode=', data.mode, 'hostedAvailable=', data.hostedAvailable);
-
-    if (
-      data.mode === 'CUSTOM' &&
-      data.endpoint &&
-      data.bucket &&
-      data.accessKeyId &&
-      data.secretAccessKey
-    ) {
-      const { s3ConfigCache } = await import('../services/s3ConfigCache');
-      s3ConfigCache.save({
-        endpoint: data.endpoint,
-        region: data.region ?? 'cn-east-1',
-        bucket: data.bucket,
-        accessKeyId: data.accessKeyId,
-        secretAccessKey: data.secretAccessKey,
-        pathStyleAccessEnabled: data.pathStyleAccessEnabled ?? true,
-      });
-      logger.info(TAG, 'getS3Config synced local cache');
-    } else if (data.mode !== 'CUSTOM') {
-      const { s3ConfigCache } = await import('../services/s3ConfigCache');
-      s3ConfigCache.clear();
-    }
-
     return data;
   });
 }
@@ -153,8 +130,6 @@ export async function clearS3Config(): Promise<void> {
       logger.warn(TAG, 'clearS3Config failed', res.status);
       throw new Error('Failed to clear S3 config');
     }
-    const { s3ConfigCache } = await import('../services/s3ConfigCache');
-    s3ConfigCache.clear();
     logger.info(TAG, 'clearS3Config success');
   });
 }
@@ -175,8 +150,6 @@ export async function switchToHostedS3(): Promise<void> {
       logger.warn(TAG, 'switchToHostedS3 failed', res.status);
       throw new Error('Failed to switch to hosted S3');
     }
-    const { s3ConfigCache } = await import('../services/s3ConfigCache');
-    s3ConfigCache.clear();
     logger.info(TAG, 'switchToHostedS3 success');
   });
 }
@@ -201,25 +174,51 @@ export async function switchToCustomS3(): Promise<void> {
   });
 }
 
+async function fetchS3TestUrl(): Promise<string> {
+  const token = getToken();
+  if (!token) throw new Error('errors.notAuthenticated');
+  const res = await fetch(`${getApiUrl()}/api/s3/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: '{}',
+  });
+  if (isAuthFailure(res)) throw new AuthError();
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = (err as { error?: string }).error || 'errors.s3TestFailed';
+    throw new Error(msg);
+  }
+  const data = (await res.json()) as { url?: string };
+  if (!data.url) throw new Error('errors.s3TestFailed');
+  return data.url;
+}
+
+/** CUSTOM：服务端签发 HeadBucket 预签名 URL，本机 HEAD 探测。HOSTED：无需测试。 */
 export async function testS3Config(): Promise<void> {
   logger.info(TAG, 'testS3Config');
+  const cfg = await getS3Config();
+  if (cfg.mode === 'HOSTED') return;
+  if (cfg.mode !== 'CUSTOM') throw new Error('errors.s3TestFailed');
+
   return withAuthRetry(async () => {
-    const token = getToken();
-    if (!token) throw new Error('errors.notAuthenticated');
-    const res = await fetch(`${getApiUrl()}/api/s3/test`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: '{}',
-    });
-    if (isAuthFailure(res)) throw new AuthError();
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const msg = (err as { error?: string }).error || 'errors.s3TestFailed';
-      logger.warn(TAG, 'testS3Config failed', msg);
-      throw new Error(msg);
-    }
+    const url = await fetchS3TestUrl();
+    await headPresignedUrl(url);
     logger.info(TAG, 'testS3Config success');
   });
+}
+
+/** 用于在线状态：HOSTED 已配置即在线；CUSTOM 需本机 HEAD 通过。 */
+export async function checkS3Online(): Promise<boolean> {
+  const cfg = await getS3Config();
+  if (!cfg.configured) return false;
+  if (cfg.mode === 'HOSTED') return true;
+  if (cfg.mode !== 'CUSTOM') return false;
+  try {
+    await testS3Config();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export type PresignUploadResponse = { uploadUrl: string; key: string };

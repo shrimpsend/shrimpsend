@@ -2070,12 +2070,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ref.read(s3ConfiguredProvider.notifier).state = ok;
       var online = false;
       if (ok && ref.read(authProvider).isLoggedIn) {
-        try {
-          await testS3Config();
-          online = true;
-        } catch (_) {
-          online = false;
-        }
+        online = await checkS3Online();
       }
       if (mounted) {
         ref.read(s3OnlineProvider.notifier).state = online;

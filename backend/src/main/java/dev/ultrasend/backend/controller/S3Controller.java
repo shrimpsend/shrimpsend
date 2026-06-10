@@ -84,12 +84,12 @@ public class S3Controller {
     }
 
     @PostMapping("/test")
-    public ResponseEntity<Void> testConfig(Authentication auth) {
+    public ResponseEntity<S3TestUrlResponse> testConfig(Authentication auth) {
         Long userId = Long.parseLong((String) auth.getPrincipal());
-        log.info("s3 testConfig userId={}", userId);
-        s3Service.testConfig(userId);
-        log.info("s3 testConfig ok userId={}", userId);
-        return ResponseEntity.noContent().build();
+        log.info("s3 presignTestUrl userId={}", userId);
+        S3TestUrlResponse res = s3Service.presignTestUrl(userId);
+        log.info("s3 presignTestUrl ok userId={}", userId);
+        return ResponseEntity.ok(res);
     }
 
     @PostMapping("/presign-upload")

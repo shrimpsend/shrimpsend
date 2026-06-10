@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../logger.dart';
-import '../services/s3_config_cache.dart';
+import '../services/s3_local_test.dart';
 import 'client.dart';
 
 enum S3StorageMode {
@@ -25,7 +25,6 @@ enum S3StorageMode {
           return S3StorageMode.disabled;
       }
     }
-    // 兼容旧版后端：仅返回 `configured` 时按它推导。
     return fallbackConfigured ? S3StorageMode.custom : S3StorageMode.disabled;
   }
 }
@@ -34,17 +33,14 @@ class S3ConfigDetail {
   final bool configured;
   final S3StorageMode mode;
   final bool hostedAvailable;
-  /// 用户后端是否保存过自建 S3 凭证。HOSTED 模式下若为 true，表示曾经配置过、
-  /// 当前主动选择走内置 S3，可一键「使用已保存的自建 S3」切回，无需重新输入。
   final bool customSaved;
   final String? endpoint;
   final String? region;
   final String? bucket;
   final String? accessKeyId;
-  final String? secretAccessKey;
   final bool? pathStyleAccessEnabled;
-  /// 当前部署下 S3 配置说明（含 CORS）文档绝对 URL，供客户端外开浏览器。
   final String? documentationUrl;
+
   S3ConfigDetail({
     required this.configured,
     required this.mode,
@@ -54,17 +50,16 @@ class S3ConfigDetail {
     this.region,
     this.bucket,
     this.accessKeyId,
-    this.secretAccessKey,
     this.pathStyleAccessEnabled,
     this.documentationUrl,
   });
+
   factory S3ConfigDetail.fromJson(Map<String, dynamic> j) {
     final fallbackConfigured = (j['configured'] as bool?) ?? false;
     final mode = S3StorageMode.parse(
       j['mode'],
       fallbackConfigured: fallbackConfigured,
     );
-    // 兼容旧后端：CUSTOM 模式必然意味着已保存
     final customSaved = (j['customSaved'] as bool?) ?? (mode == S3StorageMode.custom);
     return S3ConfigDetail(
       configured: mode != S3StorageMode.disabled,
@@ -75,7 +70,6 @@ class S3ConfigDetail {
       region: j['region'] as String?,
       bucket: j['bucket'] as String?,
       accessKeyId: j['accessKeyId'] as String?,
-      secretAccessKey: j['secretAccessKey'] as String?,
       pathStyleAccessEnabled: j['pathStyleAccessEnabled'] as bool?,
       documentationUrl: j['documentationUrl'] as String?,
     );
@@ -88,7 +82,8 @@ class S3ConfigDetail {
   );
 }
 
-Future<S3ConfigDetail> getS3Config({bool syncCache = true}) async {
+Future<S3ConfigDetail> getS3Config() async {
+  await clearLegacyS3ConfigCache();
   if (!hasAccessToken) {
     logApi.fine('getS3Config no token');
     return S3ConfigDetail.disabled();
@@ -106,35 +101,6 @@ Future<S3ConfigDetail> getS3Config({bool syncCache = true}) async {
     logApi.info(
       'getS3Config mode=${detail.mode.name} hostedAvailable=${detail.hostedAvailable}',
     );
-
-    if (syncCache && detail.mode == S3StorageMode.custom) {
-      final hasSecret =
-          detail.secretAccessKey != null && detail.secretAccessKey!.isNotEmpty;
-      if (hasSecret &&
-          detail.endpoint != null &&
-          detail.bucket != null &&
-          detail.accessKeyId != null) {
-        await S3ConfigCache.instance.save(
-          S3LocalConfig(
-            endpoint: detail.endpoint!,
-            region: detail.region ?? 'cn-east-1',
-            bucket: detail.bucket!,
-            accessKeyId: detail.accessKeyId!,
-            secretAccessKey: detail.secretAccessKey!,
-            pathStyleAccessEnabled: detail.pathStyleAccessEnabled ?? true,
-          ),
-        );
-        logApi.info('getS3Config synced local cache');
-      } else {
-        logApi.warning(
-          'getS3Config skip sync: backend returned no secretAccessKey (re-deploy backend?)',
-        );
-      }
-    } else if (detail.mode != S3StorageMode.custom) {
-      // 非 CUSTOM 模式（HOSTED/DISABLED）确保本地缓存不残留旧密钥。
-      await S3ConfigCache.instance.clear();
-    }
-
     return detail;
   });
 }
@@ -151,6 +117,7 @@ class S3ConfigRequest {
   final String accessKeyId;
   final String secretAccessKey;
   final bool pathStyleAccessEnabled;
+
   S3ConfigRequest({
     required this.endpoint,
     this.region,
@@ -159,12 +126,13 @@ class S3ConfigRequest {
     required this.secretAccessKey,
     this.pathStyleAccessEnabled = true,
   });
+
   Map<String, dynamic> toJson() => {
     'endpoint': endpoint,
     if (region != null && region!.isNotEmpty) 'region': region,
     'bucket': bucket,
     'accessKeyId': accessKeyId,
-    'secretAccessKey': secretAccessKey,
+    if (secretAccessKey.isNotEmpty) 'secretAccessKey': secretAccessKey,
     'pathStyleAccessEnabled': pathStyleAccessEnabled,
   };
 }
@@ -185,25 +153,48 @@ Future<void> saveS3Config(S3ConfigRequest req) async {
 
 Future<void> testS3Config() async {
   logApi.info('testS3Config');
+  final detail = await getS3Config();
+  if (detail.mode == S3StorageMode.hosted) return;
+  if (detail.mode != S3StorageMode.custom) {
+    throw Exception('S3 连接测试失败');
+  }
+
   return withAuthRetry(() async {
     final r = await http.post(
       Uri.parse('$apiBaseUrl/api/s3/test'),
       headers: apiHeaders,
       body: '{}',
     );
-    if (r.statusCode == 401) {
-      logApi.warning(
-        'testS3Config HTTP 401：鉴权未通过（JWT/设备会话），并非 S3 业务错误；'
-        '若服务端已执行测试，日志中应有 s3 testConfig userId=…',
-      );
-    } else if (r.statusCode != 200 && r.statusCode != 204) {
-      logApi.warning(
-        'testS3Config HTTP ${r.statusCode}（400 多为 S3/参数错误）',
-      );
-    }
     checkAuthResponse(r, fallback: 'S3 连接测试失败');
+    if (r.statusCode != 200) {
+      try {
+        final body = jsonDecode(r.body) as Map<String, dynamic>;
+        final err = body['error'] as String?;
+        if (err != null && err.isNotEmpty) throw Exception(err);
+      } catch (e) {
+        if (e is Exception) rethrow;
+      }
+      throw Exception('S3 连接测试失败');
+    }
+    final data = jsonDecode(r.body) as Map<String, dynamic>;
+    final url = data['url'] as String?;
+    if (url == null || url.isEmpty) throw Exception('S3 连接测试失败');
+    await headPresignedUrl(url);
     logApi.info('testS3Config success');
   });
+}
+
+Future<bool> checkS3Online() async {
+  final detail = await getS3Config();
+  if (!detail.configured) return false;
+  if (detail.mode == S3StorageMode.hosted) return true;
+  if (detail.mode != S3StorageMode.custom) return false;
+  try {
+    await testS3Config();
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 Future<void> clearS3Config() async {
@@ -218,8 +209,6 @@ Future<void> clearS3Config() async {
   });
 }
 
-/// 切换到平台内置 S3，但保留已保存的自建 S3 配置（不删除 BYO 凭证）。
-/// 用于「切回内置 S3」按钮，避免用户后续切回自建时还要重输 AK/SK。
 Future<void> useHostedS3() async {
   logApi.info('useHostedS3');
   return withAuthRetry(() async {
@@ -233,7 +222,6 @@ Future<void> useHostedS3() async {
   });
 }
 
-/// 切换到此前保存的自建 S3 配置（要求后端已存在 BYO 凭证）。
 Future<void> useCustomS3() async {
   logApi.info('useCustomS3');
   return withAuthRetry(() async {
@@ -250,7 +238,9 @@ Future<void> useCustomS3() async {
 class PresignUploadResponse {
   final String uploadUrl;
   final String key;
+
   PresignUploadResponse({required this.uploadUrl, required this.key});
+
   factory PresignUploadResponse.fromJson(Map<String, dynamic> j) =>
       PresignUploadResponse(
         uploadUrl: j['uploadUrl'] as String,
@@ -266,10 +256,12 @@ Future<PresignUploadResponse> presignUpload(
   logApi.info('presignUpload fileName=$fileName');
   return withAuthRetry(() async {
     final body = <String, dynamic>{'fileName': fileName};
-    if (contentType != null && contentType.isNotEmpty)
+    if (contentType != null && contentType.isNotEmpty) {
       body['contentType'] = contentType;
-    if (contentLength != null && contentLength > 0)
+    }
+    if (contentLength != null && contentLength > 0) {
       body['contentLength'] = contentLength;
+    }
     final r = await http.post(
       Uri.parse('$apiBaseUrl/api/s3/presign-upload'),
       headers: apiHeaders,
@@ -288,9 +280,9 @@ Future<String> getDownloadUrl(String key) async {
   logApi.info('getDownloadUrl key=$key');
   return withAuthRetry(() async {
     final r = await http.get(
-      Uri.parse(
-        '$apiBaseUrl/api/s3/download-url',
-      ).replace(queryParameters: {'key': key}),
+      Uri.parse('$apiBaseUrl/api/s3/download-url').replace(
+        queryParameters: {'key': key},
+      ),
       headers: apiHeaders,
     );
     checkAuthResponse(r, fallback: '获取下载地址失败');
@@ -299,12 +291,12 @@ Future<String> getDownloadUrl(String key) async {
   });
 }
 
-// ── Multipart Upload ───────────────────────────────────────────────
-
 class MultipartInitiateResponse {
   final String uploadId;
   final String key;
+
   MultipartInitiateResponse({required this.uploadId, required this.key});
+
   factory MultipartInitiateResponse.fromJson(Map<String, dynamic> j) =>
       MultipartInitiateResponse(
         uploadId: j['uploadId'] as String,
@@ -315,12 +307,15 @@ class MultipartInitiateResponse {
 Future<MultipartInitiateResponse> initiateMultipartUpload(
   String fileName, {
   String? contentType,
+  int? totalSize,
 }) async {
   logApi.info('initiateMultipart fileName=$fileName');
   return withAuthRetry(() async {
     final body = <String, dynamic>{'fileName': fileName};
-    if (contentType != null && contentType.isNotEmpty)
+    if (contentType != null && contentType.isNotEmpty) {
       body['contentType'] = contentType;
+    }
+    if (totalSize != null && totalSize > 0) body['totalSize'] = totalSize;
     final r = await http.post(
       Uri.parse('$apiBaseUrl/api/s3/multipart/initiate'),
       headers: apiHeaders,
