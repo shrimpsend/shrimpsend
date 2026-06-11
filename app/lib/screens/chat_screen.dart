@@ -4199,7 +4199,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         convDeviceId != _deviceId) {
       selectedTargets = {convDeviceId};
     }
-    if (_effectiveOffline) {
+    final peerIsRegistered =
+        convDeviceId != null &&
+        ref
+            .read(myDevicesProvider)
+            .any((d) => d.deviceId == convDeviceId);
+    final isExternalPeer =
+        convDeviceId != null &&
+        convDeviceId != s3VirtualDeviceId &&
+        convDeviceId != _deviceId &&
+        !peerIsRegistered;
+    final useLan = _effectiveOffline || isExternalPeer;
+    if (useLan) {
       if (selectedTargets.isEmpty) {
         _composerKey.currentState?.expandDevicePanel();
         if (mounted) {
@@ -4208,14 +4219,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
         Analytics.track(AnalyticsEvents.chatTextSend, {
           'result': 'failed',
-          'offline': true,
+          'offline': _effectiveOffline,
           'channel': 'lan',
           'length_bucket': Analytics.lengthBucket(trimmed.length),
           'reason': 'no_targets',
         });
         return;
       }
-      await _sendTextViaLan(trimmed, localId, selectedTargets);
+      await _sendTextViaLan(
+        trimmed,
+        localId,
+        selectedTargets,
+        offline: _effectiveOffline,
+      );
     } else {
       try {
         await sendMessage({
@@ -4253,18 +4269,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     String localId,
     Set<String> targetIds, {
     bool forRetry = false,
+    bool offline = true,
   }) async {
     final allDevices = _lanDiscovery?.currentDiscovered ?? [];
     final devices = allDevices
         .where((d) => targetIds.contains(d.deviceId))
         .toList();
     if (devices.isEmpty) {
-      if (mounted) setState(() => _setMessageStatus(localId, 'sent'));
+      if (mounted) setState(() => _setMessageStatus(localId, 'failed'));
       Analytics.track(
         forRetry ? AnalyticsEvents.chatTextRetry : AnalyticsEvents.chatTextSend,
         {
-          'result': 'sent',
-          'offline': true,
+          'result': 'failed',
+          'offline': offline,
           'channel': 'lan',
           'length_bucket': Analytics.lengthBucket(text.length),
           'reason': 'no_lan_devices',
@@ -4308,7 +4325,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         forRetry ? AnalyticsEvents.chatTextRetry : AnalyticsEvents.chatTextSend,
         {
           'result': sentCount > 0 ? 'sent' : 'failed',
-          'offline': true,
+          'offline': offline,
           'channel': 'lan',
           'length_bucket': Analytics.lengthBucket(text.length),
         },
@@ -4324,7 +4341,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (textContent == null || textContent.isEmpty) return;
     if (mounted) setState(() => _setMessageStatus(localId, 'sending'));
     var selectedTargets = ref.read(effectiveSelectedTargetsProvider);
-    if (_effectiveOffline) {
+    final convDeviceId = ref.read(selectedDeviceIdProvider);
+    if (convDeviceId != null &&
+        convDeviceId != s3VirtualDeviceId &&
+        convDeviceId != _deviceId) {
+      selectedTargets = {convDeviceId};
+    }
+    final peerIsRegistered =
+        convDeviceId != null &&
+        ref
+            .read(myDevicesProvider)
+            .any((d) => d.deviceId == convDeviceId);
+    final isExternalPeer =
+        convDeviceId != null &&
+        convDeviceId != s3VirtualDeviceId &&
+        convDeviceId != _deviceId &&
+        !peerIsRegistered;
+    final useLan = _effectiveOffline || isExternalPeer;
+    if (useLan) {
       if (selectedTargets.isEmpty) {
         _composerKey.currentState?.expandDevicePanel();
         if (mounted) {
@@ -4333,7 +4367,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
         Analytics.track(AnalyticsEvents.chatTextRetry, {
           'result': 'failed',
-          'offline': true,
+          'offline': _effectiveOffline,
           'channel': 'lan',
           'reason': 'no_targets',
         });
@@ -4344,6 +4378,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         localId,
         selectedTargets,
         forRetry: true,
+        offline: _effectiveOffline,
       );
       return;
     }
