@@ -330,6 +330,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				9A7ADFB22F697EA6008C616B /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				B5E2A3F41CF9000F007C117E /* Fix App.framework MinimumOSVersion */,
 				A717CD8A092A7E9AF3390E00 /* [CP] Embed Pods Frameworks */,
 				925370E3D7AEE7FC4479CB3C /* [CP] Copy Pods Resources */,
 			);
@@ -479,6 +480,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+		};
+		B5E2A3F41CF9000F007C117E /* Fix App.framework MinimumOSVersion */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Fix App.framework MinimumOSVersion";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${SRCROOT}/scripts/fix_app_framework_minimum_os_version.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 		4D388E011C2B8AC5667C01AD /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
