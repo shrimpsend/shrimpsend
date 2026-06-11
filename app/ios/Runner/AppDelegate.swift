@@ -41,31 +41,34 @@ import UIKit
       }
 
       // Set up the native tab bar channel and its coordinator controller
-      let nativeTabBarChannel = FlutterMethodChannel(
-        name: "dev.ultrasend/native_tab_bar",
-        binaryMessenger: controller.binaryMessenger
-      )
-      let nativeTabBarController = NativeTabBarController(
-        flutterViewController: controller,
-        channel: nativeTabBarChannel
-      )
-      nativeTabBarChannel.setMethodCallHandler { call, result in
-        if call.method == "updateState" {
-          if let args = call.arguments as? [String: Any] {
-            nativeTabBarController.updateState(arguments: args)
-            result(true)
+      // Only register on iOS 26+ where Liquid Glass is available.
+      if #available(iOS 26.0, *) {
+        let nativeTabBarChannel = FlutterMethodChannel(
+          name: "dev.ultrasend/native_tab_bar",
+          binaryMessenger: controller.binaryMessenger
+        )
+        let nativeTabBarController = NativeTabBarController(
+          flutterViewController: controller,
+          channel: nativeTabBarChannel
+        )
+        nativeTabBarChannel.setMethodCallHandler { call, result in
+          if call.method == "updateState" {
+            if let args = call.arguments as? [String: Any] {
+              nativeTabBarController.updateState(arguments: args)
+              result(true)
+            } else {
+              result(FlutterError(code: "INVALID_ARG", message: "arguments must be a dictionary", details: nil))
+            }
+          } else if call.method == "setVisible" {
+            if let visible = call.arguments as? Bool {
+              nativeTabBarController.setForceHidden(!visible)
+              result(true)
+            } else {
+              result(FlutterError(code: "INVALID_ARG", message: "argument must be a boolean", details: nil))
+            }
           } else {
-            result(FlutterError(code: "INVALID_ARG", message: "arguments must be a dictionary", details: nil))
+            result(FlutterMethodNotImplemented)
           }
-        } else if call.method == "setVisible" {
-          if let visible = call.arguments as? Bool {
-            nativeTabBarController.setForceHidden(!visible)
-            result(true)
-          } else {
-            result(FlutterError(code: "INVALID_ARG", message: "argument must be a boolean", details: nil))
-          }
-        } else {
-          result(FlutterMethodNotImplemented)
         }
       }
     }

@@ -28,6 +28,9 @@ class OutboxButton: UIButton {
     private let badgeLabel = UILabel()
     private let badgeContainer = UIView()
     
+    // Set to true to force test the older iOS (e.g. iOS 18) fallback behaviors
+    private let forceFallback = false
+    
     init() {
         super.init(frame: .zero)
         setupView()
@@ -39,7 +42,7 @@ class OutboxButton: UIButton {
     }
     
     private func setupView() {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !forceFallback {
             // 1. Use native glass configuration for iOS 26+
             var config = UIButton.Configuration.glass()
             config.image = UIImage(systemName: "shippingbox")
@@ -152,7 +155,7 @@ class OutboxButton: UIButton {
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !forceFallback {
             // System handles it
         } else {
             updateBorderColor()
@@ -163,7 +166,7 @@ class OutboxButton: UIButton {
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !forceFallback {
             // System handles it
         } else {
             if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
@@ -203,14 +206,14 @@ class OutboxButton: UIButton {
     func setBadge(count: Int) {
         if count <= 0 {
             badgeContainer.isHidden = true
-            if #available(iOS 26.0, *) {
+            if #available(iOS 26.0, *), !forceFallback {
                 self.tintColor = .secondaryLabel
             } else {
                 iconView?.tintColor = .secondaryLabel
             }
         } else {
             badgeContainer.isHidden = false
-            if #available(iOS 26.0, *) {
+            if #available(iOS 26.0, *), !forceFallback {
                 self.tintColor = .label
             } else {
                 iconView?.tintColor = .label
@@ -226,7 +229,7 @@ class OutboxButton: UIButton {
     // Interactive Liquid Scale Animations
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !forceFallback {
             // Let the system handle native glass animations
         } else {
             UIView.animate(withDuration: 0.12, delay: 0, options: [.curveEaseInOut, .allowUserInteraction], animations: {
@@ -237,7 +240,7 @@ class OutboxButton: UIButton {
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !forceFallback {
             // Let the system handle native glass animations
         } else {
             UIView.animate(withDuration: 0.22, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [.curveEaseInOut, .allowUserInteraction], animations: {
@@ -248,7 +251,7 @@ class OutboxButton: UIButton {
     
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !forceFallback {
             // Let the system handle native glass animations
         } else {
             UIView.animate(withDuration: 0.22, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [.curveEaseInOut, .allowUserInteraction], animations: {
@@ -289,25 +292,35 @@ class NativeTabBarView: UIView, UITabBarDelegate {
     }
     
     private func updateAppearance() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
-        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
-        
-        if #available(iOS 13.0, *) {
-            appearance.backgroundColor = UIColor { trait in
-                return trait.userInterfaceStyle == .dark
-                    ? UIColor(white: 0.1, alpha: 0.15)
-                    : UIColor(white: 1.0, alpha: 0.15)
-            }
-        } else {
-            appearance.backgroundColor = UIColor(white: 1.0, alpha: 0.15)
-        }
-        
-        appearance.shadowColor = .clear
-        
-        systemTabBar.standardAppearance = appearance
-        if #available(iOS 15.0, *) {
+        if #available(iOS 26.0, *) {
+            // iOS 26+: Use system default Liquid Glass appearance
+            let appearance = UITabBarAppearance()
+            appearance.configureWithDefaultBackground()
+            appearance.shadowColor = .clear
+            systemTabBar.standardAppearance = appearance
             systemTabBar.scrollEdgeAppearance = appearance
+        } else {
+            // iOS 26 and below: Fallback to systemUltraThinMaterial
+            let appearance = UITabBarAppearance()
+            appearance.configureWithDefaultBackground()
+            appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+
+            if #available(iOS 13.0, *) {
+                appearance.backgroundColor = UIColor { trait in
+                    return trait.userInterfaceStyle == .dark
+                        ? UIColor(white: 0.1, alpha: 0.15)
+                        : UIColor(white: 1.0, alpha: 0.15)
+                }
+            } else {
+                appearance.backgroundColor = UIColor(white: 1.0, alpha: 0.15)
+            }
+
+            appearance.shadowColor = .clear
+
+            systemTabBar.standardAppearance = appearance
+            if #available(iOS 15.0, *) {
+                systemTabBar.scrollEdgeAppearance = appearance
+            }
         }
     }
     
