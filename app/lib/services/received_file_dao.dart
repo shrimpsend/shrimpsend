@@ -435,6 +435,55 @@ class ReceivedFileDao {
     _notifyChanged();
   }
 
+  /// Re-keys a row to the server-side message id while preserving export state.
+  ///
+  /// Returns `true` when the old row existed and was updated.
+  Future<bool> rekeyMessageId({
+    required String oldMessageId,
+    required String newMessageId,
+    String? userId,
+    String? threadKey,
+    String? fromDeviceId,
+  }) async {
+    if (oldMessageId.isEmpty ||
+        newMessageId.isEmpty ||
+        oldMessageId == newMessageId) {
+      return false;
+    }
+
+    final oldRows = await _db.query(
+      _table,
+      where: 'message_id = ?',
+      whereArgs: [oldMessageId],
+      limit: 1,
+    );
+    if (oldRows.isEmpty) return false;
+
+    await _db.delete(
+      _table,
+      where: 'message_id = ?',
+      whereArgs: [newMessageId],
+    );
+
+    final data = <String, Object?>{
+      'message_id': newMessageId,
+    };
+    if (userId != null) data['user_id'] = userId;
+    if (threadKey != null) data['thread_key'] = threadKey;
+    if (fromDeviceId != null) data['from_device_id'] = fromDeviceId;
+
+    final updated = await _db.update(
+      _table,
+      data,
+      where: 'message_id = ?',
+      whereArgs: [oldMessageId],
+    );
+    if (updated > 0) {
+      _notifyChanged();
+    }
+    return updated > 0;
+  }
+
   Future<void> reparentRoot(String oldPrefix, String newPrefix) async {
     if (oldPrefix == newPrefix) return;
     await _db.rawUpdate(

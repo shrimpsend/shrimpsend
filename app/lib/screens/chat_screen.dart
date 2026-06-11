@@ -4007,24 +4007,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 );
               }
               try {
-                final oldRow = await ReceivedFileDao.instance.getByMessageId(
-                  upgradeFromMsgId,
+                await ReceivedFileIndexPipeline.instance.rekeyAfterBubbleUpgrade(
+                  oldMessageId: upgradeFromMsgId,
+                  newMessageId: message.id,
+                  userId: userId,
+                  threadKey: rowTk,
+                  fromDeviceId: msg.fromDeviceId,
                 );
-                if (oldRow != null) {
-                  await ReceivedFileDao.instance.upsert(
-                    messageId: message.id,
-                    absPath: oldRow.absPath,
-                    userId: oldRow.userId ?? userId,
-                    threadKey: oldRow.threadKey ?? rowTk,
-                    protocol: oldRow.protocol,
-                    s3Key: oldRow.s3Key,
-                    fromDeviceId: oldRow.fromDeviceId ?? msg.fromDeviceId,
-                    size: oldRow.size,
-                  );
-                  await ReceivedFileDao.instance.removeByMessageId(
-                    upgradeFromMsgId,
-                  );
-                }
               } catch (e) {
                 logChat.warning(
                   'chat_screen failed to re-key received_files from '

@@ -318,16 +318,9 @@ class FileExportPipeline {
       absPath: record.absPath,
     );
 
-    if (await getDeleteCacheAfterSave()) {
-      cachePath = '';
+    final shouldClearCache = await getDeleteCacheAfterSave();
+    if (shouldClearCache) {
       absPath = exportResult.location ?? absPath;
-      final removed = await FileStore.deleteByMessageId(messageId);
-      if (!removed) {
-        _log.warning(
-          'delete cache after export deferred for $messageId (file may be in use)',
-        );
-        unawaited(FileStore.deleteCacheEntryWhenReady(messageId));
-      }
     }
 
     await ReceivedFileDao.instance.updateExportState(
@@ -337,9 +330,19 @@ class FileExportPipeline {
       exportTarget: exportResult.targetKind,
       gallerySaved: gallerySaved,
       absPath: absPath,
-      cachePath: cachePath.isEmpty ? null : cachePath,
-      clearCachePath: cachePath.isEmpty,
+      cachePath: shouldClearCache ? null : cachePath,
+      clearCachePath: shouldClearCache,
     );
+
+    if (shouldClearCache) {
+      final removed = await FileStore.deleteByMessageId(messageId);
+      if (!removed) {
+        _log.warning(
+          'delete cache after export deferred for $messageId (file may be in use)',
+        );
+        unawaited(FileStore.deleteCacheEntryWhenReady(messageId));
+      }
+    }
 
     if (exportResult.location != null &&
         exportResult.location!.isNotEmpty &&
@@ -424,6 +427,13 @@ class FileExportPipeline {
 
   Future<void> _cleanupCacheAfterExportIfNeeded(ReceivedFileRecord record) async {
     if (!await getDeleteCacheAfterSave()) return;
+    if (record.exportStatus == ExportStatus.legacy) return;
+    if (record.exportStatus != ExportStatus.done) return;
+
+    final hasVisibleCopy = record.gallerySaved ||
+        (record.visiblePath != null && record.visiblePath!.isNotEmpty);
+    if (!hasVisibleCopy) return;
+
     final cachePath = record.cachePath;
     if (cachePath == null || cachePath.isEmpty) return;
 
