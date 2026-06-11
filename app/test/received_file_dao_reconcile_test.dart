@@ -134,4 +134,66 @@ void main() {
       expect(record.absPath, cacheFile.path);
     });
   });
+
+  group('ReceivedFileDao.rekeyMessageId', () {
+    late Database db;
+
+    setUp(() async {
+      db = await openDatabase(
+        inMemoryDatabasePath,
+        version: 1,
+        onCreate: (database, version) async {
+          await database.execute(_createReceivedFiles);
+        },
+      );
+      ReceivedFileDao.testDatabase = db;
+    });
+
+    tearDown(() async {
+      ReceivedFileDao.testDatabase = null;
+      await db.close();
+    });
+
+    test('preserves export fields when re-keying to server message id', () async {
+      const oldId = 'lan_recv_local';
+      const newId = '1781146674038_android_abc';
+      const visiblePath = '/storage/Downloads/photo.jpg';
+
+      await ReceivedFileDao.instance.upsert(
+        messageId: oldId,
+        absPath: '/cache/photo.jpg',
+        cachePath: '/cache/photo.jpg',
+        protocol: 'lan',
+        exportStatus: ExportStatus.done,
+      );
+      await ReceivedFileDao.instance.updateExportState(
+        messageId: oldId,
+        exportStatus: ExportStatus.done,
+        visiblePath: visiblePath,
+        exportTarget: ExportTargetKind.downloads,
+        gallerySaved: false,
+        absPath: visiblePath,
+        clearCachePath: true,
+      );
+
+      final ok = await ReceivedFileDao.instance.rekeyMessageId(
+        oldMessageId: oldId,
+        newMessageId: newId,
+        userId: '1',
+        threadKey: 'u:1',
+        fromDeviceId: 'android_device',
+      );
+      expect(ok, isTrue);
+
+      expect(await ReceivedFileDao.instance.getByMessageId(oldId), isNull);
+      final record = await ReceivedFileDao.instance.getByMessageId(newId);
+      expect(record, isNotNull);
+      expect(record!.exportStatus, ExportStatus.done);
+      expect(record.visiblePath, visiblePath);
+      expect(record.exportTarget, ExportTargetKind.downloads);
+      expect(record.userId, '1');
+      expect(record.threadKey, 'u:1');
+      expect(record.fromDeviceId, 'android_device');
+    });
+  });
 }
