@@ -209,6 +209,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.0.2"
+  cupertino_native_better:
+    dependency: "direct main"
+    description:
+      name: cupertino_native_better
+      sha256: "271fbf582aebb55d8ccef103add60373f65359fa7626e995ed62b5afca1131f8"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.5.0"
   dart_pubspec_licenses:
     dependency: transitive
     description:

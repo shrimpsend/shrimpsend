@@ -524,11 +524,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   String? _lastNetworkSignature;
   bool _lanRepairInProgress = false;
+  bool _isIOS26OrLater = false;
 
   @override
   void initState() {
     super.initState();
     if (Platform.isIOS) {
+      final version = Platform.operatingSystemVersion;
+      final match = RegExp(r'Version (\d+)').firstMatch(version);
+      if (match != null) {
+        final major = int.tryParse(match.group(1)!);
+        _isIOS26OrLater = major != null && major >= 26;
+      }
+    }
+    if (_isIOS26OrLater) {
       NativeTabBarService.instance.init();
       NativeTabBarService.instance.onSelectTab = (index) {
         if (mounted) {
@@ -8136,7 +8145,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _syncNativeTabBarState() {
-    if (!Platform.isIOS || !mounted) return;
+    if (!_isIOS26OrLater || !mounted) return;
 
     final selectedDeviceId = ref.read(selectedDeviceIdProvider);
     final mobileHomeFloatingBar =
@@ -8427,7 +8436,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (Platform.isIOS) {
+    if (_isIOS26OrLater) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _syncNativeTabBarState();
       });
@@ -8571,7 +8580,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           ),
                           // Floating glass bar: content scrolls underneath;
                           // stronger glass tint + no tab glow reduces ghost pill on light BG.
-                          if (!Platform.isIOS)
+                          if (!_isIOS26OrLater)
                             Align(
                               alignment: Alignment.bottomCenter,
                             child: Padding(
