@@ -6,6 +6,8 @@ PODS:
     - FlutterMacOS
   - cryptography_flutter_plus (0.2.0):
     - FlutterMacOS
+  - cupertino_native_better (0.0.1):
+    - FlutterMacOS
   - desktop_updater (0.0.1):
     - FlutterMacOS
   - device_info_plus (0.0.1):
@@ -18,7 +20,8 @@ PODS:
   - FlutterMacOS (1.0.0)
   - irondash_engine_context (0.0.1):
     - FlutterMacOS
-  - mobile_scanner (6.0.2):
+  - mobile_scanner (7.0.0):
+    - Flutter
     - FlutterMacOS
   - network_info_plus (0.0.1):
     - FlutterMacOS
@@ -68,13 +71,14 @@ DEPENDENCIES:
   - bonsoir_darwin (from `Flutter/ephemeral/.symlinks/plugins/bonsoir_darwin/darwin`)
   - connectivity_plus (from `Flutter/ephemeral/.symlinks/plugins/connectivity_plus/macos`)
   - cryptography_flutter_plus (from `Flutter/ephemeral/.symlinks/plugins/cryptography_flutter_plus/macos`)
+  - cupertino_native_better (from `Flutter/ephemeral/.symlinks/plugins/cupertino_native_better/macos`)
   - desktop_updater (from `Flutter/ephemeral/.symlinks/plugins/desktop_updater/macos`)
   - device_info_plus (from `Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos`)
   - file_picker (from `Flutter/ephemeral/.symlinks/plugins/file_picker/macos`)
   - flutter_webrtc (from `Flutter/ephemeral/.symlinks/plugins/flutter_webrtc/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - irondash_engine_context (from `Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos`)
-  - mobile_scanner (from `Flutter/ephemeral/.symlinks/plugins/mobile_scanner/macos`)
+  - mobile_scanner (from `Flutter/ephemeral/.symlinks/plugins/mobile_scanner/darwin`)
   - network_info_plus (from `Flutter/ephemeral/.symlinks/plugins/network_info_plus/macos`)
   - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
   - pasteboard (from `Flutter/ephemeral/.symlinks/plugins/pasteboard/macos`)
@@ -105,6 +109,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/connectivity_plus/macos
   cryptography_flutter_plus:
     :path: Flutter/ephemeral/.symlinks/plugins/cryptography_flutter_plus/macos
+  cupertino_native_better:
+    :path: Flutter/ephemeral/.symlinks/plugins/cupertino_native_better/macos
   desktop_updater:
     :path: Flutter/ephemeral/.symlinks/plugins/desktop_updater/macos
   device_info_plus:
@@ -118,7 +124,7 @@ EXTERNAL SOURCES:
   irondash_engine_context:
     :path: Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos
   mobile_scanner:
-    :path: Flutter/ephemeral/.symlinks/plugins/mobile_scanner/macos
+    :path: Flutter/ephemeral/.symlinks/plugins/mobile_scanner/darwin
   network_info_plus:
     :path: Flutter/ephemeral/.symlinks/plugins/network_info_plus/macos
   package_info_plus:
@@ -156,18 +162,19 @@ SPEC CHECKSUMS:
   bonsoir_darwin: 29c7ccf356646118844721f36e1de4b61f6cbd0e
   connectivity_plus: 4adf20a405e25b42b9c9f87feff8f4b6fde18a4e
   cryptography_flutter_plus: 7c6e0d0f08664499a2c5402aa7cbcca07f2a7130
+  cupertino_native_better: f3d095ef3139e3feb549a3140f6288255e5e56a3
   desktop_updater: 982886a70a8098539a3877716baf80218124c4d0
   device_info_plus: 4fb280989f669696856f8b129e4a5e3cd6c48f76
   file_picker: 7584aae6fa07a041af2b36a2655122d42f578c1a
   flutter_webrtc: 377dbcebdde6fed0fc40de87bcaaa2bffcec9a88
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   irondash_engine_context: 893c7d96d20ce361d7e996f39d360c4c2f9869ba
-  mobile_scanner: 0e365ed56cad24f28c0fd858ca04edefb40dfac3
+  mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   network_info_plus: f52abf61c7a311ecf3ac1b482be8a28908b4604d
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
   pasteboard: b594eaf838d930b276d7a35a44a32b4f489170cb
   path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
-  pdfrx: 310e84d01e06fd2af26e16507a0e48c27e99195c
+  pdfrx: 3acedf9c68ea0d4f129412c94433789a03fa09b2
   photo_manager: 25fd77df14f4f0ba5ef99e2c61814dde77e2bceb
   purchases_flutter: cfe4e98a24972974fd1567b3153a696e8110fda0
   PurchasesHybridCommon: ecd9d7c586287625f1225b8de5e24c1021502270
@@ -183,6 +190,6 @@ SPEC CHECKSUMS:
   WebRTC-SDK: 79942c006ea64f6fb48d7da8a4786dfc820bc1db
   window_manager: b729e31d38fb04905235df9ea896128991cad99e
 
-PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
+PODFILE CHECKSUM: 346bfb2deb41d4a6ebd6f6799f92188bde2d246f
 
 COCOAPODS: 1.16.2
