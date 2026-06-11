@@ -44,3 +44,4 @@ backend/.env
 # Build artifacts
 **/.dart_tool/
 app/android/build/
+.vscode/

@@ -21,10 +21,10 @@ extension UIColor {
     }
 }
 
-class OutboxButton: UIControl {
-    private let blurEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
-    private let colorOverlayView = UIView()
-    private let iconView = UIImageView()
+class OutboxButton: UIButton {
+    private var blurEffectView: UIVisualEffectView?
+    private var colorOverlayView: UIView?
+    private var iconView: UIImageView?
     private let badgeLabel = UILabel()
     private let badgeContainer = UIView()
     
@@ -39,34 +39,35 @@ class OutboxButton: UIControl {
     }
     
     private func setupView() {
-        // Parent view has cornerRadius and masksToBounds = false to allow shadow
-        layer.cornerRadius = 32
-        layer.masksToBounds = false
-        layer.borderWidth = 0.5
-        updateBorderColor()
-        updateBackgroundColor()
-        
-        // Subview blurEffectView clips its own content
-        blurEffectView.layer.cornerRadius = 32
-        blurEffectView.layer.masksToBounds = true
-        blurEffectView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(blurEffectView)
-        
-        colorOverlayView.translatesAutoresizingMaskIntoConstraints = false
-        updateColorOverlay()
-        blurEffectView.contentView.addSubview(colorOverlayView)
-        
-        iconView.image = UIImage(systemName: "shippingbox")?.withRenderingMode(.alwaysTemplate)
-        iconView.contentMode = .scaleAspectFit
-        iconView.tintColor = .secondaryLabel
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        blurEffectView.contentView.addSubview(iconView)
-        
+        if #available(iOS 26.0, *) {
+            // 1. Use native glass configuration for iOS 26+
+            var config = UIButton.Configuration.glass()
+            config.image = UIImage(systemName: "shippingbox")
+            config.imagePadding = 0
+            config.cornerStyle = .capsule
+            self.configuration = config
+            
+            // Set base tint color (applies to icon/text inside glass button)
+            self.tintColor = .secondaryLabel
+            
+            setupBadge(isNativeGlass: true)
+        } else {
+            // 2. Fallback for older iOS versions
+            setupFallbackView()
+        }
+    }
+    
+    private func setupBadge(isNativeGlass: Bool) {
         badgeContainer.backgroundColor = .systemRed
         badgeContainer.layer.cornerRadius = 9
         badgeContainer.layer.masksToBounds = true
         badgeContainer.translatesAutoresizingMaskIntoConstraints = false
-        blurEffectView.contentView.addSubview(badgeContainer)
+        
+        if isNativeGlass {
+            addSubview(badgeContainer)
+        } else {
+            blurEffectView?.contentView.addSubview(badgeContainer)
+        }
         
         badgeLabel.textColor = .white
         badgeLabel.font = .systemFont(ofSize: 10, weight: .bold)
@@ -75,23 +76,6 @@ class OutboxButton: UIControl {
         badgeContainer.addSubview(badgeLabel)
         
         NSLayoutConstraint.activate([
-            blurEffectView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            blurEffectView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            blurEffectView.topAnchor.constraint(equalTo: topAnchor),
-            blurEffectView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            
-            colorOverlayView.leadingAnchor.constraint(equalTo: blurEffectView.contentView.leadingAnchor),
-            colorOverlayView.trailingAnchor.constraint(equalTo: blurEffectView.contentView.trailingAnchor),
-            colorOverlayView.topAnchor.constraint(equalTo: blurEffectView.contentView.topAnchor),
-            colorOverlayView.bottomAnchor.constraint(equalTo: blurEffectView.contentView.bottomAnchor),
-            
-            iconView.centerXAnchor.constraint(equalTo: blurEffectView.contentView.centerXAnchor),
-            iconView.centerYAnchor.constraint(equalTo: blurEffectView.contentView.centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 24),
-            iconView.heightAnchor.constraint(equalToConstant: 24),
-            
-            badgeContainer.topAnchor.constraint(equalTo: iconView.topAnchor, constant: -6),
-            badgeContainer.trailingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 6),
             badgeContainer.heightAnchor.constraint(equalToConstant: 18),
             badgeContainer.widthAnchor.constraint(greaterThanOrEqualToConstant: 18),
             
@@ -100,20 +84,91 @@ class OutboxButton: UIControl {
             badgeLabel.centerYAnchor.constraint(equalTo: badgeContainer.centerYAnchor)
         ])
         
+        if isNativeGlass {
+            NSLayoutConstraint.activate([
+                badgeContainer.topAnchor.constraint(equalTo: self.topAnchor, constant: 14),
+                badgeContainer.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -14)
+            ])
+        }
+        
         setBadge(count: 0)
+    }
+    
+    private func setupFallbackView() {
+        // Parent view has cornerRadius and masksToBounds = false to allow shadow
+        layer.cornerRadius = 32
+        layer.masksToBounds = false
+        layer.borderWidth = 0.5
+        updateBorderColor()
+        updateBackgroundColor()
+        
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
+        blur.layer.cornerRadius = 32
+        blur.layer.masksToBounds = true
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(blur)
+        self.blurEffectView = blur
+        
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        blur.contentView.addSubview(overlay)
+        self.colorOverlayView = overlay
+        updateColorOverlay()
+        
+        let icon = UIImageView()
+        icon.image = UIImage(systemName: "shippingbox")?.withRenderingMode(.alwaysTemplate)
+        icon.contentMode = .scaleAspectFit
+        icon.tintColor = .secondaryLabel
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        blur.contentView.addSubview(icon)
+        self.iconView = icon
+        
+        NSLayoutConstraint.activate([
+            blur.leadingAnchor.constraint(equalTo: leadingAnchor),
+            blur.trailingAnchor.constraint(equalTo: trailingAnchor),
+            blur.topAnchor.constraint(equalTo: topAnchor),
+            blur.bottomAnchor.constraint(equalTo: bottomAnchor),
+            
+            overlay.leadingAnchor.constraint(equalTo: blur.contentView.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: blur.contentView.trailingAnchor),
+            overlay.topAnchor.constraint(equalTo: blur.contentView.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: blur.contentView.bottomAnchor),
+            
+            icon.centerXAnchor.constraint(equalTo: blur.contentView.centerXAnchor),
+            icon.centerYAnchor.constraint(equalTo: blur.contentView.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 24),
+            icon.heightAnchor.constraint(equalToConstant: 24)
+        ])
+        
+        setupBadge(isNativeGlass: false)
+        
+        if let iconView = iconView {
+            NSLayoutConstraint.activate([
+                badgeContainer.topAnchor.constraint(equalTo: iconView.topAnchor, constant: -6),
+                badgeContainer.trailingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 6)
+            ])
+        }
     }
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        updateBorderColor()
-        updateBackgroundColor()
-        updateColorOverlay()
+        if #available(iOS 26.0, *) {
+            // System handles it
+        } else {
+            updateBorderColor()
+            updateBackgroundColor()
+            updateColorOverlay()
+        }
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            setNeedsLayout()
+        if #available(iOS 26.0, *) {
+            // System handles it
+        } else {
+            if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+                setNeedsLayout()
+            }
         }
     }
     
@@ -135,23 +190,31 @@ class OutboxButton: UIControl {
     
     private func updateColorOverlay() {
         if #available(iOS 13.0, *) {
-            colorOverlayView.backgroundColor = UIColor { trait in
+            colorOverlayView?.backgroundColor = UIColor { trait in
                 return trait.userInterfaceStyle == .dark
                     ? UIColor(red: 30/255.0, green: 30/255.0, blue: 32/255.0, alpha: 0.1)
                     : UIColor(red: 247/255.0, green: 249/255.0, blue: 253/255.0, alpha: 0.1)
             }.resolvedColor(with: traitCollection)
         } else {
-            colorOverlayView.backgroundColor = UIColor(red: 247/255.0, green: 249/255.0, blue: 253/255.0, alpha: 0.1)
+            colorOverlayView?.backgroundColor = UIColor(red: 247/255.0, green: 249/255.0, blue: 253/255.0, alpha: 0.1)
         }
     }
     
     func setBadge(count: Int) {
         if count <= 0 {
             badgeContainer.isHidden = true
-            iconView.tintColor = .secondaryLabel
+            if #available(iOS 26.0, *) {
+                self.tintColor = .secondaryLabel
+            } else {
+                iconView?.tintColor = .secondaryLabel
+            }
         } else {
             badgeContainer.isHidden = false
-            iconView.tintColor = .label
+            if #available(iOS 26.0, *) {
+                self.tintColor = .label
+            } else {
+                iconView?.tintColor = .label
+            }
             if count > 99 {
                 badgeLabel.text = "99+"
             } else {
@@ -163,24 +226,35 @@ class OutboxButton: UIControl {
     // Interactive Liquid Scale Animations
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
-        UIView.animate(withDuration: 0.12, delay: 0, options: [.curveEaseInOut, .allowUserInteraction], animations: {
-            self.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
-        }, completion: nil)
+        if #available(iOS 26.0, *) {
+            // Let the system handle native glass animations
+        } else {
+            UIView.animate(withDuration: 0.12, delay: 0, options: [.curveEaseInOut, .allowUserInteraction], animations: {
+                self.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+            }, completion: nil)
+        }
     }
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
-        UIView.animate(withDuration: 0.22, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [.curveEaseInOut, .allowUserInteraction], animations: {
-            self.transform = .identity
-        }, completion: nil)
-        sendActions(for: .touchUpInside)
+        if #available(iOS 26.0, *) {
+            // Let the system handle native glass animations
+        } else {
+            UIView.animate(withDuration: 0.22, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [.curveEaseInOut, .allowUserInteraction], animations: {
+                self.transform = .identity
+            }, completion: nil)
+        }
     }
     
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
-        UIView.animate(withDuration: 0.22, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [.curveEaseInOut, .allowUserInteraction], animations: {
-            self.transform = .identity
-        }, completion: nil)
+        if #available(iOS 26.0, *) {
+            // Let the system handle native glass animations
+        } else {
+            UIView.animate(withDuration: 0.22, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [.curveEaseInOut, .allowUserInteraction], animations: {
+                self.transform = .identity
+            }, completion: nil)
+        }
     }
 }
 

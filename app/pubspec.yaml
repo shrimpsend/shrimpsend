@@ -84,6 +84,7 @@ dependencies:
   tray_manager: ^0.5.2
   provider: ^6.1.5+1
   liquid_glass_widgets: ^0.10.7
+  cupertino_native_better: ^1.4.4
   country_picker: ^2.0.27
   ffi: ^2.1.4
   # Windows VC runtime DLLs are vendored under windows/vc_redist/x64
