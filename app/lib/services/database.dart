@@ -129,19 +129,27 @@ class AppDatabase {
     await _migrateTransferRecordsFromPrefs();
   }
 
-  /// iOS keeps SQLite in Application Support so it does not appear in Files app.
+  /// iOS and desktop keep SQLite in Application Support so it is not user-visible
+  /// (iOS Files app / desktop Documents folder).
+  static bool get _usesApplicationSupportDatabase =>
+      Platform.isIOS ||
+      Platform.isWindows ||
+      Platform.isLinux ||
+      Platform.isMacOS;
+
   Future<String> _resolveDatabasePath() async {
-    if (Platform.isIOS) {
+    if (_usesApplicationSupportDatabase) {
       final supportDir = await getApplicationSupportDirectory();
+      await Directory(supportDir.path).create(recursive: true);
       final dbPath = join(supportDir.path, 'ultrasend.db');
-      await _migrateIosDatabaseFromDocuments(dbPath);
+      await _migrateDatabaseFromDocuments(dbPath);
       return dbPath;
     }
     final dir = await getApplicationDocumentsDirectory();
     return join(dir.path, 'ultrasend.db');
   }
 
-  Future<void> _migrateIosDatabaseFromDocuments(String newPath) async {
+  Future<void> _migrateDatabaseFromDocuments(String newPath) async {
     final docsDir = await getApplicationDocumentsDirectory();
     final oldPath = join(docsDir.path, 'ultrasend.db');
     final oldFile = File(oldPath);

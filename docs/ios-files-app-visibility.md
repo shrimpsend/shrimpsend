@@ -18,8 +18,8 @@
 ### 应用保存路径
 
 - 默认根目录：`getApplicationDocumentsDirectory()` + `Downloads`
-- SQLite 数据库：`getApplicationSupportDirectory()` + `ultrasend.db`（不在「文件」App 中显示）
-- 解析逻辑：[`app/lib/services/receive_dir_resolver.dart`](../app/lib/services/receive_dir_resolver.dart)
+- SQLite 数据库：`getApplicationSupportDirectory()` + `ultrasend.db`（不在「文件」App 中显示；桌面端同样不在用户「文档」目录中显示，避免误删）
+- 解析逻辑：[`app/lib/services/receive_dir_resolver.dart`](../app/lib/services/receive_dir_resolver.dart)、[`app/lib/services/database.dart`](../app/lib/services/database.dart)
 - 主入口：[`FileStore.getReceiveDir()`](../app/lib/services/file_store.dart)
 
 在「文件」中的路径示例：
