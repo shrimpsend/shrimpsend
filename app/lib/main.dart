@@ -70,6 +70,23 @@ class _NoProxyHttpOverrides extends HttpOverrides {
   }
 }
 
+const _isrgRootX1Asset = 'assets/certs/isrg_root_x1.pem';
+
+/// Trust Let's Encrypt ISRG Root X1 for HTTPS when the OS store is missing it
+/// (common on Win10 without Windows root-cert auto-update).
+Future<void> _injectLetsEncryptRootCa() async {
+  try {
+    final pemBytes = (await rootBundle.load(_isrgRootX1Asset)).buffer.asUint8List();
+    SecurityContext.defaultContext.setTrustedCertificatesBytes(pemBytes);
+  } catch (e, st) {
+    final message = e.toString();
+    if (message.contains('CERT_ALREADY_IN_HASH_TABLE')) {
+      return;
+    }
+    logBoot.warning('inject ISRG Root X1 trust anchor failed: $e', e, st);
+  }
+}
+
 void main(List<String> args) async {
   HttpOverrides.global = _NoProxyHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,6 +95,7 @@ void main(List<String> args) async {
   }
   await AppLogFile.instance.init();
   initLogging();
+  await _injectLetsEncryptRootCa();
   final launchedAtStartup = WindowsLaunchAtStartupService.isStartupLaunch(args);
   if (Platform.isWindows) {
     try {
