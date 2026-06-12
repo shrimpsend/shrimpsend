@@ -125,6 +125,7 @@ flutter:
     - assets/logo.png
     - assets/tray_icon_mac.png
     - assets/tray_icon_windows.ico
+    - assets/certs/isrg_root_x1.pem
 
   # BEGIN_WINDOWS_FONT
   # END_WINDOWS_FONT
