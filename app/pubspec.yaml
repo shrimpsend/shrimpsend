@@ -94,6 +94,8 @@ dependencies:
     path: packages/openpanel_flutter
   launch_at_startup: ^0.5.1
   fast_gbk: ^1.0.0
+  wakelock_plus: ^1.4.0
+  flutter_foreground_task: ^9.2.2
 
 dev_dependencies:
   flutter_test:

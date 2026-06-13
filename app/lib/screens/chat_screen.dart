@@ -86,6 +86,7 @@ import '../services/pending_files_store.dart';
 import '../widgets/desktop_paste_shortcuts.dart';
 import '../services/transfer_record.dart';
 import '../services/transfer_state_manager.dart';
+import '../services/transfer_keep_alive.dart';
 import '../services/file_export_service.dart';
 import '../ui/app_ui.dart';
 import '../ui/platform_performance.dart';
@@ -787,6 +788,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     await ref.read(cloudDeviceRosterProvider.notifier).refreshSnapshot();
   }
 
+  bool get _hasActiveTransferKeepAlive =>
+      _activeTransfers.isNotEmpty ||
+      _activeDownloads.isNotEmpty ||
+      _activeLanReceives.isNotEmpty;
+
+  void _trackActiveTransfer(String localId, CancelToken token) {
+    final isNew = !_activeTransfers.containsKey(localId);
+    _activeTransfers[localId] = token;
+    if (isNew) TransferKeepAlive.instance.retain();
+  }
+
+  void _untrackActiveTransfer(String localId) {
+    if (_activeTransfers.remove(localId) != null) {
+      TransferKeepAlive.instance.release();
+    }
+  }
+
+  void _trackActiveDownload(String msgId, CancelToken token) {
+    final isNew = !_activeDownloads.containsKey(msgId);
+    _activeDownloads[msgId] = token;
+    if (isNew) TransferKeepAlive.instance.retain();
+  }
+
+  void _untrackActiveDownload(String msgId) {
+    if (_activeDownloads.remove(msgId) != null) {
+      TransferKeepAlive.instance.release();
+    }
+  }
+
+  void _trackActiveLanReceive(String msgId, String fileName) {
+    final isNew = !_activeLanReceives.containsKey(msgId);
+    _activeLanReceives[msgId] = fileName;
+    if (isNew) TransferKeepAlive.instance.retain();
+  }
+
+  void _untrackActiveLanReceive(String msgId) {
+    if (_activeLanReceives.remove(msgId) != null) {
+      TransferKeepAlive.instance.release();
+    }
+  }
+
   Future<void> _markPresenceOnline(String reason) async {
     if (!mounted || _deviceId.isEmpty || _effectiveOffline) return;
     try {
@@ -873,6 +915,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
+        if (_hasActiveTransferKeepAlive) break;
         _presencePausedByLifecycle = true;
         _cancelPresenceRefreshTimer();
         unawaited(_markPresenceOffline('app_${state.name}'));
@@ -3205,7 +3248,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 _lanRecvLocalIds.add(senderLocalId);
                 _lanLocalIdToMessageId[senderLocalId] = msgId;
               }
-              _activeLanReceives.remove(msgId);
+              _untrackActiveLanReceive(msgId);
               _lanRecvFileIdByMsgId.remove(msgId);
               _speedTrackers.remove(msgId);
               _transferStartTimes.remove(msgId);
@@ -3270,7 +3313,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 _lanRecvLocalIds.add(senderLocalId);
                 _lanLocalIdToMessageId[senderLocalId] = msgId;
               }
-              _activeLanReceives[msgId] = fileName;
+              _trackActiveLanReceive(msgId, fileName);
               if (fileId != null && fileId.isNotEmpty) {
                 _lanRecvFileIdByMsgId[msgId] = fileId;
               }
@@ -3314,7 +3357,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           if (!mounted) return;
           logChat.warning('LAN receive error: $fileName $error');
           final msgId = messageId ?? 'lan_recv_${const Uuid().v4()}';
-          _activeLanReceives.remove(msgId);
+          _untrackActiveLanReceive(msgId);
           _lanRecvFileIdByMsgId.remove(msgId);
           _speedTrackers.remove(msgId);
           _transferStartTimes.remove(msgId);
@@ -4765,8 +4808,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ? _l10n.chatTransferCancelledNamed(fileName)
         : _l10n.chatTransferCancelledBare;
 
-    final token = _activeTransfers.remove(localId);
+    final token = _activeTransfers[localId];
     if (token != null) {
+      _untrackActiveTransfer(localId);
       token.cancel();
       _updateSendingMessage(localId, cancelText);
       if (mounted) {
@@ -4995,7 +5039,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _cancelLanReceive(String msgId, String fileName) {
     final fileId = _lanRecvFileIdByMsgId.remove(msgId);
     _lanReceiver?.cancelReceive(fileName, fileId: fileId);
-    _activeLanReceives.remove(msgId);
+    _untrackActiveLanReceive(msgId);
     _speedTrackers.remove(msgId);
     _transferStartTimes.remove(msgId);
     // Worker isolates may have already queued a few _ReceiveProgress events
@@ -5029,8 +5073,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// message id. The actual record-status bookkeeping is done inside the
   /// transfer service (S3) so cold-start resume picks up where we left off.
   void _cancelDownload(String msgId, String fileName) {
-    final token = _activeDownloads.remove(msgId);
+    final token = _activeDownloads[msgId];
     if (token != null) {
+      _untrackActiveDownload(msgId);
       token.cancel();
     }
     _speedTrackers.remove(msgId);
@@ -5716,6 +5761,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       });
       _speedTrackers['local_$localId'] = SpeedTracker();
       _transferStartTimes['local_$localId'] = DateTime.now();
+      TransferKeepAlive.instance.retain();
     }
 
     try {
@@ -5793,6 +5839,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             _localMessageProgress.remove(localId);
           });
         }
+        TransferKeepAlive.instance.release();
       }
     }
   }
@@ -5859,7 +5906,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Register a CancelToken so the user's "cancel" tap during the
     // reverse-pull wait still routes through _cancelTransfer.
     final fallbackToken = CancelToken();
-    _activeTransfers[localId] = fallbackToken;
+    _trackActiveTransfer(localId, fallbackToken);
     final tracker = _speedTrackers['local_$localId'] ?? SpeedTracker();
     _speedTrackers['local_$localId'] = tracker;
     try {
@@ -5894,7 +5941,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       // if the caller's success path replaces it later, leave that alone.
       final current = _activeTransfers[localId];
       if (identical(current, fallbackToken)) {
-        _activeTransfers.remove(localId);
+        _untrackActiveTransfer(localId);
       }
     }
   }
@@ -6051,7 +6098,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final localId = reuseLocalId ?? const Uuid().v4();
     final ts = DateTime.now().millisecondsSinceEpoch;
     final cancelToken = CancelToken();
-    _activeTransfers[localId] = cancelToken;
+    _trackActiveTransfer(localId, cancelToken);
     final sendCompleter = Completer<void>();
     _activeTransferFutures[localId] = sendCompleter.future;
 
@@ -6332,7 +6379,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
       }
     } finally {
-      _activeTransfers.remove(localId);
+      _untrackActiveTransfer(localId);
       _activeTransferFutures.remove(localId);
       _speedTrackers.remove('local_$localId');
       _transferStartTimes.remove('local_$localId');
@@ -6352,7 +6399,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // becomes visible as soon as the placeholder bubble is inserted) is never
     // racing against an unset `_activeTransfers` slot.
     final cancelToken = CancelToken();
-    _activeTransfers[localId] = cancelToken;
+    _trackActiveTransfer(localId, cancelToken);
     final s3ThreadKey = await _threadKeyForS3Persist(toDeviceId);
 
     _retryInfoByLocalId[localId] = _RetryInfo(
@@ -6374,7 +6421,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             message: _l10n.chatScreenConfigureS3FirstToast,
           );
         }
-        _activeTransfers.remove(localId);
+        _untrackActiveTransfer(localId);
         return;
       }
       if (!ref.read(s3OnlineProvider)) {
@@ -6382,7 +6429,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         if (mounted) {
           AppToast.show(context, message: _l10n.chatScreenS3UnavailableToast);
         }
-        _activeTransfers.remove(localId);
+        _untrackActiveTransfer(localId);
         return;
       }
       final contentType = file.extension != null
@@ -6568,7 +6615,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'size_bucket': Analytics.sizeBucket(file.size),
       });
     } finally {
-      _activeTransfers.remove(localId);
+      _untrackActiveTransfer(localId);
       _speedTrackers.remove('local_$localId');
       _transferStartTimes.remove('local_$localId');
     }
@@ -6798,6 +6845,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             );
             _chatController.updateMessage(existingMsg, updMsg);
           }
+          TransferKeepAlive.instance.retain();
           continue;
         }
 
@@ -6829,6 +6877,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
         _chatController.insertMessage(msg);
         _scrollToBottom();
+        TransferKeepAlive.instance.retain();
         final ts = DateTime.now().millisecondsSinceEpoch;
         final payload = <String, dynamic>{'fileName': fileName, 'webrtc': true};
         if (fileSize != null && fileSize > 0) payload['size'] = fileSize;
@@ -6883,6 +6932,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _onWebRTCFileSent(String fileId, String fileName) {
+    try {
     final localId = _webrtcFileLocalIdMap.remove(fileId);
     if (localId != null) _webrtcLocalIdToFileIdMap.remove(localId);
     _webrtcFileNameMap.remove(fileId);
@@ -6944,6 +6994,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }());
     ChatMessageDao.instance.markSynced('local_$localId');
     logChat.info('WebRTC file sent: $fileName');
+    } finally {
+      TransferKeepAlive.instance.release();
+    }
   }
 
   void _onWebRTCFileFailed(String fileId, String fileName, String error) {
@@ -7029,7 +7082,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'size_bucket': Analytics.sizeBucket(rtcFailSize ?? 0),
       });
     }
-    if (localId == null || !mounted) return;
+    if (localId == null || !mounted) {
+      TransferKeepAlive.instance.release();
+      return;
+    }
     final failText = wasDownloading
         ? _l10n.chatTransferReceiveFailedNamed(fileName)
         : _l10n.chatTransferSendFailedNamed(fileName);
@@ -7041,9 +7097,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _localMessageProgress.remove(localId);
     });
     logChat.warning('WebRTC file failed: $fileName error=$error');
+    TransferKeepAlive.instance.release();
   }
 
   void _onWebRTCFileCancelled(String fileId, String fileName) {
+    try {
     final localId = _webrtcFileLocalIdMap.remove(fileId);
     if (localId != null) _webrtcLocalIdToFileIdMap.remove(localId);
     _webrtcFileNameMap.remove(fileId);
@@ -7064,9 +7122,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _localMessageProgress.remove(localId);
     });
     logChat.info('WebRTC file cancelled: $fileName');
+    } finally {
+      TransferKeepAlive.instance.release();
+    }
   }
 
   void _onWebRTCFileReceived(String fileId, String fileName, String filePath) {
+    try {
     final localId = _webrtcFileLocalIdMap.remove(fileId);
     if (localId != null) _webrtcLocalIdToFileIdMap.remove(localId);
     _webrtcFileNameMap.remove(fileId);
@@ -7121,6 +7183,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _updateSendingMessage(localId, '$fileName (WebRTC)');
     ChatMessageDao.instance.markSynced('local_$localId');
     logChat.info('WebRTC file received: $fileName -> $filePath');
+    } finally {
+      TransferKeepAlive.instance.release();
+    }
   }
 
   void _updateSendingMessage(String localId, String text) {
@@ -7165,7 +7230,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _speedTrackers[msgId] = recvTracker;
     _transferStartTimes[msgId] = DateTime.now();
     final cancelToken = CancelToken();
-    _activeDownloads[msgId] = cancelToken;
+    _trackActiveDownload(msgId, cancelToken);
     final receiveDir = await FileStore.getReceiveDir();
     final now = DateTime.now();
     final initialText = _l10n.chatTransferReceivingPct(fileName, 0);
@@ -7343,7 +7408,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _chatController.updateMessage(currentMsg, failMsg);
       }
     } finally {
-      _activeDownloads.remove(msgId);
+      _untrackActiveDownload(msgId);
     }
   }
 
@@ -8052,7 +8117,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       currentMsg = updMsg;
     }
     final cancelToken = CancelToken();
-    _activeDownloads[messageId] = cancelToken;
+    _trackActiveDownload(messageId, cancelToken);
     try {
       final savePath = await FileStore.buildReceivePath(messageId, displayName);
       final dlTracker = SpeedTracker();
@@ -8162,7 +8227,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         );
       }
     } finally {
-      _activeDownloads.remove(messageId);
+      _untrackActiveDownload(messageId);
       _speedTrackers.remove(messageId);
       _transferStartTimes.remove(messageId);
     }
@@ -8214,7 +8279,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     for (final token in _activeTransfers.values) {
       token.cancel();
     }
+    for (final token in _activeDownloads.values) {
+      token.cancel();
+    }
+    TransferKeepAlive.instance.releaseAll();
     _activeTransfers.clear();
+    _activeDownloads.clear();
     _activeLanReceives.clear();
     _webrtcManager.closeAll();
     _lanReceiver?.stop();
