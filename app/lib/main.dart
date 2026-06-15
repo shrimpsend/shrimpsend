@@ -62,6 +62,7 @@ import 'utils/runtime_platform.dart';
 import 'utils/windows_distribution_channel.dart';
 import 'services/native_tab_bar_service.dart';
 import 'services/transfer_keep_alive.dart';
+import 'services/transfer_completion_notifier.dart';
 
 class _NoProxyHttpOverrides extends HttpOverrides {
   @override
@@ -94,6 +95,7 @@ void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterForegroundTask.initCommunicationPort();
   await TransferKeepAlive.ensureInitialized();
+  await TransferCompletionNotifier.ensureInitialized();
   if (!Platform.isWindows) {
     await LiquidGlassWidgets.initialize();
   }

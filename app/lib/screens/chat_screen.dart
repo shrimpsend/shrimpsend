@@ -7,6 +7,7 @@ import 'package:centrifuge/centrifuge.dart' as centrifuge;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide ChatColors;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
@@ -793,39 +794,91 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _activeDownloads.isNotEmpty ||
       _activeLanReceives.isNotEmpty;
 
-  void _trackActiveTransfer(String localId, CancelToken token) {
+  String _webrtcKeepAliveId(String localId) => 'webrtc_$localId';
+
+  void _trackActiveTransfer(
+    String localId,
+    CancelToken token, {
+    int totalBytes = 0,
+    String? fileName,
+  }) {
     final isNew = !_activeTransfers.containsKey(localId);
     _activeTransfers[localId] = token;
-    if (isNew) TransferKeepAlive.instance.retain();
-  }
-
-  void _untrackActiveTransfer(String localId) {
-    if (_activeTransfers.remove(localId) != null) {
-      TransferKeepAlive.instance.release();
+    if (isNew) {
+      TransferKeepAlive.instance.retain(
+        localId,
+        totalBytes: totalBytes,
+        fileName: fileName,
+      );
+    } else if (totalBytes > 0) {
+      TransferKeepAlive.instance.updateProgress(
+        localId,
+        0,
+        totalBytes: totalBytes,
+      );
     }
   }
 
-  void _trackActiveDownload(String msgId, CancelToken token) {
+  void _untrackActiveTransfer(String localId, {bool completed = false}) {
+    if (_activeTransfers.remove(localId) != null) {
+      TransferKeepAlive.instance.release(localId, completed: completed);
+    }
+  }
+
+  void _trackActiveDownload(
+    String msgId,
+    CancelToken token, {
+    int totalBytes = 0,
+    String? fileName,
+  }) {
     final isNew = !_activeDownloads.containsKey(msgId);
     _activeDownloads[msgId] = token;
-    if (isNew) TransferKeepAlive.instance.retain();
-  }
-
-  void _untrackActiveDownload(String msgId) {
-    if (_activeDownloads.remove(msgId) != null) {
-      TransferKeepAlive.instance.release();
+    if (isNew) {
+      TransferKeepAlive.instance.retain(
+        msgId,
+        totalBytes: totalBytes,
+        fileName: fileName,
+      );
+    } else if (totalBytes > 0) {
+      TransferKeepAlive.instance.updateProgress(
+        msgId,
+        0,
+        totalBytes: totalBytes,
+      );
     }
   }
 
-  void _trackActiveLanReceive(String msgId, String fileName) {
-    final isNew = !_activeLanReceives.containsKey(msgId);
-    _activeLanReceives[msgId] = fileName;
-    if (isNew) TransferKeepAlive.instance.retain();
+  void _untrackActiveDownload(String msgId, {bool completed = false}) {
+    if (_activeDownloads.remove(msgId) != null) {
+      TransferKeepAlive.instance.release(msgId, completed: completed);
+    }
   }
 
-  void _untrackActiveLanReceive(String msgId) {
+  void _trackActiveLanReceive(
+    String msgId,
+    String fileName, {
+    int totalBytes = 0,
+  }) {
+    final isNew = !_activeLanReceives.containsKey(msgId);
+    _activeLanReceives[msgId] = fileName;
+    if (isNew) {
+      TransferKeepAlive.instance.retain(
+        msgId,
+        totalBytes: totalBytes,
+        fileName: fileName,
+      );
+    } else if (totalBytes > 0) {
+      TransferKeepAlive.instance.updateProgress(
+        msgId,
+        0,
+        totalBytes: totalBytes,
+      );
+    }
+  }
+
+  void _untrackActiveLanReceive(String msgId, {bool completed = false}) {
     if (_activeLanReceives.remove(msgId) != null) {
-      TransferKeepAlive.instance.release();
+      TransferKeepAlive.instance.release(msgId, completed: completed);
     }
   }
 
@@ -3248,7 +3301,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 _lanRecvLocalIds.add(senderLocalId);
                 _lanLocalIdToMessageId[senderLocalId] = msgId;
               }
-              _untrackActiveLanReceive(msgId);
               _lanRecvFileIdByMsgId.remove(msgId);
               _speedTrackers.remove(msgId);
               _transferStartTimes.remove(msgId);
@@ -3256,6 +3308,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               try {
                 sz = File(filePath).lengthSync();
               } catch (_) {}
+              if (sz != null && sz > 0) {
+                TransferKeepAlive.instance.updateProgress(
+                  msgId,
+                  sz,
+                  totalBytes: sz,
+                );
+              }
+              _untrackActiveLanReceive(msgId, completed: true);
               _fileMetaByMessageId[msgId] = _FileMeta(
                 fileName: fileName,
                 size: sz,
@@ -3313,7 +3373,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 _lanRecvLocalIds.add(senderLocalId);
                 _lanLocalIdToMessageId[senderLocalId] = msgId;
               }
-              _trackActiveLanReceive(msgId, fileName);
+              _trackActiveLanReceive(
+                msgId,
+                fileName,
+                totalBytes: total > 0 ? total : 0,
+              );
+              TransferKeepAlive.instance.updateProgress(
+                msgId,
+                received,
+                totalBytes: total > 0 ? total : null,
+              );
               if (fileId != null && fileId.isNotEmpty) {
                 _lanRecvFileIdByMsgId[msgId] = fileId;
               }
@@ -5761,7 +5830,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       });
       _speedTrackers['local_$localId'] = SpeedTracker();
       _transferStartTimes['local_$localId'] = DateTime.now();
-      TransferKeepAlive.instance.retain();
+      TransferKeepAlive.instance.retain(
+        _webrtcKeepAliveId(localId),
+        totalBytes: file.size,
+        fileName: file.name,
+      );
     }
 
     try {
@@ -5839,7 +5912,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             _localMessageProgress.remove(localId);
           });
         }
-        TransferKeepAlive.instance.release();
+        TransferKeepAlive.instance.release(_webrtcKeepAliveId(localId));
       }
     }
   }
@@ -5906,7 +5979,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Register a CancelToken so the user's "cancel" tap during the
     // reverse-pull wait still routes through _cancelTransfer.
     final fallbackToken = CancelToken();
-    _trackActiveTransfer(localId, fallbackToken);
+    _trackActiveTransfer(
+      localId,
+      fallbackToken,
+      totalBytes: fileSize,
+      fileName: fileName,
+    );
     final tracker = _speedTrackers['local_$localId'] ?? SpeedTracker();
     _speedTrackers['local_$localId'] = tracker;
     try {
@@ -6037,6 +6115,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       onSendProgress: (sent, total) {
         if (!mounted || cancelToken?.isCancelled == true) return;
         tracker.update(sent);
+        TransferKeepAlive.instance.updateProgress(
+          localId,
+          sent,
+          totalBytes: total > 0 ? total : fileSize,
+        );
         final pct = total > 0 ? (sent * 100 / total).round().clamp(0, 100) : 0;
         _updateSendingMessage(
           localId,
@@ -6098,7 +6181,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final localId = reuseLocalId ?? const Uuid().v4();
     final ts = DateTime.now().millisecondsSinceEpoch;
     final cancelToken = CancelToken();
-    _trackActiveTransfer(localId, cancelToken);
+    var transferCompleted = false;
+    _trackActiveTransfer(
+      localId,
+      cancelToken,
+      totalBytes: file.size,
+      fileName: file.name,
+    );
     final sendCompleter = Completer<void>();
     _activeTransferFutures[localId] = sendCompleter.future;
 
@@ -6194,6 +6283,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         onProgress: (sent, total) {
           if (!mounted || cancelToken.isCancelled) return;
           tracker.update(sent);
+          TransferKeepAlive.instance.updateProgress(
+            localId,
+            sent,
+            totalBytes: total > 0 ? total : file.size,
+          );
           final pct = total > 0
               ? (sent * 100 / total).round().clamp(0, 100)
               : 0;
@@ -6345,6 +6439,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           'size_bucket': Analytics.sizeBucket(file.size),
         });
         unawaited(SharePendingCache.deleteStagingFile(file.path));
+        transferCompleted = true;
       }
       if (mounted && !didSendFile && !anyPushed) {
         _updateSendingMessage(
@@ -6379,7 +6474,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
       }
     } finally {
-      _untrackActiveTransfer(localId);
+      _untrackActiveTransfer(localId, completed: transferCompleted);
       _activeTransferFutures.remove(localId);
       _speedTrackers.remove('local_$localId');
       _transferStartTimes.remove('local_$localId');
@@ -6399,7 +6494,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // becomes visible as soon as the placeholder bubble is inserted) is never
     // racing against an unset `_activeTransfers` slot.
     final cancelToken = CancelToken();
-    _trackActiveTransfer(localId, cancelToken);
+    var transferCompleted = false;
+    _trackActiveTransfer(
+      localId,
+      cancelToken,
+      totalBytes: file.size,
+      fileName: file.name,
+    );
     final s3ThreadKey = await _threadKeyForS3Persist(toDeviceId);
 
     _retryInfoByLocalId[localId] = _RetryInfo(
@@ -6421,7 +6522,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             message: _l10n.chatScreenConfigureS3FirstToast,
           );
         }
-        _untrackActiveTransfer(localId);
         return;
       }
       if (!ref.read(s3OnlineProvider)) {
@@ -6429,7 +6529,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         if (mounted) {
           AppToast.show(context, message: _l10n.chatScreenS3UnavailableToast);
         }
-        _untrackActiveTransfer(localId);
         return;
       }
       final contentType = file.extension != null
@@ -6507,6 +6606,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         cancelToken: cancelToken,
         onProgress: (sent, total) {
           s3Tracker.update(sent);
+          TransferKeepAlive.instance.updateProgress(
+            localId,
+            sent,
+            totalBytes: total > 0 ? total : file.size,
+          );
           final pct = total > 0
               ? (sent * 100 / total).round().clamp(0, 100)
               : 0;
@@ -6592,6 +6696,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'size_bucket': Analytics.sizeBucket(file.size),
       });
       unawaited(SharePendingCache.deleteStagingFile(file.path));
+      transferCompleted = true;
     } catch (e) {
       if (cancelToken.isCancelled) return;
       logChat.warning('chat_screen sendFileViaS3 failed: $e');
@@ -6615,7 +6720,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'size_bucket': Analytics.sizeBucket(file.size),
       });
     } finally {
-      _untrackActiveTransfer(localId);
+      _untrackActiveTransfer(localId, completed: transferCompleted);
       _speedTrackers.remove('local_$localId');
       _transferStartTimes.remove('local_$localId');
     }
@@ -6845,7 +6950,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             );
             _chatController.updateMessage(existingMsg, updMsg);
           }
-          TransferKeepAlive.instance.retain();
+          TransferKeepAlive.instance.retain(
+            _webrtcKeepAliveId(existingLocalId),
+            totalBytes: fileSize ?? 0,
+            fileName: fileName,
+          );
           continue;
         }
 
@@ -6877,7 +6986,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
         _chatController.insertMessage(msg);
         _scrollToBottom();
-        TransferKeepAlive.instance.retain();
+        TransferKeepAlive.instance.retain(
+          _webrtcKeepAliveId(localId),
+          totalBytes: fileSize ?? 0,
+          fileName: fileName,
+        );
         final ts = DateTime.now().millisecondsSinceEpoch;
         final payload = <String, dynamic>{'fileName': fileName, 'webrtc': true};
         if (fileSize != null && fileSize > 0) payload['size'] = fileSize;
@@ -6920,6 +7033,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           : _l10n.chatTransferReceivingPct(fileName, pct);
       _updateSendingMessage(localId, progressLine);
     }
+    TransferKeepAlive.instance.updateProgress(
+      _webrtcKeepAliveId(localId),
+      received,
+      totalBytes: total > 0 ? total : null,
+    );
 
     final transferId = _webrtcTransferIdMap[fileId];
     if (transferId != null) {
@@ -6932,16 +7050,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _onWebRTCFileSent(String fileId, String fileName) {
-    try {
     final localId = _webrtcFileLocalIdMap.remove(fileId);
+    final keepAliveId =
+        localId != null ? _webrtcKeepAliveId(localId) : null;
+    final fileSize = _webrtcFileSizeMap.remove(fileId);
+    try {
     if (localId != null) _webrtcLocalIdToFileIdMap.remove(localId);
     _webrtcFileNameMap.remove(fileId);
-    final fileSize = _webrtcFileSizeMap.remove(fileId);
     final webrtcSentMtimeMs = _webrtcFileMtimeMsMap.remove(fileId);
     final transferId = _webrtcTransferIdMap.remove(fileId);
     final retryInfo = localId != null ? _retryInfoByLocalId[localId] : null;
     if (transferId != null) {
       TransferStateManager.instance.markStatus(transferId, 'completed');
+    }
+    if (keepAliveId != null && fileSize != null && fileSize > 0) {
+      TransferKeepAlive.instance.updateProgress(
+        keepAliveId,
+        fileSize,
+        totalBytes: fileSize,
+      );
     }
     if (localId == null || !mounted) return;
     Analytics.track(AnalyticsEvents.fileSendOutcome, {
@@ -6995,7 +7122,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ChatMessageDao.instance.markSynced('local_$localId');
     logChat.info('WebRTC file sent: $fileName');
     } finally {
-      TransferKeepAlive.instance.release();
+      if (keepAliveId != null) {
+        TransferKeepAlive.instance.release(
+          keepAliveId,
+          completed: fileSize != null && fileSize > 0,
+        );
+      }
     }
   }
 
@@ -7083,7 +7215,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       });
     }
     if (localId == null || !mounted) {
-      TransferKeepAlive.instance.release();
+      if (localId != null) {
+        TransferKeepAlive.instance.release(_webrtcKeepAliveId(localId));
+      }
       return;
     }
     final failText = wasDownloading
@@ -7097,12 +7231,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _localMessageProgress.remove(localId);
     });
     logChat.warning('WebRTC file failed: $fileName error=$error');
-    TransferKeepAlive.instance.release();
+    TransferKeepAlive.instance.release(_webrtcKeepAliveId(localId));
   }
 
   void _onWebRTCFileCancelled(String fileId, String fileName) {
-    try {
     final localId = _webrtcFileLocalIdMap.remove(fileId);
+    final keepAliveId =
+        localId != null ? _webrtcKeepAliveId(localId) : null;
+    try {
     if (localId != null) _webrtcLocalIdToFileIdMap.remove(localId);
     _webrtcFileNameMap.remove(fileId);
     _webrtcFileSizeMap.remove(fileId);
@@ -7123,16 +7259,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
     logChat.info('WebRTC file cancelled: $fileName');
     } finally {
-      TransferKeepAlive.instance.release();
+      if (keepAliveId != null) {
+        TransferKeepAlive.instance.release(keepAliveId);
+      }
     }
   }
 
   void _onWebRTCFileReceived(String fileId, String fileName, String filePath) {
-    try {
     final localId = _webrtcFileLocalIdMap.remove(fileId);
+    final keepAliveId =
+        localId != null ? _webrtcKeepAliveId(localId) : null;
+    final fileSize = _webrtcFileSizeMap.remove(fileId);
+    try {
     if (localId != null) _webrtcLocalIdToFileIdMap.remove(localId);
     _webrtcFileNameMap.remove(fileId);
-    final fileSize = _webrtcFileSizeMap.remove(fileId);
     _webrtcFileMtimeMsMap.remove(fileId);
     // The file is stored under <root>/webrtc_recv_<fileId>/ on the receiver
     // side. Persist that to the index even if there's no matching local
@@ -7165,6 +7305,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         logChat.warning('WebRTC receive finalize failed: $e');
       }
     }());
+    if (keepAliveId != null && fileSize != null && fileSize > 0) {
+      TransferKeepAlive.instance.updateProgress(
+        keepAliveId,
+        fileSize,
+        totalBytes: fileSize,
+      );
+    }
     if (localId == null || !mounted) return;
     _speedTrackers.remove('local_$localId');
     _transferStartTimes.remove('local_$localId');
@@ -7184,7 +7331,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ChatMessageDao.instance.markSynced('local_$localId');
     logChat.info('WebRTC file received: $fileName -> $filePath');
     } finally {
-      TransferKeepAlive.instance.release();
+      if (keepAliveId != null) {
+        TransferKeepAlive.instance.release(
+          keepAliveId,
+          completed: fileSize != null && fileSize > 0,
+        );
+      }
     }
   }
 
@@ -7230,7 +7382,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _speedTrackers[msgId] = recvTracker;
     _transferStartTimes[msgId] = DateTime.now();
     final cancelToken = CancelToken();
-    _trackActiveDownload(msgId, cancelToken);
+    var downloadCompleted = false;
+    _trackActiveDownload(
+      msgId,
+      cancelToken,
+      totalBytes: fileSize > 0 ? fileSize : 0,
+      fileName: fileName,
+    );
     final receiveDir = await FileStore.getReceiveDir();
     final now = DateTime.now();
     final initialText = _l10n.chatTransferReceivingPct(fileName, 0);
@@ -7294,6 +7452,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           if (cancelToken.isCancelled) return;
           if (!mounted) return;
           recvTracker.update(received);
+          TransferKeepAlive.instance.updateProgress(
+            msgId,
+            received,
+            totalBytes: total > 0 ? total : (fileSize > 0 ? fileSize : null),
+          );
           final pct = total > 0
               ? (received * 100 / total).round().clamp(0, 100)
               : 0;
@@ -7368,6 +7531,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         exportOk: exportOk,
         chatMessage: currentMsg,
       );
+      downloadCompleted = true;
     } catch (e) {
       logChat.warning('_pullFileFromOffer failed: $e');
       _speedTrackers.remove(msgId);
@@ -7408,7 +7572,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _chatController.updateMessage(currentMsg, failMsg);
       }
     } finally {
-      _untrackActiveDownload(msgId);
+      _untrackActiveDownload(msgId, completed: downloadCompleted);
     }
   }
 
@@ -8117,7 +8281,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       currentMsg = updMsg;
     }
     final cancelToken = CancelToken();
-    _trackActiveDownload(messageId, cancelToken);
+    var downloadCompleted = false;
+    _trackActiveDownload(
+      messageId,
+      cancelToken,
+      totalBytes: _fileMetaByMessageId[messageId]?.size ?? 0,
+      fileName: displayName,
+    );
     try {
       final savePath = await FileStore.buildReceivePath(messageId, displayName);
       final dlTracker = SpeedTracker();
@@ -8132,6 +8302,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             lastModifiedMs ?? _fileMetaByMessageId[messageId]?.lastModifiedMs,
         onProgress: (received, total) {
           dlTracker.update(received);
+          TransferKeepAlive.instance.updateProgress(
+            messageId,
+            received,
+            totalBytes: total > 0 ? total : null,
+          );
           final cur = currentMsg;
           if (mounted && total > 0 && cur != null) {
             final pct = (received * 100 / total).round().clamp(0, 100);
@@ -8202,6 +8377,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ? _l10n.fileExportSavedToDownloads(displayName)
             : _l10n.fileExportFailed,
       );
+      downloadCompleted = true;
     } catch (e, st) {
       logChat.warning('chat_screen _downloadS3File error: $e');
       logChat.info('chat_screen _downloadS3File stackTrace: $st');
@@ -8227,7 +8403,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         );
       }
     } finally {
-      _untrackActiveDownload(messageId);
+      _untrackActiveDownload(messageId, completed: downloadCompleted);
       _speedTrackers.remove(messageId);
       _transferStartTimes.remove(messageId);
     }
@@ -8550,13 +8726,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         MediaQuery.sizeOf(context).width < kChatNarrowLayoutBreakpoint;
 
     return PopScope(
-      canPop: !_isSelectionMode && selectedDeviceId == null,
+      canPop:
+          !_isSelectionMode &&
+          selectedDeviceId == null &&
+          !_hasActiveTransferKeepAlive,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           if (_isSelectionMode) {
             _exitSelectionMode();
           } else if (selectedDeviceId != null) {
             ref.read(selectedDeviceIdProvider.notifier).select(null);
+          } else if (Platform.isAndroid && _hasActiveTransferKeepAlive) {
+            FlutterForegroundTask.minimizeApp();
           }
         }
       },
