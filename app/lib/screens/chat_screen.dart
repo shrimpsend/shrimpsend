@@ -582,6 +582,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _client = null;
         if (!next.isLoggedIn) {
           if (!mounted) return;
+          // Tear down the always-on foreground service on logout.
+          unawaited(TransferKeepAlive.instance.disablePersistent());
           ref.read(selectedSendModeProvider.notifier).resetForLogout();
           if (ref.read(selectedDeviceIdProvider) == s3VirtualDeviceId) {
             ref.read(selectedDeviceIdProvider.notifier).select(null);
@@ -792,7 +794,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   bool get _hasActiveTransferKeepAlive =>
       _activeTransfers.isNotEmpty ||
       _activeDownloads.isNotEmpty ||
-      _activeLanReceives.isNotEmpty;
+      _activeLanReceives.isNotEmpty ||
+      // WebRTC 收发直接调用 TransferKeepAlive.retain,不进上面三个 map;
+      // 用 isActive 兜底,确保按 back 时正确最小化而非 pop。
+      TransferKeepAlive.instance.isActive;
 
   String _webrtcKeepAliveId(String localId) => 'webrtc_$localId';
 
@@ -801,6 +806,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     CancelToken token, {
     int totalBytes = 0,
     String? fileName,
+    String? peerLabel,
   }) {
     final isNew = !_activeTransfers.containsKey(localId);
     _activeTransfers[localId] = token;
@@ -809,6 +815,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         localId,
         totalBytes: totalBytes,
         fileName: fileName,
+        direction: TransferDirection.send,
+        peerLabel: peerLabel,
       );
     } else if (totalBytes > 0) {
       TransferKeepAlive.instance.updateProgress(
@@ -830,6 +838,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     CancelToken token, {
     int totalBytes = 0,
     String? fileName,
+    String? peerLabel,
   }) {
     final isNew = !_activeDownloads.containsKey(msgId);
     _activeDownloads[msgId] = token;
@@ -838,6 +847,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         msgId,
         totalBytes: totalBytes,
         fileName: fileName,
+        direction: TransferDirection.receive,
+        peerLabel: peerLabel,
       );
     } else if (totalBytes > 0) {
       TransferKeepAlive.instance.updateProgress(
@@ -858,6 +869,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     String msgId,
     String fileName, {
     int totalBytes = 0,
+    String? peerLabel,
   }) {
     final isNew = !_activeLanReceives.containsKey(msgId);
     _activeLanReceives[msgId] = fileName;
@@ -866,6 +878,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         msgId,
         totalBytes: totalBytes,
         fileName: fileName,
+        direction: TransferDirection.receive,
+        peerLabel: peerLabel,
       );
     } else if (totalBytes > 0) {
       TransferKeepAlive.instance.updateProgress(
@@ -962,6 +976,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _schedulePresenceRefresh();
         unawaited(_markPresenceOnline('app_resumed'));
         unawaited(_refreshRosterAndProbeSelected('app_resumed'));
+        // Make sure the always-on service is up after returning to foreground
+        // (e.g. if it was never started, or torn down by the system).
+        if (Platform.isAndroid && _connected) {
+          unawaited(TransferKeepAlive.instance.enablePersistent());
+        }
         break;
       case AppLifecycleState.inactive:
         break;
@@ -969,6 +988,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
         if (_hasActiveTransferKeepAlive) break;
+        // Android keeps an always-on foreground service that maintains the
+        // realtime connection, so the device stays online in the background;
+        // do not proactively mark it offline. iOS is background-restricted and
+        // keeps the original behavior.
+        if (Platform.isAndroid) break;
         _presencePausedByLifecycle = true;
         _cancelPresenceRefreshTimer();
         unawaited(_markPresenceOffline('app_${state.name}'));
@@ -1325,6 +1349,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (d.deviceId == deviceId) return d;
     }
     return null;
+  }
+
+  /// Build a foreground-notification peer label like `MacBook Pro #3` for the
+  /// given device id. Returns `云端` for the S3 virtual device and null when the
+  /// device cannot be resolved (then the notification shows direction only).
+  String? _peerLabelForDevice(String? deviceId) {
+    if (deviceId == null || deviceId.isEmpty) return null;
+    if (deviceId == s3VirtualDeviceId) return '云端';
+    final device = _findKnownDeviceById(deviceId);
+    if (device == null) return null;
+    final name = device.name.trim();
+    final base = name.isNotEmpty
+        ? name
+        : (deviceId.length > 12 ? '${deviceId.substring(0, 12)}…' : deviceId);
+    return device.displayCode != null ? '$base #${device.displayCode}' : base;
   }
 
   void _seedSelectedPeerReachabilitySnapshot(String peerId) {
@@ -3793,6 +3832,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           setState(() => _connected = true);
           unawaited(_markPresenceOnline('centrifugo_connected'));
           unawaited(_refreshRosterAndProbeSelected('centrifugo_connected'));
+          // Android: keep an always-on foreground service so the realtime
+          // connection survives backgrounding / screen lock and the device
+          // stays online and able to receive new transfers. Started here
+          // (app is foreground) to satisfy Android 12+ background-start rules.
+          if (Platform.isAndroid) {
+            unawaited(TransferKeepAlive.instance.enablePersistent());
+          }
         }
       });
       client.disconnected.listen((e) {
@@ -5834,6 +5880,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _webrtcKeepAliveId(localId),
         totalBytes: file.size,
         fileName: file.name,
+        direction: TransferDirection.send,
+        peerLabel: _peerLabelForDevice(targetDeviceId),
       );
     }
 
@@ -5984,6 +6032,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       fallbackToken,
       totalBytes: fileSize,
       fileName: fileName,
+      peerLabel: _peerLabelForDevice(targetDeviceId),
     );
     final tracker = _speedTrackers['local_$localId'] ?? SpeedTracker();
     _speedTrackers['local_$localId'] = tracker;
@@ -6187,6 +6236,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       cancelToken,
       totalBytes: file.size,
       fileName: file.name,
+      peerLabel: _peerLabelForDevice(
+        targets.isNotEmpty
+            ? targets.first.deviceId
+            : ref.read(selectedDeviceIdProvider),
+      ),
     );
     final sendCompleter = Completer<void>();
     _activeTransferFutures[localId] = sendCompleter.future;
@@ -6500,6 +6554,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       cancelToken,
       totalBytes: file.size,
       fileName: file.name,
+      peerLabel: _peerLabelForDevice(toDeviceId),
     );
     final s3ThreadKey = await _threadKeyForS3Persist(toDeviceId);
 
@@ -6954,6 +7009,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             _webrtcKeepAliveId(existingLocalId),
             totalBytes: fileSize ?? 0,
             fileName: fileName,
+            direction: TransferDirection.receive,
+            peerLabel: _peerLabelForDevice(fromDeviceId),
           );
           continue;
         }
@@ -6990,6 +7047,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _webrtcKeepAliveId(localId),
           totalBytes: fileSize ?? 0,
           fileName: fileName,
+          direction: TransferDirection.receive,
+          peerLabel: _peerLabelForDevice(fromDeviceId),
         );
         final ts = DateTime.now().millisecondsSinceEpoch;
         final payload = <String, dynamic>{'fileName': fileName, 'webrtc': true};
@@ -7388,6 +7447,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       cancelToken,
       totalBytes: fileSize > 0 ? fileSize : 0,
       fileName: fileName,
+      peerLabel: _peerLabelForDevice(senderDeviceId),
     );
     final receiveDir = await FileStore.getReceiveDir();
     final now = DateTime.now();
@@ -8287,6 +8347,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       cancelToken,
       totalBytes: _fileMetaByMessageId[messageId]?.size ?? 0,
       fileName: displayName,
+      peerLabel: _peerLabelForDevice(s3VirtualDeviceId),
     );
     try {
       final savePath = await FileStore.buildReceivePath(messageId, displayName);
@@ -8458,6 +8519,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     for (final token in _activeDownloads.values) {
       token.cancel();
     }
+    unawaited(TransferKeepAlive.instance.disablePersistent());
     TransferKeepAlive.instance.releaseAll();
     _activeTransfers.clear();
     _activeDownloads.clear();

@@ -10,15 +10,25 @@ import 'speed_tracker.dart';
 import 'transfer_completion_notifier.dart';
 import 'transfer_foreground_task.dart';
 
+/// Direction of a tracked transfer, used to label the foreground notification.
+enum TransferDirection { send, receive }
+
 class _TransferEntry {
   _TransferEntry({
     required this.totalBytes,
     this.fileName,
+    this.direction = TransferDirection.send,
+    this.peerLabel,
   });
 
   int totalBytes;
   int transferredBytes = 0;
   String? fileName;
+  TransferDirection direction;
+
+  /// Preformatted peer label, e.g. `MacBook Pro #3` or `云端`. Null when the
+  /// peer device cannot be resolved (then the title only shows the direction).
+  String? peerLabel;
 }
 
 /// Keeps the app awake while at least one file transfer is active.
@@ -40,6 +50,11 @@ class TransferKeepAlive {
   bool _wakelockEnabled = false;
   bool _foregroundServiceRunning = false;
 
+  /// When true (Android only), the foreground service stays running even with
+  /// no active transfer, keeping the realtime connection alive so the device
+  /// remains online and can receive new transfers in the background.
+  bool _persistent = false;
+
   DateTime? _sessionStartedAt;
   int _completedFileCount = 0;
   int _completedBytes = 0;
@@ -50,6 +65,33 @@ class TransferKeepAlive {
 
   /// Whether any transfer currently holds a keep-alive reference.
   bool get isActive => _refCount > 0;
+
+  /// Start an always-on foreground service (Android only) so the realtime
+  /// connection survives backgrounding / screen lock and the device stays
+  /// online and receivable. Must be called while the app is in the foreground
+  /// (e.g. right after the realtime connection is established) to satisfy
+  /// Android 12+ background-start restrictions. Idempotent.
+  Future<void> enablePersistent() async {
+    if (!RuntimePlatform.isAndroid) return;
+    await _ensureInitialized();
+    if (_persistent) return;
+    _persistent = true;
+    logChat.info('TransferKeepAlive enablePersistent');
+    await _startForegroundServiceIfNeeded();
+    await _pushNotificationUpdate();
+  }
+
+  /// Stop the always-on foreground service (e.g. on logout). If no transfer is
+  /// active the service is torn down immediately; otherwise it lives until the
+  /// active transfers finish. Idempotent.
+  Future<void> disablePersistent() async {
+    if (!_persistent) return;
+    _persistent = false;
+    logChat.info('TransferKeepAlive disablePersistent');
+    if (_refCount == 0) {
+      await _stopForegroundServiceIfNeeded();
+    }
+  }
 
   /// Call once during app startup (after [WidgetsFlutterBinding.ensureInitialized]).
   static Future<void> ensureInitialized() async {
@@ -90,12 +132,16 @@ class TransferKeepAlive {
     String id, {
     int totalBytes = 0,
     String? fileName,
+    TransferDirection direction = TransferDirection.send,
+    String? peerLabel,
   }) {
     final isNew = !_entries.containsKey(id);
     if (isNew) {
       _entries[id] = _TransferEntry(
         totalBytes: totalBytes,
         fileName: fileName,
+        direction: direction,
+        peerLabel: peerLabel,
       );
       final prev = _refCount;
       _refCount++;
@@ -107,6 +153,8 @@ class TransferKeepAlive {
       final entry = _entries[id]!;
       if (totalBytes > 0) entry.totalBytes = totalBytes;
       if (fileName != null && fileName.isNotEmpty) entry.fileName = fileName;
+      entry.direction = direction;
+      if (peerLabel != null && peerLabel.isNotEmpty) entry.peerLabel = peerLabel;
     }
     logChat.fine('TransferKeepAlive retain id=$id refCount=$_refCount');
     _scheduleNotificationUpdate(immediate: isNew);
@@ -226,10 +274,6 @@ class TransferKeepAlive {
     _notificationTimer?.cancel();
     _notificationTimer = null;
 
-    if (RuntimePlatform.isAndroid || RuntimePlatform.isIos) {
-      await _stopForegroundServiceIfNeeded();
-    }
-
     if (_wakelockEnabled) {
       try {
         await WakelockPlus.disable();
@@ -240,6 +284,13 @@ class TransferKeepAlive {
       }
     }
 
+    if (RuntimePlatform.isAndroid && _persistent) {
+      // Keep the always-on service running; revert its notification to idle.
+      await _pushNotificationUpdate();
+    } else if (RuntimePlatform.isAndroid || RuntimePlatform.isIos) {
+      await _stopForegroundServiceIfNeeded();
+    }
+
     if (resetSession) {
       _resetSessionStats();
     }
@@ -247,7 +298,7 @@ class TransferKeepAlive {
 
   void _scheduleNotificationUpdate({bool immediate = false}) {
     if (!RuntimePlatform.isAndroid && !RuntimePlatform.isIos) return;
-    if (_refCount <= 0) return;
+    if (_refCount <= 0 && !_persistent) return;
 
     final now = DateTime.now();
     if (!immediate &&
@@ -265,7 +316,7 @@ class TransferKeepAlive {
   }
 
   Future<void> _pushNotificationUpdate() async {
-    if (_refCount <= 0) return;
+    if (_refCount <= 0 && !_persistent) return;
     if (!await FlutterForegroundTask.isRunningService) return;
 
     _lastNotificationUpdateAt = DateTime.now();
@@ -281,10 +332,15 @@ class TransferKeepAlive {
   }
 
   (String, String) _buildProgressNotificationText() {
-    final activeCount = _entries.length;
+    final entries = _entries.values.toList();
+    if (entries.isEmpty) {
+      // Idle (persistent service): no active transfer.
+      return ('保持在线', '可随时接收文件');
+    }
+
     final transferred = _aggregateTransferred;
     final total = _aggregateTotal;
-    final title = activeCount <= 1 ? '正在传输文件' : '正在传输 $activeCount 个文件';
+    final title = _buildNotificationTitle(entries);
 
     if (total <= 0) {
       return (title, '传输进行中…');
@@ -298,6 +354,30 @@ class TransferKeepAlive {
       if (speed.isNotEmpty) speed,
     ];
     return (title, parts.join(' · '));
+  }
+
+  /// Build a direction-aware title, e.g. `正在接收 · MacBook Pro #3`. Falls back
+  /// to a generic count when transfers mix directions or peers.
+  String _buildNotificationTitle(List<_TransferEntry> entries) {
+    final count = entries.length;
+    final firstDir = entries.first.direction;
+    final sameDirection = entries.every((e) => e.direction == firstDir);
+    final peers = entries
+        .map((e) => e.peerLabel)
+        .where((p) => p != null && p.isNotEmpty)
+        .map((p) => p!)
+        .toSet();
+
+    if (!sameDirection || peers.length > 1) {
+      return '正在传输 $count 个文件';
+    }
+
+    final verb = firstDir == TransferDirection.receive ? '正在接收' : '正在发送';
+    final peer = peers.isEmpty ? null : peers.first;
+    if (peer != null) {
+      return count <= 1 ? '$verb · $peer' : '$verb $count 个文件 · $peer';
+    }
+    return count <= 1 ? '$verb文件' : '$verb $count 个文件';
   }
 
   Future<void> _startForegroundServiceIfNeeded() async {
