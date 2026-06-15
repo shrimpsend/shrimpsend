@@ -2142,6 +2142,48 @@ class AppLocalizationsZh extends AppLocalizations {
   String get transportModeWebrtcLan => 'WebRTC 局域网直连';
 
   @override
+  String get transportModeDotLegendTitle => '传输方式状态说明';
+
+  @override
+  String get transportModeDotLegendTooltip => '了解圆点颜色含义';
+
+  @override
+  String get transportModeDotLegendVerified => '已验证可用';
+
+  @override
+  String get transportModeDotLegendPullOnly => '仅反向拉取（HTTP）';
+
+  @override
+  String get transportModeDotLegendAttemptable => '可尝试，尚未验证（HTTP）';
+
+  @override
+  String get transportModeDotLegendUnchecked => 'WebRTC 尚未检测';
+
+  @override
+  String get transportModeDotLegendUnavailable => '不可用';
+
+  @override
+  String get transportModeDotHttpVerified => 'HTTP 直连可用';
+
+  @override
+  String get transportModeDotHttpPullOnly => '仅反向拉取可用（对端可访问本机）';
+
+  @override
+  String get transportModeDotHttpAttemptable => '直连未验证，可尝试切换';
+
+  @override
+  String get transportModeDotWebrtcVerified => 'WebRTC 可用';
+
+  @override
+  String get transportModeDotWebrtcUnchecked => 'WebRTC 尚未检测';
+
+  @override
+  String get transportModeDotWebrtcUnavailable => 'WebRTC 不可达';
+
+  @override
+  String get transportModeDotUnavailable => '当前不可用';
+
+  @override
   String get connectionDiagTitle => '连接诊断';
 
   @override

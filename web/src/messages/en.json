@@ -354,6 +354,22 @@
       "httpLan": "HTTP (LAN)",
       "webrtcLan": "WebRTC (LAN)"
     },
+    "transportModeDot": {
+      "legendTitle": "Transport status legend",
+      "legendTooltip": "What the dot colors mean",
+      "legendVerified": "Verified and available",
+      "legendPullOnly": "Reverse pull only (HTTP)",
+      "legendAttemptable": "Try anyway, not verified (HTTP)",
+      "legendUnchecked": "WebRTC not tested yet",
+      "legendUnavailable": "Unavailable",
+      "httpVerified": "HTTP direct path available",
+      "httpPullOnly": "Reverse pull only (peer can reach this device)",
+      "httpAttemptable": "Direct path not verified — you can try switching",
+      "webrtcVerified": "WebRTC available",
+      "webrtcUnchecked": "WebRTC not tested yet",
+      "webrtcUnavailable": "WebRTC unreachable",
+      "unavailable": "Unavailable right now"
+    },
     "connectionDiag": {
       "title": "Connection diagnostic",
       "subtitleRunning": "Testing connection to {peer}…",

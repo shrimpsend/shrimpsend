@@ -896,7 +896,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         peerIsWeb,
         webrtcAvailable,
         httpAvailable,
-        webrtcReachable: !!methods?.webrtc,
+        webrtcReachable: methods?.webrtc ?? null,
         s3Available,
       });
       if (sendModeAutoRef.current) {
@@ -1149,7 +1149,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         directHttp: false,
         peerHttpHealthy: false,
         pullReachable: false,
-        webrtc: false,
+        webrtc: null,
         lanSignaling: false,
       },
       probing: true,
