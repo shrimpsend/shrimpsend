@@ -373,10 +373,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// mobile (Android 10+/iOS block clipboard access from background).
   bool _appInForeground = true;
 
-  /// Last incoming text that could not be copied because the app was in the
-  /// background; flushed to the clipboard on the next foreground resume.
-  String? _pendingAutoCopyText;
-
   /// When [myDevices]/[nearbyDevices] gain new peer IDs, probe them without
   /// waiting for the periodic presence timer.
   Timer? _newPeerProbeDebounce;
@@ -667,6 +663,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ShareReceiveService.instance.onPendingShareReady = _onPendingShareReady;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_bootstrapPendingFilesAfterFirstFrame());
+      // Copy text received while the app was backgrounded/exited (clipboard
+      // writes are blocked off-foreground on mobile).
+      unawaited(_flushPendingAutoCopyText());
     });
     if (_isDesktopPlatform) {
       DesktopFileDropDispatcher.instance.register(
@@ -4263,7 +4262,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final enabled = await getAutoCopyReceivedText();
       if (!enabled) return;
       if ((Platform.isAndroid || Platform.isIOS) && !_appInForeground) {
-        _pendingAutoCopyText = text;
+        // Persist durably: exiting via back destroys this widget/engine, so an
+        // in-memory field would be lost before the app is reopened.
+        await setPendingAutoCopyText(text);
         logChat.fine('auto-copy deferred until foreground (background)');
         return;
       }
@@ -4273,13 +4274,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  /// Copy the most recent text received while backgrounded, called once the
-  /// app returns to the foreground (where clipboard access is permitted).
+  /// Copy the most recent text received while backgrounded. Called when the app
+  /// returns to the foreground and on screen init (cold start / reopen from the
+  /// notification), where clipboard access is permitted again.
   Future<void> _flushPendingAutoCopyText() async {
-    final pending = _pendingAutoCopyText;
-    if (pending == null || pending.isEmpty) return;
-    _pendingAutoCopyText = null;
     try {
+      final pending = await getPendingAutoCopyText();
+      if (pending == null || pending.isEmpty) return;
+      await clearPendingAutoCopyText();
       if (!await getAutoCopyReceivedText()) return;
       await Clipboard.setData(ClipboardData(text: pending));
     } catch (e) {
