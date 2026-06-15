@@ -192,6 +192,40 @@ class ChatMessageDao {
     return rows.map((r) => LocalChatMessage.fromRow(r)).toList();
   }
 
+  /// Most recent incoming text message (type `text`, from a device other than
+  /// [selfDeviceId]) for [userIds], across all threads. Used to auto-copy the
+  /// latest received text after the app is reopened, including messages that
+  /// arrived while the app was exited (e.g. via the back button) and were only
+  /// fetched later through history sync.
+  Future<LocalChatMessage?> getLatestIncomingText({
+    required List<String> userIds,
+    required String selfDeviceId,
+  }) async {
+    if (userIds.isEmpty) return null;
+    final whereParts = <String>[];
+    final whereArgs = <Object>[];
+    if (userIds.length == 1) {
+      whereParts.add('user_id = ?');
+      whereArgs.add(userIds.first);
+    } else {
+      final placeholders = List.filled(userIds.length, '?').join(', ');
+      whereParts.add('user_id IN ($placeholders)');
+      whereArgs.addAll(userIds);
+    }
+    whereParts.add("type = 'text'");
+    whereParts.add('from_device_id != ?');
+    whereArgs.add(selfDeviceId);
+    final rows = await _db.query(
+      _table,
+      orderBy: 'ts DESC, rowid DESC',
+      limit: 1,
+      where: whereParts.join(' AND '),
+      whereArgs: whereArgs,
+    );
+    if (rows.isEmpty) return null;
+    return LocalChatMessage.fromRow(rows.first);
+  }
+
   Future<int?> getLatestTs(String userId, String threadKey) async {
     final rows = await _db.query(
       _table,

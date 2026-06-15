@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _keyAutoCopyReceivedText = 'ultrasend_auto_copy_received_text';
-const _keyPendingAutoCopyText = 'ultrasend_pending_auto_copy_text';
+const _keyLastAutoCopiedTextTs = 'ultrasend_last_auto_copied_text_ts';
 
 /// Whether incoming text from other devices is automatically written to the
 /// system clipboard. Enabled by default.
@@ -15,23 +15,18 @@ Future<void> setAutoCopyReceivedText(bool value) async {
   await prefs.setBool(_keyAutoCopyReceivedText, value);
 }
 
-/// Persist the latest incoming text that could not be copied while the app was
-/// backgrounded. Stored durably (not in-memory) so it survives the Activity /
-/// engine being destroyed (e.g. exiting via the back button) and can still be
-/// flushed when the app is reopened from the notification.
-Future<void> setPendingAutoCopyText(String value) async {
+/// Timestamp (ms) of the most recent incoming text that was auto-copied.
+///
+/// Persisted durably so the marker survives the app being exited (e.g. via the
+/// back button) and reopened: on reopen the latest received text is fetched
+/// from local history and copied only when newer than this marker, so the same
+/// message is never copied twice. Null when never set (first run).
+Future<int?> getLastAutoCopiedTextTs() async {
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_keyPendingAutoCopyText, value);
+  return prefs.getInt(_keyLastAutoCopiedTextTs);
 }
 
-Future<String?> getPendingAutoCopyText() async {
+Future<void> setLastAutoCopiedTextTs(int ts) async {
   final prefs = await SharedPreferences.getInstance();
-  final value = prefs.getString(_keyPendingAutoCopyText);
-  if (value == null || value.isEmpty) return null;
-  return value;
-}
-
-Future<void> clearPendingAutoCopyText() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove(_keyPendingAutoCopyText);
+  await prefs.setInt(_keyLastAutoCopiedTextTs, ts);
 }

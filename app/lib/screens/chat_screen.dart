@@ -663,9 +663,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ShareReceiveService.instance.onPendingShareReady = _onPendingShareReady;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_bootstrapPendingFilesAfterFirstFrame());
-      // Copy text received while the app was backgrounded/exited (clipboard
-      // writes are blocked off-foreground on mobile).
-      unawaited(_flushPendingAutoCopyText());
     });
     if (_isDesktopPlatform) {
       DesktopFileDropDispatcher.instance.register(
@@ -985,9 +982,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _schedulePresenceRefresh();
         unawaited(_markPresenceOnline('app_resumed'));
         unawaited(_refreshRosterAndProbeSelected('app_resumed'));
-        // Copy any text that arrived while backgrounded (clipboard writes are
-        // blocked off-foreground on mobile).
-        unawaited(_flushPendingAutoCopyText());
+        // Copy any text that arrived while backgrounded/exited (clipboard
+        // writes are blocked off-foreground on mobile).
+        unawaited(_maybeAutoCopyLatestReceivedText());
         // Make sure the always-on service is up after returning to foreground
         // (e.g. if it was never started, or torn down by the system).
         if (Platform.isAndroid && _connected) {
@@ -2962,6 +2959,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _loadingMore = false;
         await _loadMoreHistory();
       }
+
+      // After syncing history, copy the latest received text if it is newer
+      // than what we last copied. This covers messages that arrived while the
+      // app was exited (back button) and only reached us via history on reopen.
+      unawaited(_maybeAutoCopyLatestReceivedText());
     } catch (e) {
       logChat.warning('_loadHistory failed: $e');
     }
@@ -4087,12 +4089,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             return;
           }
           final message = envelopeToMessage(msg);
-          if (msg.type == 'text' && msg.fromDeviceId != _deviceId) {
-            final incomingText = payload?['text']?.toString();
-            if (incomingText != null && incomingText.isNotEmpty) {
-              unawaited(_maybeAutoCopyIncomingText(incomingText));
-            }
-          }
           var skipUiForLanOrWebrtcDup = false;
           // When the inbound `file` matches a local LAN/WebRTC receiver bubble
           // we've already shown, "upgrade" that bubble's id to the server-side
@@ -4222,6 +4218,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               synced: true,
             );
           }
+          if (msg.type == 'text' && msg.fromDeviceId != _deviceId) {
+            unawaited(_maybeAutoCopyLatestReceivedText());
+          }
           if (msg.type == 'file' && msg.payload is Map) {
             _maybeAutoDownloadIncomingS3File(
               message: message,
@@ -4249,50 +4248,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     unawaited(_persistLanTextMessage(text, fromDeviceId));
   }
 
-  /// Auto-copy incoming text from other devices to the clipboard when the
-  /// user preference is enabled. Failures are silently ignored (e.g. mobile
-  /// background clipboard restrictions, non-secure contexts).
+  /// Copy the most recently received text (from another device) to the
+  /// clipboard, if newer than the last one we copied.
   ///
-  /// On mobile, Android (10+) and iOS block clipboard writes from the
-  /// background, so the latest text is stashed and copied on the next
-  /// foreground resume instead.
-  Future<void> _maybeAutoCopyIncomingText(String text) async {
-    if (text.isEmpty) return;
+  /// Driven by a persisted ts marker (not in-memory) so it works across every
+  /// path: live receipt while foreground, deferred copy after returning from
+  /// background (Home/lock), and — crucially — messages that arrived while the
+  /// app was exited via the back button (engine destroyed), which only reach
+  /// the device later through history sync on reopen. The marker also prevents
+  /// copying the same message twice.
+  ///
+  /// Clipboard writes are blocked off-foreground on mobile (Android 10+/iOS),
+  /// so when backgrounded we skip without advancing the marker and retry on the
+  /// next foreground resume. Failures are silently ignored.
+  Future<void> _maybeAutoCopyLatestReceivedText() async {
     try {
-      final enabled = await getAutoCopyReceivedText();
-      if (!enabled) return;
+      if (!await getAutoCopyReceivedText()) return;
+      final userIds = await _getQueryUserIds();
+      if (userIds.isEmpty) return;
+      final latest = await ChatMessageDao.instance.getLatestIncomingText(
+        userIds: userIds,
+        selfDeviceId: _deviceId,
+      );
+      final marker = await getLastAutoCopiedTextTs();
+      // First run: establish a baseline from existing history without copying
+      // pre-existing messages.
+      if (marker == null) {
+        await setLastAutoCopiedTextTs(
+          latest?.ts ?? DateTime.now().millisecondsSinceEpoch,
+        );
+        return;
+      }
+      if (latest == null || latest.ts <= marker) return;
+      final text = latest.payload is Map
+          ? (latest.payload as Map)['text']?.toString()
+          : null;
+      if (text == null || text.isEmpty) return;
       if ((Platform.isAndroid || Platform.isIOS) && !_appInForeground) {
-        // Persist durably: exiting via back destroys this widget/engine, so an
-        // in-memory field would be lost before the app is reopened.
-        await setPendingAutoCopyText(text);
+        // Cannot write the clipboard from the background; retry on resume
+        // without advancing the marker so the message is not skipped.
         logChat.fine('auto-copy deferred until foreground (background)');
         return;
       }
       await Clipboard.setData(ClipboardData(text: text));
+      await setLastAutoCopiedTextTs(latest.ts);
     } catch (e) {
-      logChat.fine('auto-copy incoming text failed: $e');
-    }
-  }
-
-  /// Copy the most recent text received while backgrounded. Called when the app
-  /// returns to the foreground and on screen init (cold start / reopen from the
-  /// notification), where clipboard access is permitted again.
-  Future<void> _flushPendingAutoCopyText() async {
-    try {
-      final pending = await getPendingAutoCopyText();
-      if (pending == null || pending.isEmpty) return;
-      await clearPendingAutoCopyText();
-      if (!await getAutoCopyReceivedText()) return;
-      await Clipboard.setData(ClipboardData(text: pending));
-    } catch (e) {
-      logChat.fine('flush pending auto-copy failed: $e');
+      logChat.fine('auto-copy latest received text failed: $e');
     }
   }
 
   Future<void> _persistLanTextMessage(String text, String fromDeviceId) async {
-    if (fromDeviceId != _deviceId) {
-      unawaited(_maybeAutoCopyIncomingText(text));
-    }
     final ts = DateTime.now().millisecondsSinceEpoch;
     final id = 'lan_msg_${fromDeviceId}_$ts';
     final ap = await _accountPartForThreadKey();
@@ -4322,6 +4327,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         threadKey: tk,
         synced: false,
       );
+    }
+    if (fromDeviceId != _deviceId) {
+      unawaited(_maybeAutoCopyLatestReceivedText());
     }
   }
 
@@ -8850,17 +8858,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         MediaQuery.sizeOf(context).width < kChatNarrowLayoutBreakpoint;
 
     return PopScope(
+      // On Android, never let back exit (destroy the engine) at the root:
+      // minimize instead so the foreground service keeps the realtime
+      // connection alive and files/text can still be received in the
+      // background — same behavior as during an active transfer.
       canPop:
           !_isSelectionMode &&
           selectedDeviceId == null &&
-          !_hasActiveTransferKeepAlive,
+          !_hasActiveTransferKeepAlive &&
+          !Platform.isAndroid,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           if (_isSelectionMode) {
             _exitSelectionMode();
           } else if (selectedDeviceId != null) {
             ref.read(selectedDeviceIdProvider.notifier).select(null);
-          } else if (Platform.isAndroid && _hasActiveTransferKeepAlive) {
+          } else if (Platform.isAndroid) {
             FlutterForegroundTask.minimizeApp();
           }
         }
