@@ -172,6 +172,8 @@
   "settingsDeleteCacheAfterSaveTitle": "Delete cache after saving",
   "settingsDeleteCacheAfterSaveSubtitle": "Remove the in-app cache copy after the file is saved to your folder",
   "settingsDeleteCacheAfterSaveHintBody": "Received file cache copies will be deleted and will not appear in File Manager's Cache tab.",
+  "settingsAutoCopyReceivedTextTitle": "Auto-copy received text",
+  "settingsAutoCopyReceivedTextSubtitle": "Automatically copy text messages from other devices to the clipboard",
   "aboutTagline": "Relay messages and files across devices in real time",
   "settingsVersionWithBuild": "Version {version} ({buildNumber})",
   "@settingsVersionWithBuild": {

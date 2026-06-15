@@ -457,6 +457,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Received file cache copies will be deleted and will not appear in File Manager\'s Cache tab.';
 
   @override
+  String get settingsAutoCopyReceivedTextTitle => 'Auto-copy received text';
+
+  @override
+  String get settingsAutoCopyReceivedTextSubtitle =>
+      'Automatically copy text messages from other devices to the clipboard';
+
+  @override
   String get aboutTagline =>
       'Relay messages and files across devices in real time';
 

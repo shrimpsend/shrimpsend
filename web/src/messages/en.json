@@ -636,7 +636,9 @@
     "sendEnter": "Press Enter to send",
     "sendModifier": "Press Ctrl+Enter to send",
     "sendModifierMac": "Press ⌘+Enter to send",
-    "sendButtonHint": "The send button always works regardless of this setting."
+    "sendButtonHint": "The send button always works regardless of this setting.",
+    "autoCopyReceivedTextTitle": "Auto-copy received text",
+    "autoCopyReceivedTextDescription": "Automatically copy text messages from other devices to the clipboard."
   },
   "appearance": {
     "title": "Appearance",

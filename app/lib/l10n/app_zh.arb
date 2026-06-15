@@ -152,6 +152,8 @@
   "settingsDeleteCacheAfterSaveTitle": "保存后删除缓存",
   "settingsDeleteCacheAfterSaveSubtitle": "导出到保存文件夹成功后，删除应用内缓存副本",
   "settingsDeleteCacheAfterSaveHintBody": "接收的文件缓存会被删除，文件管理的缓存中不会出现",
+  "settingsAutoCopyReceivedTextTitle": "自动复制收到的文本",
+  "settingsAutoCopyReceivedTextSubtitle": "收到其他设备发来的文本消息后自动复制到剪贴板",
   "aboutTagline": "消息/文件中转，多端实时同步",
   "settingsVersionWithBuild": "版本 {version} ({buildNumber})",
   "settingsVersionLoading": "版本 ...",

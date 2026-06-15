@@ -40,6 +40,7 @@ import {
   resolveSendModeWithMemory,
 } from '@/lib/sendModeResolution';
 import { normalizeMessageLocalId, rowMatchesLocalId } from '@/lib/chatMessageDedupe';
+import { loadAutoCopyIncomingText } from '@/lib/autoCopyPreferences';
 import { useI18n } from '@/contexts/I18nContext';
 import { analyticsLengthBucket, analyticsTrack } from '@/lib/analytics';
 import { AnalyticsEvents } from '@/lib/analyticsEvents';
@@ -722,6 +723,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           if (resolve) resolve(payload.success === true);
         }
         return;
+      }
+      if (data.type === 'text' && data.fromDeviceId !== getOrCreateDeviceId()) {
+        const incomingText =
+          data.payload && typeof data.payload === 'object'
+            ? (data.payload as { text?: unknown }).text
+            : undefined;
+        if (typeof incomingText === 'string' && incomingText.length > 0 && loadAutoCopyIncomingText()) {
+          // Optional chaining short-circuits when clipboard is unavailable
+          // (non-secure context); failures are silently ignored.
+          void navigator.clipboard?.writeText(incomingText).catch(() => {});
+        }
       }
       const rawPayload = data.payload && typeof data.payload === 'object' ? (data.payload as { localId?: unknown }) : null;
       const incomingLocalId = rawPayload ? normalizeMessageLocalId(rawPayload.localId) : undefined;

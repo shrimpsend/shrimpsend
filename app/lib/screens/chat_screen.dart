@@ -21,6 +21,7 @@ import '../l10n/generated/app_localizations.dart';
 import '../api/api.dart';
 import '../config/env.dart';
 import '../device_id.dart';
+import '../preferences/clipboard_preferences.dart';
 import '../providers/app_locale.dart';
 import '../providers/auth_provider.dart';
 import '../providers/app_mode_provider.dart';
@@ -367,6 +368,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Timer? _presenceRefreshTimer;
   static const Duration _rosterFallbackRefreshInterval = Duration(minutes: 10);
   bool _presencePausedByLifecycle = false;
+
+  /// Tracks foreground/background so auto-copy can defer clipboard writes on
+  /// mobile (Android 10+/iOS block clipboard access from background).
+  bool _appInForeground = true;
+
+  /// Last incoming text that could not be copied because the app was in the
+  /// background; flushed to the clipboard on the next foreground resume.
+  String? _pendingAutoCopyText;
 
   /// When [myDevices]/[nearbyDevices] gain new peer IDs, probe them without
   /// waiting for the periodic presence timer.
@@ -972,10 +981,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     super.didChangeAppLifecycleState(state);
     switch (state) {
       case AppLifecycleState.resumed:
+        _appInForeground = true;
         _presencePausedByLifecycle = false;
         _schedulePresenceRefresh();
         unawaited(_markPresenceOnline('app_resumed'));
         unawaited(_refreshRosterAndProbeSelected('app_resumed'));
+        // Copy any text that arrived while backgrounded (clipboard writes are
+        // blocked off-foreground on mobile).
+        unawaited(_flushPendingAutoCopyText());
         // Make sure the always-on service is up after returning to foreground
         // (e.g. if it was never started, or torn down by the system).
         if (Platform.isAndroid && _connected) {
@@ -987,6 +1000,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
+        _appInForeground = false;
         if (_hasActiveTransferKeepAlive) break;
         // Android keeps an always-on foreground service that maintains the
         // realtime connection, so the device stays online in the background;
@@ -4074,6 +4088,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             return;
           }
           final message = envelopeToMessage(msg);
+          if (msg.type == 'text' && msg.fromDeviceId != _deviceId) {
+            final incomingText = payload?['text']?.toString();
+            if (incomingText != null && incomingText.isNotEmpty) {
+              unawaited(_maybeAutoCopyIncomingText(incomingText));
+            }
+          }
           var skipUiForLanOrWebrtcDup = false;
           // When the inbound `file` matches a local LAN/WebRTC receiver bubble
           // we've already shown, "upgrade" that bubble's id to the server-side
@@ -4230,7 +4250,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     unawaited(_persistLanTextMessage(text, fromDeviceId));
   }
 
+  /// Auto-copy incoming text from other devices to the clipboard when the
+  /// user preference is enabled. Failures are silently ignored (e.g. mobile
+  /// background clipboard restrictions, non-secure contexts).
+  ///
+  /// On mobile, Android (10+) and iOS block clipboard writes from the
+  /// background, so the latest text is stashed and copied on the next
+  /// foreground resume instead.
+  Future<void> _maybeAutoCopyIncomingText(String text) async {
+    if (text.isEmpty) return;
+    try {
+      final enabled = await getAutoCopyReceivedText();
+      if (!enabled) return;
+      if ((Platform.isAndroid || Platform.isIOS) && !_appInForeground) {
+        _pendingAutoCopyText = text;
+        logChat.fine('auto-copy deferred until foreground (background)');
+        return;
+      }
+      await Clipboard.setData(ClipboardData(text: text));
+    } catch (e) {
+      logChat.fine('auto-copy incoming text failed: $e');
+    }
+  }
+
+  /// Copy the most recent text received while backgrounded, called once the
+  /// app returns to the foreground (where clipboard access is permitted).
+  Future<void> _flushPendingAutoCopyText() async {
+    final pending = _pendingAutoCopyText;
+    if (pending == null || pending.isEmpty) return;
+    _pendingAutoCopyText = null;
+    try {
+      if (!await getAutoCopyReceivedText()) return;
+      await Clipboard.setData(ClipboardData(text: pending));
+    } catch (e) {
+      logChat.fine('flush pending auto-copy failed: $e');
+    }
+  }
+
   Future<void> _persistLanTextMessage(String text, String fromDeviceId) async {
+    if (fromDeviceId != _deviceId) {
+      unawaited(_maybeAutoCopyIncomingText(text));
+    }
     final ts = DateTime.now().millisecondsSinceEpoch;
     final id = 'lan_msg_${fromDeviceId}_$ts';
     final ap = await _accountPartForThreadKey();

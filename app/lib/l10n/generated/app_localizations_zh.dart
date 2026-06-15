@@ -440,6 +440,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDeleteCacheAfterSaveHintBody => '接收的文件缓存会被删除，文件管理的缓存中不会出现';
 
   @override
+  String get settingsAutoCopyReceivedTextTitle => '自动复制收到的文本';
+
+  @override
+  String get settingsAutoCopyReceivedTextSubtitle => '收到其他设备发来的文本消息后自动复制到剪贴板';
+
+  @override
   String get aboutTagline => '消息/文件中转，多端实时同步';
 
   @override

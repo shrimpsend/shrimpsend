@@ -636,7 +636,9 @@
     "sendEnter": "按 Enter 键发送",
     "sendModifier": "按 Ctrl+Enter 键发送",
     "sendModifierMac": "按 ⌘+Enter 键发送",
-    "sendButtonHint": "发送按钮始终可用，不受此设置影响。"
+    "sendButtonHint": "发送按钮始终可用，不受此设置影响。",
+    "autoCopyReceivedTextTitle": "自动复制收到的文本",
+    "autoCopyReceivedTextDescription": "收到其他设备发来的文本消息后自动复制到剪贴板。"
   },
   "appearance": {
     "title": "外观",

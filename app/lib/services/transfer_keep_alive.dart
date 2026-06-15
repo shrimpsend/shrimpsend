@@ -109,7 +109,7 @@ class TransferKeepAlive {
         androidNotificationOptions: AndroidNotificationOptions(
           channelId: _notificationChannelId,
           channelName: '文件传输',
-          channelDescription: '传输进行中时显示，确保锁屏后传输不中断。',
+          channelDescription: '传输进行中时显示，确保锁屏后传输不中断；回到应用时自动复制最近收到的文本。',
           onlyAlertOnce: true,
         ),
         iosNotificationOptions: const IOSNotificationOptions(
@@ -335,7 +335,7 @@ class TransferKeepAlive {
     final entries = _entries.values.toList();
     if (entries.isEmpty) {
       // Idle (persistent service): no active transfer.
-      return ('保持在线', '可随时接收文件');
+      return ('保持在线', '可随时接收文件，回到应用自动复制最近收到的文本');
     }
 
     final transferred = _aggregateTransferred;

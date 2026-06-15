@@ -930,6 +930,18 @@ abstract class AppLocalizations {
   /// **'Received file cache copies will be deleted and will not appear in File Manager\'s Cache tab.'**
   String get settingsDeleteCacheAfterSaveHintBody;
 
+  /// No description provided for @settingsAutoCopyReceivedTextTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-copy received text'**
+  String get settingsAutoCopyReceivedTextTitle;
+
+  /// No description provided for @settingsAutoCopyReceivedTextSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically copy text messages from other devices to the clipboard'**
+  String get settingsAutoCopyReceivedTextSubtitle;
+
   /// No description provided for @aboutTagline.
   ///
   /// In en, this message translates to:
