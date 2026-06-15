@@ -783,6 +783,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatCopied => '已复制';
 
   @override
+  String chatAutoCopiedToast(String preview) {
+    return '已复制：$preview';
+  }
+
+  @override
   String get chatSelectTextTitle => '选择文本';
 
   @override

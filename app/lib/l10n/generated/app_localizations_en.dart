@@ -814,6 +814,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatCopied => 'Copied';
 
   @override
+  String chatAutoCopiedToast(String preview) {
+    return 'Copied: $preview';
+  }
+
+  @override
   String get chatSelectTextTitle => 'Select text';
 
   @override

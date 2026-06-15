@@ -324,6 +324,7 @@
     }
   },
   "chat": {
+    "autoCopiedToast": "Copied: {preview}",
     "confirmBulkDelete": "Delete {count} selected messages?",
     "pullFailed": "Download failed",
     "sendFailed": "Send failed",

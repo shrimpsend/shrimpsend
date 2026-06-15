@@ -368,6 +368,14 @@
   "chatGallerySaved": "Saved to gallery",
   "chatGallerySaveFailed": "Save failed",
   "chatCopied": "Copied",
+  "chatAutoCopiedToast": "Copied: {preview}",
+  "@chatAutoCopiedToast": {
+    "placeholders": {
+      "preview": {
+        "type": "String"
+      }
+    }
+  },
   "chatSelectTextTitle": "Select text",
   "chatDeleteMessageTitle": "Delete message",
   "chatDeleteMessageBody": "Delete this message? Local and cloud copies will be removed.",

@@ -279,6 +279,7 @@
   "chatGallerySaved": "已保存到相册",
   "chatGallerySaveFailed": "保存失败",
   "chatCopied": "已复制",
+  "chatAutoCopiedToast": "已复制：{preview}",
   "chatSelectTextTitle": "选择文本",
   "chatDeleteMessageTitle": "删除消息",
   "chatDeleteMessageBody": "确定删除这条消息？将同时删除本地和云端记录。",

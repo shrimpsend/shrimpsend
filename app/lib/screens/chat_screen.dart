@@ -4292,9 +4292,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
       await Clipboard.setData(ClipboardData(text: text));
       await setLastAutoCopiedTextTs(latest.ts);
+      if (mounted) {
+        AppToast.show(
+          context,
+          message: AppLocalizations.of(
+            context,
+          ).chatAutoCopiedToast(_autoCopyPreview(text)),
+        );
+      }
     } catch (e) {
       logChat.fine('auto-copy latest received text failed: $e');
     }
+  }
+
+  /// Single-line preview capped at 20 characters (ellipsised when longer) for
+  /// the auto-copy success toast.
+  String _autoCopyPreview(String text) {
+    final oneLine = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    const maxLen = 20;
+    if (oneLine.length <= maxLen) return oneLine;
+    return '${oneLine.substring(0, maxLen)}…';
   }
 
   Future<void> _persistLanTextMessage(String text, String fromDeviceId) async {

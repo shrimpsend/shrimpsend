@@ -324,6 +324,7 @@
     }
   },
   "chat": {
+    "autoCopiedToast": "已复制：{preview}",
     "confirmBulkDelete": "确定删除选中的 {count} 条消息？",
     "pullFailed": "拉取失败",
     "sendFailed": "发送失败",

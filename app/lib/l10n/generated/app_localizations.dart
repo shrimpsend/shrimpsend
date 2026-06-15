@@ -1566,6 +1566,12 @@ abstract class AppLocalizations {
   /// **'Copied'**
   String get chatCopied;
 
+  /// No description provided for @chatAutoCopiedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied: {preview}'**
+  String chatAutoCopiedToast(String preview);
+
   /// No description provided for @chatSelectTextTitle.
   ///
   /// In en, this message translates to:
