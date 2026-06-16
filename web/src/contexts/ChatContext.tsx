@@ -130,6 +130,7 @@ export type ChatContextValue = {
   setPendingFiles: React.Dispatch<React.SetStateAction<File[]>>;
   handleSendFiles: () => void;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  addPendingFiles: (files: File[]) => void;
   removePendingFile: (index: number) => void;
 
   // Message management
@@ -1690,14 +1691,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [pendingFiles, sendMode, selectedDeviceId, devices, webrtcAvailable, selectedTargets, otherDevices, lanDevices, deviceReach, sendFileToTargets, buildFreshLanDevices]);
 
+  const addPendingFiles = useCallback((files: File[]) => {
+    if (files.length === 0) return;
+    setFileError(null);
+    setPendingFiles((prev) => [...prev, ...files]);
+  }, []);
+
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList);
     e.target.value = '';
-    setFileError(null);
-    setPendingFiles((prev) => [...prev, ...files]);
-  }, []);
+    addPendingFiles(files);
+  }, [addPendingFiles]);
 
   const removePendingFile = useCallback((index: number) => {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
@@ -1976,6 +1982,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setPendingFiles,
     handleSendFiles,
     handleFileSelect,
+    addPendingFiles,
     removePendingFile,
     handleDeleteMessage,
     cancelTransfer,
@@ -2003,7 +2010,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     deviceReach, targetsProbing, refreshSendTargets, probeSingleDevice,
     runSessionConnectionDiagnostic, connectionDiagnostic, diagnosticSheetOpen, setDiagnosticSheetOpen,
     messages, sendTextMessage, sending, sendError, fileError,
-    pendingFiles, handleSendFiles, handleFileSelect, removePendingFile,
+    pendingFiles, handleSendFiles, handleFileSelect, addPendingFiles, removePendingFile,
     handleDeleteMessage, cancelTransfer, handleRetryText, handleRetryFile,
     loadMoreMessages, loadingMore,
     selectMode, selectedKeys, toggleMessageSelect, exitSelectMode, toggleSelectAllMessages, enterSelectWithKey, handleBulkDelete, clearCurrentThreadMessages,

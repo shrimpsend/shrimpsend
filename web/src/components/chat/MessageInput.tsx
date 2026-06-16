@@ -7,6 +7,7 @@ import { useSendShortcutMode } from '@/hooks/useSendShortcutMode';
 import { isMacPlatform } from '@/lib/shortcutPreferences';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { extractClipboardFiles } from '@/lib/clipboardFiles';
 import { CirclePlus, Send, X } from 'lucide-react';
 
 export function MessageInput() {
@@ -15,6 +16,7 @@ export function MessageInput() {
     sendTextMessage,
     sending,
     handleFileSelect,
+    addPendingFiles,
     selectedDeviceId,
   } = useChatContext();
 
@@ -62,6 +64,13 @@ export function MessageInput() {
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onPaste={(e) => {
+              if (disabled) return;
+              const files = extractClipboardFiles(e.clipboardData);
+              if (files.length === 0) return;
+              e.preventDefault();
+              addPendingFiles(files);
+            }}
             onKeyDown={(e) => {
               if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
               const shouldSend =
