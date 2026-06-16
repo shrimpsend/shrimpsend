@@ -331,17 +331,35 @@ class SaveFolderListingService {
     );
   }
 
-  static Future<void> deleteEntry(ReceivedFileInfo file) async {
-    if (!isSaveFolderEntry(file)) {
-      await FileStore.deleteFile(file.path);
-      return;
-    }
-    if (file.path.startsWith('content://')) {
-      await SafStorageService.deleteFileInTree(file.path);
-      return;
-    }
-    await FileStore.deleteFile(file.path);
+  static Future<bool> deleteEntry(
+    ReceivedFileInfo file, {
+    bool useTrash = false,
+  }) {
+    return deletePath(file.path, useTrash: useTrash);
   }
+
+  /// Deletes a save-folder file given its path or content URI. Routes
+  /// MediaStore Downloads URIs (`content://media/...`) through ContentResolver
+  /// — `DocumentFile.delete` silently fails for them — SAF tree document URIs
+  /// through SAF, and plain POSIX paths through [FileStore.deleteFile] (which
+  /// honours the desktop recycle bin when [useTrash] is set). Returns true on
+  /// success.
+  static Future<bool> deletePath(
+    String pathOrUri, {
+    bool useTrash = false,
+  }) async {
+    if (pathOrUri.isEmpty) return true;
+    if (pathOrUri.startsWith('content://')) {
+      if (_isMediaStoreUri(pathOrUri)) {
+        return FileExportService.deleteDownload(pathOrUri);
+      }
+      return SafStorageService.deleteFileInTree(pathOrUri);
+    }
+    return FileStore.deleteFile(pathOrUri, useTrash: useTrash);
+  }
+
+  static bool _isMediaStoreUri(String uri) =>
+      uri.startsWith('content://media/');
 
   /// Copy SAF content URI to a temp file for preview / desktop clipboard.
   static Future<String?> resolveLocalPath(ReceivedFileInfo file) async {

@@ -226,9 +226,42 @@ class MainActivity : FlutterFragmentActivity() {
                         pendingSaveAsSourcePath = sourcePath
                         startActivityForResult(intent, SAVE_AS_REQUEST_CODE)
                     }
+                    "deleteDownload" -> {
+                        val uri = call.argument<String>("uri")
+                        val path = call.argument<String>("path")
+                        if (uri.isNullOrEmpty() && path.isNullOrEmpty()) {
+                            result.error("INVALID_ARG", "uri or path required", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            result.success(deleteDownload(uri, path))
+                        } catch (e: SecurityException) {
+                            result.error("PERMISSION_DENIED", e.message, null)
+                        } catch (e: Exception) {
+                            result.error("DELETE_FAILED", e.message, null)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    /// Deletes a public Downloads entry. MediaStore content URIs are removed via
+    /// ContentResolver (DocumentFile.delete fails for MediaStore items), while
+    /// legacy file paths use a plain File.delete().
+    private fun deleteDownload(uri: String?, path: String?): Boolean {
+        if (!uri.isNullOrEmpty() && uri.startsWith("content://")) {
+            val resolver = applicationContext.contentResolver
+            val deleted = resolver.delete(Uri.parse(uri), null, null)
+            return deleted > 0
+        }
+        val target = when {
+            !path.isNullOrEmpty() -> File(path)
+            !uri.isNullOrEmpty() && uri.startsWith("file://") ->
+                File(Uri.parse(uri).path ?: return false)
+            else -> return false
+        }
+        return if (target.exists()) target.delete() else true
     }
 
     private fun tryResumePendingApkInstall() {

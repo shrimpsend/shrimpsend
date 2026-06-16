@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../utils/file_utils.dart';
+import 'desktop_trash.dart';
 import 'receive_dir_resolver.dart';
 import 'visible_export_target.dart';
 
@@ -302,10 +303,26 @@ class FileStore {
     }
   }
 
-  static Future<void> deleteFile(String path) async {
+  /// Deletes the file at [path]. When [useTrash] is true and the current
+  /// platform is a desktop OS, the file is moved to the system recycle bin
+  /// instead of being permanently removed (falling back to a hard delete if
+  /// the trash operation fails). Returns true when the file is gone.
+  static Future<bool> deleteFile(String path, {bool useTrash = false}) async {
     final file = File(path);
-    if (await file.exists()) {
-      await file.delete();
+    if (!await file.exists()) {
+      return true;
+    }
+    var deleted = false;
+    if (useTrash && DesktopTrash.isSupported) {
+      deleted = await DesktopTrash.moveToTrash(path);
+    }
+    if (!deleted) {
+      try {
+        await file.delete();
+        deleted = true;
+      } catch (_) {
+        deleted = false;
+      }
     }
     final parent = file.parent;
     try {
@@ -316,6 +333,7 @@ class FileStore {
         }
       }
     } catch (_) {}
+    return deleted;
   }
 
   /// Removes `<cacheRoot>/<messageId>/` staging directory. Returns true when gone.

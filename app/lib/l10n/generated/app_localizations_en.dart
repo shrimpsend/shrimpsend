@@ -935,6 +935,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fmDeleteConfirm => 'Delete';
 
   @override
+  String get fmDeleteFailed => 'Delete failed, please try again';
+
+  @override
+  String get deleteFileCacheLabel => 'Delete cached file';
+
+  @override
+  String get deleteFileExportLabel => 'Delete saved file';
+
+  @override
+  String get deleteFileNoCacheCopy => 'No cached copy';
+
+  @override
+  String get deleteFileNoExportCopy => 'No saved copy';
+
+  @override
   String get fmAndroidApkOnly => 'APK install is only supported on Android';
 
   @override

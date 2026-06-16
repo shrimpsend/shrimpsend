@@ -452,6 +452,11 @@
     }
   },
   "fmDeleteConfirm": "Delete",
+  "fmDeleteFailed": "Delete failed, please try again",
+  "deleteFileCacheLabel": "Delete cached file",
+  "deleteFileExportLabel": "Delete saved file",
+  "deleteFileNoCacheCopy": "No cached copy",
+  "deleteFileNoExportCopy": "No saved copy",
   "fmAndroidApkOnly": "APK install is only supported on Android",
   "fmPreviewUnavailableTitle": "Can't preview",
   "fmPreviewUnavailableBody": "No preview is available for this file. Open as plain text?",

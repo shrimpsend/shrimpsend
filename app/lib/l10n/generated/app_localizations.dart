@@ -1776,6 +1776,36 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get fmDeleteConfirm;
 
+  /// No description provided for @fmDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete failed, please try again'**
+  String get fmDeleteFailed;
+
+  /// No description provided for @deleteFileCacheLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete cached file'**
+  String get deleteFileCacheLabel;
+
+  /// No description provided for @deleteFileExportLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete saved file'**
+  String get deleteFileExportLabel;
+
+  /// No description provided for @deleteFileNoCacheCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'No cached copy'**
+  String get deleteFileNoCacheCopy;
+
+  /// No description provided for @deleteFileNoExportCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved copy'**
+  String get deleteFileNoExportCopy;
+
   /// No description provided for @fmAndroidApkOnly.
   ///
   /// In en, this message translates to:

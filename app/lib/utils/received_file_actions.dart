@@ -92,15 +92,17 @@ Future<String?> _resolveLocalPathForOpen(ReceivedFileInfo file) async {
   return file.path;
 }
 
-Future<void> _removeFile(ReceivedFileInfo file) async {
+/// Deletes a file's on-disk copy. User-initiated, so desktop platforms move it
+/// to the system recycle bin. Returns true on success.
+Future<bool> _removeFile(ReceivedFileInfo file) async {
   if (SaveFolderListingService.isSaveFolderEntry(file)) {
-    await SaveFolderListingService.deleteEntry(file);
-    return;
+    return SaveFolderListingService.deleteEntry(file, useTrash: true);
   }
-  await FileStore.deleteFile(file.path);
+  final ok = await FileStore.deleteFile(file.path, useTrash: true);
   try {
     await ReceivedFileDao.instance.removeByMessageId(file.messageId);
   } catch (_) {}
+  return ok;
 }
 
 Future<void> _copyTextFileContent(
@@ -334,8 +336,12 @@ List<ReceivedFileActionItem> buildReceivedFileActions({
           icon: LucideIcons.trash2,
         );
         if (!confirmed) return;
-        await _removeFile(file);
+        final ok = await _removeFile(file);
         if (!ctx.mounted) return;
+        if (!ok) {
+          AppToast.show(ctx, message: l10n.fmDeleteFailed);
+          return;
+        }
         Navigator.pop(ctx);
         callbacks?.onDeleted?.call();
       },

@@ -52,6 +52,7 @@ import '../widgets/chat/chat_screen_overlays.dart';
 import '../widgets/chat/chat_session_body.dart';
 import '../widgets/chat/chat_theme_helpers.dart';
 import '../widgets/chat/connection_diagnostic_dialog.dart';
+import '../widgets/chat/delete_file_message_dialog.dart';
 import '../widgets/layout/main_layout.dart';
 import '../widgets/pending_files_bar.dart';
 import '../network/connection_bar_view_model.dart';
@@ -78,6 +79,7 @@ import '../services/analytics/analytics_events.dart';
 import '../services/chat_message_dao.dart';
 import '../services/received_file_dao.dart';
 import '../services/received_file_index_pipeline.dart';
+import '../services/save_folder_listing_service.dart';
 import '../services/visible_export_target.dart';
 import '../chat/thread_key.dart';
 import '../services/desktop_file_clipboard.dart';
@@ -162,6 +164,22 @@ class _FileMeta {
     this.transferType,
     this.localPath,
     this.lastModifiedMs,
+  });
+}
+
+/// Snapshot of which on-disk copies exist for a file message, used to drive the
+/// two-checkbox delete dialog and the subsequent deletions.
+class _FileCopyStatus {
+  final bool cacheAvailable;
+  final bool exportAvailable;
+  final ReceivedFileRecord? record;
+  final SaveFolderFileEntry? saveFolderMatch;
+
+  const _FileCopyStatus({
+    required this.cacheAvailable,
+    required this.exportAvailable,
+    this.record,
+    this.saveFolderMatch,
   });
 }
 
@@ -7793,10 +7811,228 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
         }
       }
+
+      // Save-folder (转存) fallback: when the cache copy is gone and the index
+      // no longer links this message, the user-visible export copy may still
+      // live in the save folder / Downloads. Locate it by name (and size when
+      // known) so tapping a file whose cache was cleared still opens the
+      // exported copy instead of showing a misleading "file missing".
+      final exported = await _resolveFromSaveFolder(meta);
+      if (exported != null) return exported;
     } catch (e) {
       logChat.warning('_resolveLocalPathForOpen failed: $e');
     }
     return null;
+  }
+
+  /// Locates a previously-exported (转存) copy of [meta] in the current save
+  /// folder by name (and size when known). Returns the matching entry or null.
+  Future<SaveFolderFileEntry?> _findSaveFolderEntry(_FileMeta meta) async {
+    if (meta.fileName.isEmpty) return null;
+    try {
+      final listing = await SaveFolderListingService.list();
+      if (!listing.isSuccess) return null;
+      final wantSize = meta.size;
+      SaveFolderFileEntry? match;
+      for (final entry in listing.files) {
+        if (entry.name != meta.fileName) continue;
+        if (wantSize != null && wantSize > 0) {
+          if (entry.size == wantSize) {
+            match = entry;
+            break;
+          }
+          // Remember the name-only hit but keep scanning for an exact size.
+          match ??= entry;
+        } else {
+          match = entry;
+          break;
+        }
+      }
+      return match;
+    } catch (e) {
+      logChat.warning('_findSaveFolderEntry failed: $e');
+      return null;
+    }
+  }
+
+  /// Best-effort lookup of a previously-exported (转存) copy of [meta] in the
+  /// current save folder. Returns a readable local path (content URIs are
+  /// copied into the cache for preview) or `null` when no match exists.
+  Future<String?> _resolveFromSaveFolder(_FileMeta meta) async {
+    final match = await _findSaveFolderEntry(meta);
+    if (match == null) return null;
+    final info = SaveFolderListingService.toReceivedFileInfo(match);
+    final local = await SaveFolderListingService.resolveLocalPath(info);
+    if (local != null && local.isNotEmpty && File(local).existsSync()) {
+      return local;
+    }
+    return null;
+  }
+
+  /// Computes which on-disk copies (cache / exported) exist for a file message
+  /// so the delete dialog can enable the right checkboxes, plus the data
+  /// needed to perform the deletions.
+  Future<_FileCopyStatus> _fileCopyStatus(
+    String messageId,
+    _FileMeta meta,
+  ) async {
+    ReceivedFileRecord? rec;
+    try {
+      rec = await ReceivedFileDao.instance.getByMessageId(messageId);
+    } catch (_) {}
+
+    final cacheRoot = await FileStore.getCacheDir();
+    var cacheAvailable = false;
+    final cp = rec?.cachePath;
+    if (cp != null && cp.isNotEmpty && File(cp).existsSync()) {
+      cacheAvailable = true;
+    }
+    final lp = meta.localPath;
+    if (!cacheAvailable &&
+        lp != null &&
+        lp.isNotEmpty &&
+        !lp.startsWith('content://') &&
+        FileStore.isPathUnderDirectory(lp, cacheRoot) &&
+        File(lp).existsSync()) {
+      cacheAvailable = true;
+    }
+    if (!cacheAvailable) {
+      final dir = Directory(p.join(cacheRoot, messageId));
+      if (dir.existsSync()) {
+        cacheAvailable = dir
+            .listSync(followLinks: false)
+            .any((e) => e is File && !p.basename(e.path).startsWith('.'));
+      }
+    }
+
+    var exportAvailable = false;
+    final vp = rec?.visiblePath;
+    if (vp != null && vp.isNotEmpty) {
+      if (vp.startsWith('content://')) {
+        exportAvailable = true;
+      } else if (File(vp).existsSync()) {
+        exportAvailable = true;
+      }
+    }
+    SaveFolderFileEntry? saveMatch;
+    if (!exportAvailable) {
+      saveMatch = await _findSaveFolderEntry(meta);
+      if (saveMatch != null) exportAvailable = true;
+    }
+
+    return _FileCopyStatus(
+      cacheAvailable: cacheAvailable,
+      exportAvailable: exportAvailable,
+      record: rec,
+      saveFolderMatch: saveMatch,
+    );
+  }
+
+  /// Deletes the cache (staging) copy of a file message. On desktop the file is
+  /// moved to the system recycle bin.
+  Future<void> _deleteCacheFiles(
+    String messageId,
+    _FileMeta meta,
+    ReceivedFileRecord? rec,
+  ) async {
+    final cacheRoot = await FileStore.getCacheDir();
+    final paths = <String>{};
+    final lp = meta.localPath;
+    if (lp != null &&
+        lp.isNotEmpty &&
+        !lp.startsWith('content://') &&
+        FileStore.isPathUnderDirectory(lp, cacheRoot)) {
+      paths.add(lp);
+    }
+    final cp = rec?.cachePath;
+    if (cp != null && cp.isNotEmpty && !cp.startsWith('content://')) {
+      paths.add(cp);
+    }
+    final dir = Directory(p.join(cacheRoot, messageId));
+    if (dir.existsSync()) {
+      for (final e in dir.listSync(followLinks: false)) {
+        if (e is File) paths.add(e.path);
+      }
+    }
+    for (final path in paths) {
+      try {
+        await FileStore.deleteFile(path, useTrash: true);
+      } catch (_) {}
+    }
+    try {
+      if (dir.existsSync() && dir.listSync().isEmpty) {
+        await dir.delete();
+      }
+    } catch (_) {}
+    if (meta.size != null && meta.size! > 0) {
+      try {
+        final fileId = makeFileId(
+          meta.fileName,
+          meta.size!,
+          localId: senderLocalIdFromRecvMessageId(messageId),
+        );
+        final receiveDir = await FileStore.getReceiveDir();
+        final partialFile = File('$receiveDir/.lan_partial_$fileId');
+        if (await partialFile.exists()) await partialFile.delete();
+      } catch (_) {}
+    }
+  }
+
+  /// Deletes the exported (转存) copy of a file message. Returns true on
+  /// success. On desktop POSIX copies are moved to the system recycle bin.
+  Future<bool> _deleteExportFiles(
+    _FileMeta meta,
+    ReceivedFileRecord? rec,
+    SaveFolderFileEntry? saveMatch,
+  ) async {
+    var ok = true;
+    final vp = rec?.visiblePath;
+    if (vp != null && vp.isNotEmpty) {
+      ok = await SaveFolderListingService.deletePath(vp, useTrash: true) && ok;
+    }
+    if (saveMatch != null && saveMatch.pathOrUri != vp) {
+      ok = await SaveFolderListingService.deletePath(
+            saveMatch.pathOrUri,
+            useTrash: true,
+          ) &&
+          ok;
+    }
+    return ok;
+  }
+
+  /// Applies the user's delete choices to a single file message's on-disk
+  /// copies and reconciles the received-files index. Returns true when the
+  /// requested deletions all succeeded.
+  Future<bool> _applyFileCopyDeletion({
+    required String messageId,
+    required _FileMeta meta,
+    required _FileCopyStatus status,
+    required bool deleteCache,
+    required bool deleteExport,
+  }) async {
+    var ok = true;
+    if (deleteExport) {
+      ok = await _deleteExportFiles(meta, status.record, status.saveFolderMatch);
+    }
+    if (deleteCache) {
+      await _deleteCacheFiles(messageId, meta, status.record);
+    }
+
+    try {
+      if (deleteCache) {
+        final exportRemains = !deleteExport && status.exportAvailable;
+        if (exportRemains) {
+          await ReceivedFileDao.instance.updateExportState(
+            messageId: messageId,
+            exportStatus: status.record?.exportStatus ?? ExportStatus.done,
+            clearCachePath: true,
+          );
+        } else {
+          await ReceivedFileDao.instance.markDeleted(messageId);
+        }
+      }
+    } catch (_) {}
+    return ok;
   }
 
   /// Build a [ReceivedFileInfo] from the local meta + resolved path. Pulls
@@ -8237,6 +8473,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _confirmDeleteMessage(TextMessage message) async {
     final loc = AppLocalizations.of(context);
+    final meta = _fileMetaByMessageId[message.id];
+
+    // For file messages, offer separate "delete cache" / "delete export" (转存)
+    // choices; the message record itself is always removed.
+    if (meta != null) {
+      final status = await _fileCopyStatus(message.id, meta);
+      if (!mounted) return;
+      final choice = await DeleteFileMessageDialog.show(
+        context,
+        title: loc.chatDeleteMessageTitle,
+        content: loc.chatDeleteMessageBody,
+        confirmLabel: loc.chatDeleteMessageConfirm,
+        cacheAvailable: status.cacheAvailable,
+        exportAvailable: status.exportAvailable,
+      );
+      if (choice == null || !mounted) return;
+
+      final ok = await _applyFileCopyDeletion(
+        messageId: message.id,
+        meta: meta,
+        status: status,
+        deleteCache: choice.deleteCache,
+        deleteExport: choice.deleteExport,
+      );
+      _fileMetaByMessageId.remove(message.id);
+      await _removeMessageRecord(message.id);
+      if (!ok && mounted) {
+        AppToast.show(context, message: loc.fmDeleteFailed);
+      }
+      return;
+    }
+
     final confirmed = await AppConfirmDialog.show(
       context,
       title: loc.chatDeleteMessageTitle,
@@ -8246,40 +8514,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       icon: LucideIcons.trash2,
     );
     if (!confirmed || !mounted) return;
+    await _removeMessageRecord(message.id);
+  }
 
-    // Delete associated disk file and partial cache.
-    final meta = _fileMetaByMessageId[message.id];
-    if (meta != null) {
-      if (meta.localPath != null) {
-        try {
-          final f = File(meta.localPath!);
-          if (await f.exists()) await f.delete();
-        } catch (_) {}
-      }
-      // Also remove the partial cache file for this specific transfer.
-      if (meta.size != null && meta.size! > 0) {
-        try {
-          final fileId = makeFileId(
-            meta.fileName,
-            meta.size!,
-            localId: senderLocalIdFromRecvMessageId(message.id),
-          );
-          final receiveDir = await FileStore.getReceiveDir();
-          final partialFile = File('$receiveDir/.lan_partial_$fileId');
-          if (await partialFile.exists()) await partialFile.delete();
-        } catch (_) {}
-      }
-    }
-    _fileMetaByMessageId.remove(message.id);
-
-    final existing = _findMessageById(message.id);
+  /// Removes a message from the UI, local DB and server. Shared by single and
+  /// batch deletion paths.
+  Future<void> _removeMessageRecord(String messageId) async {
+    final existing = _findMessageById(messageId);
     if (existing != null) {
       _chatController.removeMessage(existing);
     }
 
-    await ChatMessageDao.instance.deleteById(message.id);
+    await ChatMessageDao.instance.deleteById(messageId);
 
-    final serverId = _serverIdByMessageId[message.id];
+    final serverId = _serverIdByMessageId[messageId];
     if (serverId != null) {
       try {
         await deleteMessage(serverId);
@@ -8311,63 +8559,70 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<void> _deleteSelectedMessages() async {
     if (_selectedMessages.isEmpty) return;
 
-    final count = _selectedMessages.length;
-    final confirmed = await AppConfirmDialog.show(
-      context,
-      title: _l10n.chatScreenDeleteMessagesTitle,
-      content: _l10n.chatScreenDeleteMessagesBody(count),
-      confirmLabel: _l10n.chatScreenConfirmDeleteLabel,
-      isDanger: true,
-      icon: LucideIcons.trash2,
-    );
-    if (!confirmed || !mounted) return;
-
     final messagesToDelete = List<String>.from(_selectedMessages);
 
+    // Gather copy status for any selected file messages so the dialog can
+    // enable the right checkboxes (a checkbox is offered when any selected
+    // message has that kind of copy).
+    final fileStatuses = <String, _FileCopyStatus>{};
+    for (final messageId in messagesToDelete) {
+      final meta = _fileMetaByMessageId[messageId];
+      if (meta == null) continue;
+      fileStatuses[messageId] = await _fileCopyStatus(messageId, meta);
+    }
+    if (!mounted) return;
+
+    bool deleteCache = false;
+    bool deleteExport = false;
+    if (fileStatuses.isNotEmpty) {
+      final anyCache = fileStatuses.values.any((s) => s.cacheAvailable);
+      final anyExport = fileStatuses.values.any((s) => s.exportAvailable);
+      final choice = await DeleteFileMessageDialog.show(
+        context,
+        title: _l10n.chatScreenDeleteMessagesTitle,
+        content: _l10n.chatScreenDeleteMessagesBody(messagesToDelete.length),
+        confirmLabel: _l10n.chatScreenConfirmDeleteLabel,
+        cacheAvailable: anyCache,
+        exportAvailable: anyExport,
+      );
+      if (choice == null || !mounted) return;
+      deleteCache = choice.deleteCache;
+      deleteExport = choice.deleteExport;
+    } else {
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: _l10n.chatScreenDeleteMessagesTitle,
+        content: _l10n.chatScreenDeleteMessagesBody(messagesToDelete.length),
+        confirmLabel: _l10n.chatScreenConfirmDeleteLabel,
+        isDanger: true,
+        icon: LucideIcons.trash2,
+      );
+      if (!confirmed || !mounted) return;
+    }
+
+    var anyFailed = false;
     for (final messageId in messagesToDelete) {
       final message = _findMessageById(messageId);
       if (message == null || message is! TextMessage) continue;
 
-      // Delete associated disk file and partial cache.
       final meta = _fileMetaByMessageId[messageId];
-      if (meta != null) {
-        if (meta.localPath != null) {
-          try {
-            final f = File(meta.localPath!);
-            if (await f.exists()) await f.delete();
-          } catch (_) {}
-        }
-        // Also remove the partial cache file for this specific transfer.
-        if (meta.size != null && meta.size! > 0) {
-          try {
-            final fileId = makeFileId(
-              meta.fileName,
-              meta.size!,
-              localId: senderLocalIdFromRecvMessageId(messageId),
-            );
-            final receiveDir = await FileStore.getReceiveDir();
-            final partialFile = File('$receiveDir/.lan_partial_$fileId');
-            if (await partialFile.exists()) await partialFile.delete();
-          } catch (_) {}
-        }
+      final status = fileStatuses[messageId];
+      if (meta != null && status != null) {
+        final ok = await _applyFileCopyDeletion(
+          messageId: messageId,
+          meta: meta,
+          status: status,
+          deleteCache: deleteCache && status.cacheAvailable,
+          deleteExport: deleteExport && status.exportAvailable,
+        );
+        if (!ok) anyFailed = true;
       }
       _fileMetaByMessageId.remove(messageId);
+      await _removeMessageRecord(messageId);
+    }
 
-      final existing = _findMessageById(messageId);
-      if (existing != null) {
-        _chatController.removeMessage(existing);
-      }
-
-      await ChatMessageDao.instance.deleteById(messageId);
-
-      final serverId = _serverIdByMessageId[messageId];
-      if (serverId != null) {
-        try {
-          await deleteMessage(serverId);
-        } catch (e) {
-          logChat.warning('deleteMessage from server failed: $e');
-        }
-      }
+    if (anyFailed && mounted) {
+      AppToast.show(context, message: _l10n.fmDeleteFailed);
     }
 
     // Clear selection and exit selection mode

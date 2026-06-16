@@ -581,8 +581,11 @@ class _FileManagerScreenState extends State<FileManagerScreen>
       icon: LucideIcons.trash2,
     );
     if (confirmed) {
-      await _removeFile(file);
+      final ok = await _removeFile(file);
       await _reloadAfterDelete();
+      if (!ok && mounted) {
+        AppToast.show(context, message: l10n.fmDeleteFailed);
+      }
     }
   }
 
@@ -617,12 +620,13 @@ class _FileManagerScreenState extends State<FileManagerScreen>
 
     final deletedPaths = Set<String>.from(_selectedFiles);
     final byPath = {for (final f in _activeFiles) f.path: f};
+    var anyFailed = false;
     for (final path in deletedPaths) {
       final f = byPath[path];
       if (f != null) {
-        await _removeFile(f);
+        if (!await _removeFile(f)) anyFailed = true;
       } else {
-        await FileStore.deleteFile(path);
+        if (!await FileStore.deleteFile(path, useTrash: true)) anyFailed = true;
       }
     }
 
@@ -639,17 +643,23 @@ class _FileManagerScreenState extends State<FileManagerScreen>
     } else {
       await _loadFiles();
     }
+
+    if (anyFailed && mounted) {
+      AppToast.show(context, message: l10n.fmDeleteFailed);
+    }
   }
 
-  Future<void> _removeFile(ReceivedFileInfo file) async {
+  /// Deletes a file's on-disk copy. User-initiated, so desktop platforms move
+  /// it to the system recycle bin. Returns true on success.
+  Future<bool> _removeFile(ReceivedFileInfo file) async {
     if (SaveFolderListingService.isSaveFolderEntry(file)) {
-      await SaveFolderListingService.deleteEntry(file);
-      return;
+      return SaveFolderListingService.deleteEntry(file, useTrash: true);
     }
-    await FileStore.deleteFile(file.path);
+    final ok = await FileStore.deleteFile(file.path, useTrash: true);
     try {
       await ReceivedFileDao.instance.removeByMessageId(file.messageId);
     } catch (_) {}
+    return ok;
   }
 
   void _openFile(ReceivedFileInfo file) {
