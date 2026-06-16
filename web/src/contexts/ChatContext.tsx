@@ -40,6 +40,14 @@ import {
   resolveSendModeWithMemory,
 } from '@/lib/sendModeResolution';
 import { normalizeMessageLocalId, rowMatchesLocalId } from '@/lib/chatMessageDedupe';
+import { loadAutoCopyIncomingText } from '@/lib/autoCopyPreferences';
+import { toast } from 'sonner';
+
+/** Single-line preview capped at 20 chars (ellipsised when longer) for the auto-copy toast. */
+function autoCopyPreview(text: string): string {
+  const oneLine = text.replace(/\s+/g, ' ').trim();
+  return oneLine.length <= 20 ? oneLine : `${oneLine.slice(0, 20)}…`;
+}
 import { useI18n } from '@/contexts/I18nContext';
 import { analyticsLengthBucket, analyticsTrack } from '@/lib/analytics';
 import { AnalyticsEvents } from '@/lib/analyticsEvents';
@@ -723,6 +731,22 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
+      if (data.type === 'text' && data.fromDeviceId !== getOrCreateDeviceId()) {
+        const incomingText =
+          data.payload && typeof data.payload === 'object'
+            ? (data.payload as { text?: unknown }).text
+            : undefined;
+        if (typeof incomingText === 'string' && incomingText.length > 0 && loadAutoCopyIncomingText()) {
+          // Optional chaining short-circuits when clipboard is unavailable
+          // (non-secure context); failures are silently ignored.
+          void navigator.clipboard
+            ?.writeText(incomingText)
+            .then(() => {
+              toast.success(t('chat.autoCopiedToast', { preview: autoCopyPreview(incomingText) }));
+            })
+            .catch(() => {});
+        }
+      }
       const rawPayload = data.payload && typeof data.payload === 'object' ? (data.payload as { localId?: unknown }) : null;
       const incomingLocalId = rawPayload ? normalizeMessageLocalId(rawPayload.localId) : undefined;
       if (incomingLocalId) {
@@ -896,7 +920,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         peerIsWeb,
         webrtcAvailable,
         httpAvailable,
-        webrtcReachable: !!methods?.webrtc,
+        webrtcReachable: methods?.webrtc ?? null,
         s3Available,
       });
       if (sendModeAutoRef.current) {
@@ -1149,7 +1173,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         directHttp: false,
         peerHttpHealthy: false,
         pullReachable: false,
-        webrtc: false,
+        webrtc: null,
         lanSignaling: false,
       },
       probing: true,

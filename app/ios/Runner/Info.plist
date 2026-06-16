@@ -94,6 +94,14 @@
 	<string>Photo library access is used to save received images and videos to your gallery.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Photo library access is used to save received images and videos to your gallery.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.pravera.flutter_foreground_task.refresh</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

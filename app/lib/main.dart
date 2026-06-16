@@ -6,6 +6,7 @@ import 'package:country_picker/country_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:flutter_desktop_updater/flutter_desktop_updater.dart'
@@ -60,6 +61,8 @@ import 'services/windows_launch_at_startup_service.dart';
 import 'utils/runtime_platform.dart';
 import 'utils/windows_distribution_channel.dart';
 import 'services/native_tab_bar_service.dart';
+import 'services/transfer_keep_alive.dart';
+import 'services/transfer_completion_notifier.dart';
 
 class _NoProxyHttpOverrides extends HttpOverrides {
   @override
@@ -90,6 +93,9 @@ Future<void> _injectLetsEncryptRootCa() async {
 void main(List<String> args) async {
   HttpOverrides.global = _NoProxyHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterForegroundTask.initCommunicationPort();
+  await TransferKeepAlive.ensureInitialized();
+  await TransferCompletionNotifier.ensureInitialized();
   if (!Platform.isWindows) {
     await LiquidGlassWidgets.initialize();
   }

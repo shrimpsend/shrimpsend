@@ -324,6 +324,7 @@
     }
   },
   "chat": {
+    "autoCopiedToast": "Copied: {preview}",
     "confirmBulkDelete": "Delete {count} selected messages?",
     "pullFailed": "Download failed",
     "sendFailed": "Send failed",
@@ -353,6 +354,22 @@
       "label": "Transport",
       "httpLan": "HTTP (LAN)",
       "webrtcLan": "WebRTC (LAN)"
+    },
+    "transportModeDot": {
+      "legendTitle": "Transport status legend",
+      "legendTooltip": "What the dot colors mean",
+      "legendVerified": "Verified and available",
+      "legendPullOnly": "Reverse pull only (HTTP)",
+      "legendAttemptable": "Try anyway, not verified (HTTP)",
+      "legendUnchecked": "WebRTC not tested yet",
+      "legendUnavailable": "Unavailable",
+      "httpVerified": "HTTP direct path available",
+      "httpPullOnly": "Reverse pull only (peer can reach this device)",
+      "httpAttemptable": "Direct path not verified — you can try switching",
+      "webrtcVerified": "WebRTC available",
+      "webrtcUnchecked": "WebRTC not tested yet",
+      "webrtcUnavailable": "WebRTC unreachable",
+      "unavailable": "Unavailable right now"
     },
     "connectionDiag": {
       "title": "Connection diagnostic",
@@ -620,7 +637,9 @@
     "sendEnter": "Press Enter to send",
     "sendModifier": "Press Ctrl+Enter to send",
     "sendModifierMac": "Press ⌘+Enter to send",
-    "sendButtonHint": "The send button always works regardless of this setting."
+    "sendButtonHint": "The send button always works regardless of this setting.",
+    "autoCopyReceivedTextTitle": "Auto-copy received text",
+    "autoCopyReceivedTextDescription": "Automatically copy text messages from other devices to the clipboard."
   },
   "appearance": {
     "title": "Appearance",

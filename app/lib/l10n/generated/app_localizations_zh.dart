@@ -440,6 +440,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDeleteCacheAfterSaveHintBody => '接收的文件缓存会被删除，文件管理的缓存中不会出现';
 
   @override
+  String get settingsAutoCopyReceivedTextTitle => '自动复制收到的文本';
+
+  @override
+  String get settingsAutoCopyReceivedTextSubtitle => '收到其他设备发来的文本消息后自动复制到剪贴板';
+
+  @override
   String get aboutTagline => '消息/文件中转，多端实时同步';
 
   @override
@@ -775,6 +781,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get chatCopied => '已复制';
+
+  @override
+  String chatAutoCopiedToast(String preview) {
+    return '已复制：$preview';
+  }
 
   @override
   String get chatSelectTextTitle => '选择文本';
@@ -2140,6 +2151,48 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get transportModeWebrtcLan => 'WebRTC 局域网直连';
+
+  @override
+  String get transportModeDotLegendTitle => '传输方式状态说明';
+
+  @override
+  String get transportModeDotLegendTooltip => '了解圆点颜色含义';
+
+  @override
+  String get transportModeDotLegendVerified => '已验证可用';
+
+  @override
+  String get transportModeDotLegendPullOnly => '仅反向拉取（HTTP）';
+
+  @override
+  String get transportModeDotLegendAttemptable => '可尝试，尚未验证（HTTP）';
+
+  @override
+  String get transportModeDotLegendUnchecked => 'WebRTC 尚未检测';
+
+  @override
+  String get transportModeDotLegendUnavailable => '不可用';
+
+  @override
+  String get transportModeDotHttpVerified => 'HTTP 直连可用';
+
+  @override
+  String get transportModeDotHttpPullOnly => '仅反向拉取可用（对端可访问本机）';
+
+  @override
+  String get transportModeDotHttpAttemptable => '直连未验证，可尝试切换';
+
+  @override
+  String get transportModeDotWebrtcVerified => 'WebRTC 可用';
+
+  @override
+  String get transportModeDotWebrtcUnchecked => 'WebRTC 尚未检测';
+
+  @override
+  String get transportModeDotWebrtcUnavailable => 'WebRTC 不可达';
+
+  @override
+  String get transportModeDotUnavailable => '当前不可用';
 
   @override
   String get connectionDiagTitle => '连接诊断';

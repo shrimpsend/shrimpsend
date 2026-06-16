@@ -8,12 +8,13 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../network/connection_bar_view_model.dart';
 import '../../network/connection_orchestrator.dart';
+import '../../network/transfer_mode_dot.dart';
 import '../../providers/app_locale.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/device_provider.dart';
-import '../../color_theme.dart';
 import '../../ui/app_ui.dart';
 import '../busy_status_indicator.dart';
+import 'transfer_mode_dot_legend.dart';
 
 class TransferModeBar extends ConsumerWidget {
   final VoidCallback? onRefresh;
@@ -33,6 +34,7 @@ class TransferModeBar extends ConsumerWidget {
     final colors = context.appColors;
     final selectedDeviceId = ref.watch(selectedDeviceIdProvider);
     final sendMode = ref.watch(selectedSendModeProvider);
+    final s3Configured = ref.watch(s3ConfiguredProvider);
     final sessionProbing = ref.watch(
       deviceReachabilityProvider.select((map) {
         final id = selectedDeviceId;
@@ -108,6 +110,7 @@ class TransferModeBar extends ConsumerWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
+          const TransferModeDotLegendButton(),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Wrap(
@@ -115,73 +118,10 @@ class TransferModeBar extends ConsumerWidget {
               runSpacing: 2,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: sorted.map((m) {
-                final isSelected = m.isSelected;
-                final primary = theme.colorScheme.primary;
-                final canTap =
-                    onModeSelected != null &&
-                    m.attemptable &&
-                    (!isSelected ||
-                        (m.mode == SendMode.webrtc &&
-                            m.reachKnownOnline == null));
-                final dotColor = _transferModeDotColor(
-                  mode: m.mode,
-                  reachKnownOnline: m.reachKnownOnline,
-                  reachPullOnly: m.reachPullOnly,
-                  attemptable: m.attemptable,
-                  colors: colors,
-                  primary: primary,
-                );
-                return Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: canTap
-                        ? () => unawaited(onModeSelected!(m.mode))
-                        : null,
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? primary.withValues(alpha: 0.08)
-                            : m.attemptable
-                            ? colors.surfaceMuted.withValues(alpha: 0.6)
-                            : colors.surfaceMuted.withValues(alpha: 0.3),
-                        border: isSelected
-                            ? Border.all(color: primary, width: 1.5)
-                            : Border.all(color: Colors.transparent, width: 1.5),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            m.label,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: isSelected
-                                  ? primary
-                                  : m.attemptable
-                                  ? colors.textPrimary
-                                  : colors.textTertiary.withValues(alpha: 0.6),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: dotColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                return _TransferModeChip(
+                  item: m,
+                  s3Configured: s3Configured,
+                  onModeSelected: onModeSelected,
                 );
               }).toList(),
             ),
@@ -213,22 +153,91 @@ class TransferModeBar extends ConsumerWidget {
   }
 }
 
-Color _transferModeDotColor({
-  required SendMode mode,
-  required bool? reachKnownOnline,
-  required bool reachPullOnly,
-  required bool attemptable,
-  required AppThemeColors colors,
-  required Color primary,
-}) {
-  if (mode == SendMode.webrtc && reachKnownOnline == null) {
-    return primary;
+class _TransferModeChip extends StatelessWidget {
+  const _TransferModeChip({
+    required this.item,
+    required this.s3Configured,
+    required this.onModeSelected,
+  });
+
+  final ConnectionBarModeItem item;
+  final bool s3Configured;
+  final Future<void> Function(SendMode mode)? onModeSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    final l10n = AppLocalizations.of(context);
+    final isSelected = item.isSelected;
+    final primary = theme.colorScheme.primary;
+    final canTap =
+        onModeSelected != null &&
+        item.attemptable &&
+        (!isSelected ||
+            (item.mode == SendMode.webrtc && item.reachKnownOnline == null));
+    final dotState = resolveTransferModeDotStateFromItem(item);
+    final dotColor = transferModeDotColor(
+      state: dotState,
+      colors: colors,
+      primary: primary,
+    );
+    final tooltip = transferModeDotTooltip(
+      l10n,
+      item: item,
+      s3Configured: s3Configured,
+    );
+
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 400),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: canTap ? () => unawaited(onModeSelected!(item.mode)) : null,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? primary.withValues(alpha: 0.08)
+                  : item.attemptable
+                  ? colors.surfaceMuted.withValues(alpha: 0.6)
+                  : colors.surfaceMuted.withValues(alpha: 0.3),
+              border: isSelected
+                  ? Border.all(color: primary, width: 1.5)
+                  : Border.all(color: Colors.transparent, width: 1.5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isSelected
+                        ? primary
+                        : item.attemptable
+                        ? colors.textPrimary
+                        : colors.textTertiary.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: dotColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
-  if (reachKnownOnline == true) {
-    return reachPullOnly ? AppColorTheme.s3Color : colors.success;
-  }
-  if (attemptable && mode == SendMode.lan) {
-    return colors.warning;
-  }
-  return colors.textTertiary.withValues(alpha: 0.6);
 }

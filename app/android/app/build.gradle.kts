@@ -51,6 +51,8 @@ android {
         // 与 device_info_plus 12.x 等插件的 Android 模块一致（Kotlin jvmTarget 17）
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications 需要 core library desugaring
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -101,6 +103,7 @@ flutter {
 
 dependencies {
     implementation("androidx.documentfile:documentfile:1.1.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 // `flutter build apk` / `flutter run` without `--flavor` expects `app-<mode>.apk` under

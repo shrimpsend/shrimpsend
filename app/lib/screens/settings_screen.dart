@@ -19,6 +19,7 @@ import '../config/env.dart';
 import '../legal/open_source_urls.dart';
 import '../l10n/app_brand.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../preferences/clipboard_preferences.dart';
 import '../preferences/country_cluster.dart';
 import '../preferences/locale_region_store.dart';
 import '../providers/auth_provider.dart';
@@ -64,6 +65,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _saveToGallery = false;
   bool _deleteCacheAfterSave = false;
   bool _windowsLaunchAtStartup = false;
+  bool _autoCopyReceivedText = true;
   String? _customSaveDir;
   String? _customSaveTreeUri;
   String _effectiveSaveDir = '';
@@ -87,6 +89,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             : Future.value(S3ConfigDetail.disabled()),
         getSaveToGallery(),
         getDeleteCacheAfterSave(),
+        getAutoCopyReceivedText(),
         Platform.isAndroid ? getCustomSaveTreeUri() : getCustomSaveDir(),
         FileStore.getReceiveDirResolution(),
         getReceiveDirFallback(),
@@ -108,12 +111,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final s3Detail = results[0] as S3ConfigDetail;
       final saveToGallery = results[1] as bool;
       final deleteCache = results[2] as bool;
-      final customSaveDirOrUri = results[3] as String?;
-      final receiveResolution = results[4] as ReceiveDirResolution;
-      final receiveFallback = results[5] as ReceiveDirFallbackInfo?;
-      final windowsLaunchAtStartup = results[6] as bool;
-      final profile = results[7] as UserProfile?;
-      final membership = results[8] as MembershipMe?;
+      final autoCopyReceivedText = results[3] as bool;
+      final customSaveDirOrUri = results[4] as String?;
+      final receiveResolution = results[5] as ReceiveDirResolution;
+      final receiveFallback = results[6] as ReceiveDirFallbackInfo?;
+      final windowsLaunchAtStartup = results[7] as bool;
+      final profile = results[8] as UserProfile?;
+      final membership = results[9] as MembershipMe?;
       logSettings.info(
         'settings_screen load S3 mode=${s3Detail.mode.name} saveToGallery=$saveToGallery deleteCache=$deleteCache windowsLaunchAtStartup=$windowsLaunchAtStartup customSave=${customSaveDirOrUri ?? receiveResolution.customSafTreeUri} effectiveSaveDir=${receiveResolution.path} receiveKind=${receiveResolution.kind.name} fallback=${receiveResolution.usedFallback}',
       );
@@ -122,6 +126,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _s3Mode = s3Detail.mode;
           _saveToGallery = saveToGallery;
           _deleteCacheAfterSave = deleteCache;
+          _autoCopyReceivedText = autoCopyReceivedText;
           _windowsLaunchAtStartup = windowsLaunchAtStartup;
           _customSaveDir = Platform.isAndroid ? null : customSaveDirOrUri;
           _customSaveTreeUri = receiveResolution.customSafTreeUri ??
@@ -859,6 +864,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ),
                               subtitle: Text(
                                 l10n.settingsDeleteCacheAfterSaveSubtitle,
+                                style: theme.textTheme.bodySmall,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                              ),
+                            ),
+                            Divider(height: 1, color: colors.border),
+                            SwitchListTile(
+                              value: _autoCopyReceivedText,
+                              onChanged: (v) async {
+                                await setAutoCopyReceivedText(v);
+                                if (mounted) {
+                                  setState(() => _autoCopyReceivedText = v);
+                                }
+                              },
+                              title: Text(
+                                l10n.settingsAutoCopyReceivedTextTitle,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                              subtitle: Text(
+                                l10n.settingsAutoCopyReceivedTextSubtitle,
                                 style: theme.textTheme.bodySmall,
                               ),
                               contentPadding: const EdgeInsets.symmetric(

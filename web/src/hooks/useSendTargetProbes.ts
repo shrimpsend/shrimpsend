@@ -20,7 +20,8 @@ export type DeviceReachDetail = {
   peerHttpHealthy: boolean;
   /** Reverse pull direction (peer can reach this device). */
   pullReachable: boolean;
-  webrtc: boolean;
+  /** `null` = not probed (e.g. WebRTC skipped when LAN direct works). */
+  webrtc: boolean | null;
   /** @deprecated use peerHttpHealthy */
   lanSignaling: boolean;
 };
@@ -34,7 +35,7 @@ const offlineMethods: DeviceReachDetail = {
   directHttp: false,
   peerHttpHealthy: false,
   pullReachable: false,
-  webrtc: false,
+  webrtc: null,
   lanSignaling: false,
 };
 const offlineEntry: DeviceReachEntry = { methods: offlineMethods, probing: false };
@@ -46,7 +47,7 @@ export function isReachOnline(entry?: DeviceReachEntry): boolean {
     m?.pullReachable ||
     m?.peerHttpHealthy ||
     m?.lanSignaling ||
-    m?.webrtc
+    m?.webrtc === true
   );
 }
 
@@ -124,7 +125,7 @@ async function probeDeviceAllMethods(
             directHttp: true,
             peerHttpHealthy: false,
             pullReachable: false,
-            webrtc: false,
+            webrtc: null,
             lanSignaling: false,
           },
           freshLanUrl: lanUrl,

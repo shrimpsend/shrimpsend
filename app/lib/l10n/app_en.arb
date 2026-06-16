@@ -172,6 +172,8 @@
   "settingsDeleteCacheAfterSaveTitle": "Delete cache after saving",
   "settingsDeleteCacheAfterSaveSubtitle": "Remove the in-app cache copy after the file is saved to your folder",
   "settingsDeleteCacheAfterSaveHintBody": "Received file cache copies will be deleted and will not appear in File Manager's Cache tab.",
+  "settingsAutoCopyReceivedTextTitle": "Auto-copy received text",
+  "settingsAutoCopyReceivedTextSubtitle": "Automatically copy text messages from other devices to the clipboard",
   "aboutTagline": "Relay messages and files across devices in real time",
   "settingsVersionWithBuild": "Version {version} ({buildNumber})",
   "@settingsVersionWithBuild": {
@@ -366,6 +368,14 @@
   "chatGallerySaved": "Saved to gallery",
   "chatGallerySaveFailed": "Save failed",
   "chatCopied": "Copied",
+  "chatAutoCopiedToast": "Copied: {preview}",
+  "@chatAutoCopiedToast": {
+    "placeholders": {
+      "preview": {
+        "type": "String"
+      }
+    }
+  },
   "chatSelectTextTitle": "Select text",
   "chatDeleteMessageTitle": "Delete message",
   "chatDeleteMessageBody": "Delete this message? Local and cloud copies will be removed.",
@@ -1241,6 +1251,20 @@
   "transportModeLabel": "Transport",
   "transportModeHttpLan": "HTTP LAN direct",
   "transportModeWebrtcLan": "WebRTC LAN direct",
+  "transportModeDotLegendTitle": "Transport status legend",
+  "transportModeDotLegendTooltip": "What the dot colors mean",
+  "transportModeDotLegendVerified": "Verified and available",
+  "transportModeDotLegendPullOnly": "Reverse pull only (HTTP)",
+  "transportModeDotLegendAttemptable": "Try anyway, not verified (HTTP)",
+  "transportModeDotLegendUnchecked": "WebRTC not tested yet",
+  "transportModeDotLegendUnavailable": "Unavailable",
+  "transportModeDotHttpVerified": "HTTP direct path available",
+  "transportModeDotHttpPullOnly": "Reverse pull only (peer can reach this device)",
+  "transportModeDotHttpAttemptable": "Direct path not verified — you can try switching",
+  "transportModeDotWebrtcVerified": "WebRTC available",
+  "transportModeDotWebrtcUnchecked": "WebRTC not tested yet",
+  "transportModeDotWebrtcUnavailable": "WebRTC unreachable",
+  "transportModeDotUnavailable": "Unavailable right now",
   "connectionDiagTitle": "Connection diagnostic",
   "connectionDiagSubtitleRunning": "Testing connection to {peer}…",
   "@connectionDiagSubtitleRunning": {

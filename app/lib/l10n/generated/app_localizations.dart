@@ -930,6 +930,18 @@ abstract class AppLocalizations {
   /// **'Received file cache copies will be deleted and will not appear in File Manager\'s Cache tab.'**
   String get settingsDeleteCacheAfterSaveHintBody;
 
+  /// No description provided for @settingsAutoCopyReceivedTextTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-copy received text'**
+  String get settingsAutoCopyReceivedTextTitle;
+
+  /// No description provided for @settingsAutoCopyReceivedTextSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically copy text messages from other devices to the clipboard'**
+  String get settingsAutoCopyReceivedTextSubtitle;
+
   /// No description provided for @aboutTagline.
   ///
   /// In en, this message translates to:
@@ -1553,6 +1565,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copied'**
   String get chatCopied;
+
+  /// No description provided for @chatAutoCopiedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied: {preview}'**
+  String chatAutoCopiedToast(String preview);
 
   /// No description provided for @chatSelectTextTitle.
   ///
@@ -4001,6 +4019,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'WebRTC LAN direct'**
   String get transportModeWebrtcLan;
+
+  /// No description provided for @transportModeDotLegendTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transport status legend'**
+  String get transportModeDotLegendTitle;
+
+  /// No description provided for @transportModeDotLegendTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'What the dot colors mean'**
+  String get transportModeDotLegendTooltip;
+
+  /// No description provided for @transportModeDotLegendVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified and available'**
+  String get transportModeDotLegendVerified;
+
+  /// No description provided for @transportModeDotLegendPullOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Reverse pull only (HTTP)'**
+  String get transportModeDotLegendPullOnly;
+
+  /// No description provided for @transportModeDotLegendAttemptable.
+  ///
+  /// In en, this message translates to:
+  /// **'Try anyway, not verified (HTTP)'**
+  String get transportModeDotLegendAttemptable;
+
+  /// No description provided for @transportModeDotLegendUnchecked.
+  ///
+  /// In en, this message translates to:
+  /// **'WebRTC not tested yet'**
+  String get transportModeDotLegendUnchecked;
+
+  /// No description provided for @transportModeDotLegendUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get transportModeDotLegendUnavailable;
+
+  /// No description provided for @transportModeDotHttpVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP direct path available'**
+  String get transportModeDotHttpVerified;
+
+  /// No description provided for @transportModeDotHttpPullOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Reverse pull only (peer can reach this device)'**
+  String get transportModeDotHttpPullOnly;
+
+  /// No description provided for @transportModeDotHttpAttemptable.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct path not verified — you can try switching'**
+  String get transportModeDotHttpAttemptable;
+
+  /// No description provided for @transportModeDotWebrtcVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'WebRTC available'**
+  String get transportModeDotWebrtcVerified;
+
+  /// No description provided for @transportModeDotWebrtcUnchecked.
+  ///
+  /// In en, this message translates to:
+  /// **'WebRTC not tested yet'**
+  String get transportModeDotWebrtcUnchecked;
+
+  /// No description provided for @transportModeDotWebrtcUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'WebRTC unreachable'**
+  String get transportModeDotWebrtcUnavailable;
+
+  /// No description provided for @transportModeDotUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable right now'**
+  String get transportModeDotUnavailable;
 
   /// No description provided for @connectionDiagTitle.
   ///

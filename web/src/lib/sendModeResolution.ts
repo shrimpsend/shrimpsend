@@ -11,13 +11,13 @@ export function buildTransferModeOptions(input: {
   peerIsWeb: boolean;
   webrtcAvailable: boolean;
   httpAvailable: boolean;
-  webrtcReachable: boolean;
+  webrtcReachable: boolean | null;
   s3Available: boolean;
 }): TransferModeOption[] {
   const modes: TransferModeOption[] = [];
   if (input.peerIsWeb) {
     if (input.webrtcAvailable) {
-      modes.push({ value: 'webrtc', available: input.webrtcReachable, attemptable: true });
+      modes.push({ value: 'webrtc', available: input.webrtcReachable === true, attemptable: true });
     }
     modes.push({ value: 's3', available: input.s3Available, attemptable: input.s3Available });
   } else {
@@ -27,7 +27,7 @@ export function buildTransferModeOptions(input: {
       attemptable: true,
     });
     if (input.webrtcAvailable) {
-      modes.push({ value: 'webrtc', available: input.webrtcReachable, attemptable: true });
+      modes.push({ value: 'webrtc', available: input.webrtcReachable === true, attemptable: true });
     }
     modes.push({ value: 's3', available: input.s3Available, attemptable: input.s3Available });
   }

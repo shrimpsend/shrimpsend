@@ -457,6 +457,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Received file cache copies will be deleted and will not appear in File Manager\'s Cache tab.';
 
   @override
+  String get settingsAutoCopyReceivedTextTitle => 'Auto-copy received text';
+
+  @override
+  String get settingsAutoCopyReceivedTextSubtitle =>
+      'Automatically copy text messages from other devices to the clipboard';
+
+  @override
   String get aboutTagline =>
       'Relay messages and files across devices in real time';
 
@@ -805,6 +812,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatCopied => 'Copied';
+
+  @override
+  String chatAutoCopiedToast(String preview) {
+    return 'Copied: $preview';
+  }
 
   @override
   String get chatSelectTextTitle => 'Select text';
@@ -2225,6 +2237,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get transportModeWebrtcLan => 'WebRTC LAN direct';
+
+  @override
+  String get transportModeDotLegendTitle => 'Transport status legend';
+
+  @override
+  String get transportModeDotLegendTooltip => 'What the dot colors mean';
+
+  @override
+  String get transportModeDotLegendVerified => 'Verified and available';
+
+  @override
+  String get transportModeDotLegendPullOnly => 'Reverse pull only (HTTP)';
+
+  @override
+  String get transportModeDotLegendAttemptable =>
+      'Try anyway, not verified (HTTP)';
+
+  @override
+  String get transportModeDotLegendUnchecked => 'WebRTC not tested yet';
+
+  @override
+  String get transportModeDotLegendUnavailable => 'Unavailable';
+
+  @override
+  String get transportModeDotHttpVerified => 'HTTP direct path available';
+
+  @override
+  String get transportModeDotHttpPullOnly =>
+      'Reverse pull only (peer can reach this device)';
+
+  @override
+  String get transportModeDotHttpAttemptable =>
+      'Direct path not verified — you can try switching';
+
+  @override
+  String get transportModeDotWebrtcVerified => 'WebRTC available';
+
+  @override
+  String get transportModeDotWebrtcUnchecked => 'WebRTC not tested yet';
+
+  @override
+  String get transportModeDotWebrtcUnavailable => 'WebRTC unreachable';
+
+  @override
+  String get transportModeDotUnavailable => 'Unavailable right now';
 
   @override
   String get connectionDiagTitle => 'Connection diagnostic';

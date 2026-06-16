@@ -324,6 +324,7 @@
     }
   },
   "chat": {
+    "autoCopiedToast": "已复制：{preview}",
     "confirmBulkDelete": "确定删除选中的 {count} 条消息？",
     "pullFailed": "拉取失败",
     "sendFailed": "发送失败",
@@ -353,6 +354,22 @@
       "label": "传输方式",
       "httpLan": "HTTP 局域网直连",
       "webrtcLan": "WebRTC 局域网直连"
+    },
+    "transportModeDot": {
+      "legendTitle": "传输方式状态说明",
+      "legendTooltip": "了解圆点颜色含义",
+      "legendVerified": "已验证可用",
+      "legendPullOnly": "仅反向拉取（HTTP）",
+      "legendAttemptable": "可尝试，尚未验证（HTTP）",
+      "legendUnchecked": "WebRTC 尚未检测",
+      "legendUnavailable": "不可用",
+      "httpVerified": "HTTP 直连可用",
+      "httpPullOnly": "仅反向拉取可用（对端可访问本机）",
+      "httpAttemptable": "直连未验证，可尝试切换",
+      "webrtcVerified": "WebRTC 可用",
+      "webrtcUnchecked": "WebRTC 尚未检测",
+      "webrtcUnavailable": "WebRTC 不可达",
+      "unavailable": "当前不可用"
     },
     "connectionDiag": {
       "title": "连接诊断",
@@ -620,7 +637,9 @@
     "sendEnter": "按 Enter 键发送",
     "sendModifier": "按 Ctrl+Enter 键发送",
     "sendModifierMac": "按 ⌘+Enter 键发送",
-    "sendButtonHint": "发送按钮始终可用，不受此设置影响。"
+    "sendButtonHint": "发送按钮始终可用，不受此设置影响。",
+    "autoCopyReceivedTextTitle": "自动复制收到的文本",
+    "autoCopyReceivedTextDescription": "收到其他设备发来的文本消息后自动复制到剪贴板。"
   },
   "appearance": {
     "title": "外观",
