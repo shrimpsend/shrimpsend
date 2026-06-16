@@ -272,6 +272,20 @@ class FileExportService {
     );
   }
 
+  /// Deletes a public Downloads entry (Android only). [uriOrPath] may be a
+  /// MediaStore `content://` URI or a legacy file path. MediaStore items are
+  /// removed via ContentResolver natively. Returns true on success.
+  static Future<bool> deleteDownload(String uriOrPath) async {
+    if (!Platform.isAndroid || uriOrPath.isEmpty) return false;
+    final isUri =
+        uriOrPath.startsWith('content://') || uriOrPath.startsWith('file://');
+    final ok = await _channel.invokeMethod<bool>('deleteDownload', {
+      'uri': isUri ? uriOrPath : null,
+      'path': isUri ? null : uriOrPath,
+    });
+    return ok ?? false;
+  }
+
   /// List top-level files in the public Downloads folder (Android only).
   static Future<List<DownloadsFileEntry>> listDownloads() async {
     if (!Platform.isAndroid) return const [];

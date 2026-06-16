@@ -903,6 +903,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fmDeleteConfirm => '删除';
 
   @override
+  String get fmDeleteFailed => '删除失败，请重试';
+
+  @override
+  String get deleteFileCacheLabel => '删除缓存文件';
+
+  @override
+  String get deleteFileExportLabel => '删除转存文件';
+
+  @override
+  String get deleteFileNoCacheCopy => '无缓存副本';
+
+  @override
+  String get deleteFileNoExportCopy => '无转存副本';
+
+  @override
   String get fmAndroidApkOnly => '仅 Android 设备支持安装 APK';
 
   @override

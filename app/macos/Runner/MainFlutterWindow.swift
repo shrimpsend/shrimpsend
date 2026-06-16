@@ -39,6 +39,29 @@ class MainFlutterWindow: NSWindow {
       }
     }
 
+    let trashChannel = FlutterMethodChannel(
+      name: "dev.ultrasend/desktop_trash",
+      binaryMessenger: flutterViewController.engine.binaryMessenger
+    )
+    trashChannel.setMethodCallHandler { call, result in
+      guard call.method == "moveToTrash" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard let args = call.arguments as? [String: Any],
+            let path = args["path"] as? String else {
+        result(FlutterError(code: "INVALID_ARG", message: "path required", details: nil))
+        return
+      }
+      let url = URL(fileURLWithPath: path)
+      do {
+        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        result(true)
+      } catch {
+        result(FlutterError(code: "TRASH_FAILED", message: error.localizedDescription, details: nil))
+      }
+    }
+
     super.awakeFromNib()
   }
 }
