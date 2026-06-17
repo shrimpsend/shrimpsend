@@ -16,8 +16,13 @@ class TransferCompletionNotifier {
   static const _channelId = 'transfer_completion';
   static const _notificationId = 257;
 
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  // Lazily constructed and only ever touched on mobile (every caller is gated
+  // by RuntimePlatform.isMobile). This avoids resolving the desktop platform
+  // implementations of flutter_local_notifications on Windows/macOS/Linux,
+  // where they are unused.
+  FlutterLocalNotificationsPlugin? _pluginInstance;
+  FlutterLocalNotificationsPlugin get _plugin =>
+      _pluginInstance ??= FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
 

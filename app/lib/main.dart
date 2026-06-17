@@ -92,15 +92,65 @@ Future<void> _injectLetsEncryptRootCa() async {
 
 void main(List<String> args) async {
   HttpOverrides.global = _NoProxyHttpOverrides();
-  WidgetsFlutterBinding.ensureInitialized();
+  // Run the whole startup inside a guarded zone so async errors thrown before
+  // the first frame cannot silently abort main() into a blank window.
+  // ensureInitialized() and runApp() must live in the same zone.
+  runZonedGuarded<Future<void>>(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      // Logging first: any failure during the rest of boot must reach the log
+      // file on disk. Otherwise a crash before the first frame is a silent
+      // white screen with no diagnostics (cf. 1.4.8 Windows white-screen).
+      await AppLogFile.instance.init();
+      initLogging();
+      _installBootErrorHandlers();
+      try {
+        await _bootstrap(args);
+      } catch (e, st) {
+        logBoot.severe('fatal boot error before first frame: $e', e, st);
+        runApp(
+          BootFailureApp(
+            error: e,
+            stackTrace: st,
+            logFilePath: AppLogFile.instance.currentLogFilePath,
+          ),
+        );
+      }
+    },
+    (error, stack) {
+      logBoot.severe('uncaught zone error: $error', error, stack);
+    },
+  );
+}
+
+/// Routes framework + platform-dispatcher errors into the on-disk log so a
+/// release build that white-screens still leaves a diagnosable trail.
+void _installBootErrorHandlers() {
+  final previousOnError = FlutterError.onError;
+  FlutterError.onError = (FlutterErrorDetails details) {
+    logBoot.severe(
+      'FlutterError: ${details.exceptionAsString()}',
+      details.exception,
+      details.stack,
+    );
+    previousOnError?.call(details);
+  };
+  WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+    logBoot.severe('PlatformDispatcher uncaught error: $error', error, stack);
+    return true;
+  };
+}
+
+/// App startup sequence. Runs inside [runZonedGuarded] with logging already
+/// initialized, so any thrown error is captured and surfaced via
+/// [BootFailureApp] instead of producing a blank window.
+Future<void> _bootstrap(List<String> args) async {
   FlutterForegroundTask.initCommunicationPort();
   await TransferKeepAlive.ensureInitialized();
   await TransferCompletionNotifier.ensureInitialized();
   if (!Platform.isWindows) {
     await LiquidGlassWidgets.initialize();
   }
-  await AppLogFile.instance.init();
-  initLogging();
   await _injectLetsEncryptRootCa();
   final launchedAtStartup = WindowsLaunchAtStartupService.isStartupLaunch(args);
   if (Platform.isWindows) {
@@ -252,10 +302,105 @@ void main(List<String> args) async {
         : LiquidGlassWidgets.wrap(adaptiveQuality: false, child: appRoot),
   );
 
+  // Distinguishes "first frame rendered" from "main() reached runApp but the
+  // rasterizer never painted" when triaging white-screen reports.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    logBoot.info('first frame rendered');
+  });
+
   if (desktopTraySupported) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       initDesktopTrayAfterFirstFrame();
     });
+  }
+}
+
+/// Minimal, theme-independent screen shown when startup fails before the app
+/// UI can render. Replaces a silent white window with the error, stack trace
+/// and log-file path so users can screenshot or send it to support.
+class BootFailureApp extends StatelessWidget {
+  const BootFailureApp({
+    super.key,
+    required this.error,
+    required this.stackTrace,
+    this.logFilePath,
+  });
+
+  final Object error;
+  final StackTrace stackTrace;
+  final String? logFilePath;
+
+  @override
+  Widget build(BuildContext context) {
+    final buffer = StringBuffer()
+      ..writeln('启动失败 / Startup failed')
+      ..writeln()
+      ..writeln(error.toString())
+      ..writeln()
+      ..writeln(stackTrace.toString());
+    if (logFilePath != null) {
+      buffer
+        ..writeln()
+        ..writeln('日志文件 / Log file:')
+        ..writeln(logFilePath);
+    }
+    final text = buffer.toString();
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF1A1A1A),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '应用启动失败',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '请截图本页面或把日志文件发给开发者协助排查。',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: text));
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white54),
+                    ),
+                    child: const Text('复制错误信息'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      text,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
