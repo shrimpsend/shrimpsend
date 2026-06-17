@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.4.8+48
+version: 1.4.9+49
 
 environment:
   sdk: ^3.9.2
@@ -131,6 +131,10 @@ flutter:
     - assets/certs/isrg_root_x1.pem
 
   # BEGIN_WINDOWS_FONT
+  fonts:
+    - family: UltrasendWenYuanSansSC
+      fonts:
+        - asset: assets/fonts/windows/WenYuanSansSCVF.ttf
   # END_WINDOWS_FONT
 
 # Tobias 支付宝插件：iOS 回调需配置 url_scheme（不可含下划线）

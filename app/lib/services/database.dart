@@ -9,6 +9,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart'
 
 import 'transfer_record.dart';
 import '../chat/thread_key.dart';
+import '../logger.dart';
 
 const _dbVersion = 7;
 
@@ -150,16 +151,41 @@ class AppDatabase {
   }
 
   Future<void> _migrateDatabaseFromDocuments(String newPath) async {
-    final docsDir = await getApplicationDocumentsDirectory();
-    final oldPath = join(docsDir.path, 'ultrasend.db');
-    final oldFile = File(oldPath);
-    if (!await oldFile.exists() || await File(newPath).exists()) return;
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final oldPath = join(docsDir.path, 'ultrasend.db');
+      final oldFile = File(oldPath);
+      if (!await oldFile.exists() || await File(newPath).exists()) return;
 
-    await oldFile.rename(newPath);
-    for (final suffix in const ['-wal', '-shm']) {
-      final sidecar = File('$oldPath$suffix');
-      if (await sidecar.exists()) {
-        await sidecar.rename('$newPath$suffix');
+      await _moveFileAcrossVolumes(oldFile, newPath);
+      for (final suffix in const ['-wal', '-shm']) {
+        final sidecar = File('$oldPath$suffix');
+        if (await sidecar.exists()) {
+          await _moveFileAcrossVolumes(sidecar, '$newPath$suffix');
+        }
+      }
+    } catch (e, st) {
+      // Never let a migration failure block startup. Worst case the app starts
+      // with a fresh DB at the new location; the old file is left untouched and
+      // can be recovered manually.
+      logBoot.warning('AppDatabase migrate from Documents failed: $e', e, st);
+    }
+  }
+
+  /// Moves [file] to [destPath]. Uses [File.rename] when possible, falling back
+  /// to copy+delete when source and destination live on different volumes
+  /// (rename throws `FileSystemException` / OS error 17 across drives on
+  /// Windows, e.g. Documents redirected to D: while AppData is on C:).
+  Future<void> _moveFileAcrossVolumes(File file, String destPath) async {
+    try {
+      await file.rename(destPath);
+    } on FileSystemException {
+      await file.copy(destPath);
+      try {
+        await file.delete();
+      } catch (_) {
+        // Source deletion is best-effort; the destination copy already exists,
+        // and re-migration is guarded by the destination-exists check.
       }
     }
   }
