@@ -118,7 +118,8 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
     // specific channel (Stripe / Apple / Google), route them there instead of letting
     // a second channel double-charge.
     final surface = _resolvePurchaseSurface(tier);
-    final decision = decideMembershipPurchase(me: _me, surface: surface);
+    final decision =
+        decideMembershipPurchase(me: _me, surface: surface, isAddon: tier.isAddon);
     if (!decision.canPurchase) {
       await _handleChannelLocked(decision);
       return;

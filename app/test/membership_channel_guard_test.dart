@@ -69,6 +69,21 @@ void main() {
       expect(d.reason, LockReason.lifetimeMainland);
     });
 
+    test('ALIPAY_LIFETIME can still buy add-on packs on any surface', () {
+      final me = _me(channel: PaymentChannel.alipayLifetime, canSwitch: false);
+      for (final s in PurchaseSurface.values) {
+        final d = decideMembershipPurchase(me: me, surface: s, isAddon: true);
+        expect(d.canPurchase, isTrue, reason: 'surface=$s');
+        expect(d.reason, LockReason.none, reason: 'surface=$s');
+      }
+
+      // Sanity: a non-addon purchase on the same user is still blocked.
+      final upgrade =
+          decideMembershipPurchase(me: me, surface: PurchaseSurface.stripeWeb);
+      expect(upgrade.canPurchase, isFalse);
+      expect(upgrade.reason, LockReason.lifetimeMainland);
+    });
+
     test('null me allows any surface (treated as FREE)', () {
       for (final s in PurchaseSurface.values) {
         expect(decideMembershipPurchase(me: null, surface: s).canPurchase, isTrue);
