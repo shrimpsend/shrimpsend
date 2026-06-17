@@ -57,10 +57,20 @@ class MembershipChannelDecision {
 ///
 /// [surface] should reflect *where* the user clicked (e.g. desktop -> [PurchaseSurface.stripeWeb]
 /// for overseas, [PurchaseSurface.alipayPcWeb] for mainland).
+///
+/// [isAddon] marks one-shot add-on (device pack) purchases. Add-ons are
+/// channel-independent top-ups and must NOT be blocked by the upgrade
+/// channel-affinity guard (e.g. a mainland lifetime member can still buy
+/// add-on packs via Alipay).
 MembershipChannelDecision decideMembershipPurchase({
   required MembershipMe? me,
   required PurchaseSurface surface,
+  bool isAddon = false,
 }) {
+  if (isAddon) {
+    return MembershipChannelDecision.allow(surface);
+  }
+
   final channel = (me?.paymentChannel ?? PaymentChannel.free).toUpperCase();
 
   if (channel == PaymentChannel.free || (me?.canSwitchChannel ?? true)) {
