@@ -145,13 +145,19 @@ void _installBootErrorHandlers() {
 /// initialized, so any thrown error is captured and surfaced via
 /// [BootFailureApp] instead of producing a blank window.
 Future<void> _bootstrap(List<String> args) async {
+  // Step markers ('boot: ...'): on a hang or crash before the first frame, the
+  // last logged step localizes the failing init phase from the user's log.
+  logBoot.info('boot: begin (platform=${Platform.operatingSystem})');
   FlutterForegroundTask.initCommunicationPort();
   await TransferKeepAlive.ensureInitialized();
   await TransferCompletionNotifier.ensureInitialized();
+  logBoot.info('boot: keep-alive + notifier ready');
   if (!Platform.isWindows) {
     await LiquidGlassWidgets.initialize();
+    logBoot.info('boot: liquid glass initialized');
   }
   await _injectLetsEncryptRootCa();
+  logBoot.info('boot: root CA injected');
   final launchedAtStartup = WindowsLaunchAtStartupService.isStartupLaunch(args);
   if (Platform.isWindows) {
     try {
@@ -164,8 +170,10 @@ Future<void> _bootstrap(List<String> args) async {
   final localeRegionStore = LocaleRegionStore();
   await localeRegionStore.loadSync();
   await loadSendShortcutMode();
+  logBoot.info('boot: locale/region + shortcuts loaded');
 
   await OpenpanelBootstrap.initIfEligible();
+  logBoot.info('boot: openpanel init done');
 
   // 桌面更新 zip 内需含与 windows/CMakeLists.txt BINARY_NAME 一致的主程序（cn: 虾传.exe，intl: Shrimpsend.exe）。
   // MSIX/商店安装目录不可被 ZIP 覆盖，故不配置内置更新器（由商店负责更新）。
@@ -178,7 +186,9 @@ Future<void> _bootstrap(List<String> args) async {
       onError: (m) => logUpdate.warning(m),
     );
   }
+  logBoot.info('boot: opening database');
   await AppDatabase.instance.open();
+  logBoot.info('boot: database opened');
 
   if (Platform.isAndroid) {
     await SafStorageService.restorePersistedTreeUris();
@@ -193,6 +203,7 @@ Future<void> _bootstrap(List<String> args) async {
   final isLoggedIn = container.read(authProvider).isLoggedIn;
   final offlineWithoutLogin = await loadOfflineWithoutLogin();
   await localeRegionStore.applyLoggedInDefaultsIfNeeded(isLoggedIn);
+  logBoot.info('boot: auth/provider state loaded');
 
   final authSession = container.read(authSessionControllerProvider.notifier);
   authSession.onStorageLoaded(isLoggedIn: isLoggedIn);
@@ -271,6 +282,7 @@ Future<void> _bootstrap(List<String> args) async {
 
   if (desktopTraySupported) {
     await initDesktopWindowBeforeRunApp(startHidden: launchedAtStartup);
+    logBoot.info('boot: desktop window ready');
   }
 
   final themeStore = ThemeStore();
@@ -296,6 +308,7 @@ Future<void> _bootstrap(List<String> args) async {
   final desktopAppRoot = Platform.isWindows
       ? DesktopWindowCloseShortcuts(child: appRoot)
       : appRoot;
+  logBoot.info('boot: calling runApp');
   runApp(
     isDesktop
         ? desktopAppRoot
