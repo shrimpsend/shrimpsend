@@ -120,13 +120,38 @@ class AppDatabase {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
+
     final dbPath = await _resolveDatabasePath();
-    _db = await openDatabase(
-      dbPath,
-      version: _dbVersion,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
+    if (dbPath != null) {
+      try {
+        _db = await openDatabase(
+          dbPath,
+          version: _dbVersion,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+        );
+        logBoot.info('AppDatabase opened at $dbPath');
+      } catch (e, st) {
+        logBoot.severe('AppDatabase open at $dbPath failed: $e', e, st);
+      }
+    } else {
+      logBoot.severe('AppDatabase: no writable storage directory available');
+    }
+
+    // Last-resort fallback: an in-memory database keeps the app launchable
+    // (no white screen) when no on-disk path can be opened. Data is not
+    // persisted for this session; only an in-memory open failure is fatal and
+    // bubbles up to the BootFailureApp error screen in main().
+    if (_db == null) {
+      _db = await openDatabase(
+        inMemoryDatabasePath,
+        version: _dbVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
+      logBoot.severe('AppDatabase running in-memory (degraded, not persisted)');
+    }
+
     await _migrateTransferRecordsFromPrefs();
   }
 
@@ -138,16 +163,42 @@ class AppDatabase {
       Platform.isLinux ||
       Platform.isMacOS;
 
-  Future<String> _resolveDatabasePath() async {
+  /// Resolves the on-disk database path, or null when no writable directory can
+  /// be obtained (caller then falls back to an in-memory database).
+  Future<String?> _resolveDatabasePath() async {
+    final dirPath = await _resolveStorageDirectory();
+    if (dirPath == null) return null;
+    final dbPath = join(dirPath, 'ultrasend.db');
+    // Migration only applies on platforms that moved the DB into Application
+    // Support; when forced onto Documents the source==dest early-return is a
+    // no-op, so this is safe to call unconditionally for those platforms.
     if (_usesApplicationSupportDatabase) {
-      final supportDir = await getApplicationSupportDirectory();
-      await Directory(supportDir.path).create(recursive: true);
-      final dbPath = join(supportDir.path, 'ultrasend.db');
       await _migrateDatabaseFromDocuments(dbPath);
-      return dbPath;
     }
-    final dir = await getApplicationDocumentsDirectory();
-    return join(dir.path, 'ultrasend.db');
+    return dbPath;
+  }
+
+  /// Returns a writable directory for the database using a fallback chain, so a
+  /// single failing path_provider lookup cannot block startup. On stripped-down
+  /// / redirected Windows installs `getApplicationSupportDirectory()` or
+  /// `getApplicationDocumentsDirectory()` can throw
+  /// `MissingPlatformDirectoryException`; trying the other one recovers most of
+  /// those cases. Returns null only when every candidate fails.
+  Future<String?> _resolveStorageDirectory() async {
+    final List<Future<Directory> Function()> candidates =
+        _usesApplicationSupportDatabase
+        ? [getApplicationSupportDirectory, getApplicationDocumentsDirectory]
+        : [getApplicationDocumentsDirectory, getApplicationSupportDirectory];
+    for (final getDir in candidates) {
+      try {
+        final dir = await getDir();
+        await Directory(dir.path).create(recursive: true);
+        return dir.path;
+      } catch (e, st) {
+        logBoot.warning('AppDatabase resolve storage dir failed: $e', e, st);
+      }
+    }
+    return null;
   }
 
   Future<void> _migrateDatabaseFromDocuments(String newPath) async {
@@ -193,26 +244,31 @@ class AppDatabase {
   static const _prefsKeyTransferRecords = 'transfer_records';
 
   Future<void> _migrateTransferRecordsFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList(_prefsKeyTransferRecords);
-    if (raw == null || raw.isEmpty) return;
-    final db = _db!;
-    int migrated = 0;
-    for (final s in raw) {
-      try {
-        final record = TransferRecord.fromJsonString(s);
-        await db.insert(
-          'transfer_records',
-          record.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-        migrated++;
-      } catch (_) {
-        // skip malformed entries
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_prefsKeyTransferRecords);
+      if (raw == null || raw.isEmpty) return;
+      final db = _db!;
+      int migrated = 0;
+      for (final s in raw) {
+        try {
+          final record = TransferRecord.fromJsonString(s);
+          await db.insert(
+            'transfer_records',
+            record.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          migrated++;
+        } catch (_) {
+          // skip malformed entries
+        }
       }
-    }
-    if (migrated > 0) {
-      await prefs.remove(_prefsKeyTransferRecords);
+      if (migrated > 0) {
+        await prefs.remove(_prefsKeyTransferRecords);
+      }
+    } catch (e, st) {
+      // Never let the prefs->SQLite backfill block startup.
+      logBoot.warning('AppDatabase migrate transfer records failed: $e', e, st);
     }
   }
 
