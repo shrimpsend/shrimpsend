@@ -28,6 +28,7 @@ ShrimpSend Show HN 发帖的全套执行资产。**目标**：GitHub 关注度�
 | [good-first-issues.md](good-first-issues.md) | 8 个可直接发布的贡献者 issue（英文文案） |
 | [self-host-dry-run.md](self-host-dry-run.md) | 发帖前 self-host 实测流程，防止当天翻车 |
 | [warmup-comment-bank.md](warmup-comment-bank.md) | 发帖前 2–3 周的 HN 养号评论指引 |
+| [reddit-operation-plan.md](reddit-operation-plan.md) | Reddit 运营计划：账号预热、subreddit 策略、发帖模板、反馈回流 |
 | [blog-reverse-pull.md](blog-reverse-pull.md) | 围绕差异化的技术预热文（英文正文） |
 | [post-launch-followup.md](post-launch-followup.md) | D+0 到 D+7 跟进、第二轮内容、指标 |
 
@@ -41,8 +42,8 @@ ShrimpSend Show HN 发帖的全套执行资产。**目标**：GitHub 关注度�
 ## 时间线
 
 1. **第 1–2 周** — GitHub「可被 star」打磨：README/GIF、5 分钟试用、英文协议、good first issues、Release、模板。
-2. **第 2–3 周** — 预热：HN 有机评论、reverse-pull 技术文、self-host 实测。
-3. **第 4 周** — 周二/周三北京时间 21:00 发 Show HN，2–3 小时高频回复。
+2. **第 2–3 周** — 预热：HN 有机评论、Reddit 评论/反馈帖、reverse-pull 技术文、self-host 实测。
+3. **第 4 周** — 周二/周三北京时间 21:00 发 Show HN，Reddit 暂停大规模发帖，把精力留给 HN 2–3 小时高频回复。
 4. **D+0 到 D+7** — 答疑、沉淀 FAQ、快速响应 issue、评估、规划第二轮。
 
 ## 红线（务必遵守）
