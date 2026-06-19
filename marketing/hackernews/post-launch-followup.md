@@ -1,41 +1,41 @@
-# Post-launch follow-up (D+0 to D+7 and beyond)
+# 发帖后跟进（D+0 到 D+7 及之后）
 
-A single HN spike does not equal sustained growth. Star retention comes from a steady release cadence and fast issue response. The first week converts launch attention into a real project.
+HN 单次爆发不等于持续增长。star 留存靠稳定的 release 节奏和快速的 issue 响应。第一周决定能否把发帖热度转成一个真正活跃的项目。
 
-## Day-by-day
+## 逐日动作
 
-| Day | Action |
+| 天 | 动作 |
 |---|---|
-| D+0 | Monitor HN + GitHub notifications. Fix self-host doc breakage live. Respond to every substantive comment. |
-| D+1 | If HN went well (>100 points), publish/refresh the GitHub Release notes to echo the features people asked about. Reply to overnight comments. |
-| D+2-3 | Turn the top HN questions into a tracked `docs/FAQ.md` or pinned GitHub Discussion. Triage and label every issue opened during the launch. |
-| D+4-7 | Respond to all new issues within 72 hours. Merge or comment on early PRs quickly — first-time contributors who get a fast response come back. |
-| D+7 | Review metrics (below) and decide whether to run a second-round technical post. |
+| D+0 | 监控 HN + GitHub 通知。实时修 self-host 文档坑。回复每一条有实质内容的评论。 |
+| D+1 | 若 HN 表现好（>100 points），发布/刷新 GitHub Release notes，呼应大家关注的功能点。回掉过夜的评论。 |
+| D+2–3 | 把 HN 高赞问题整理成可跟踪的 `docs/FAQ.md` 或置顶 Discussion。给发帖期间开的每个 issue 打标签、做分诊。 |
+| D+4–7 | 72 小时内回复所有新 issue。尽快 review/合并早期 PR——首次贡献者得到快速响应才会回来。 |
+| D+7 | 看指标（见下），决定是否发第二轮技术帖。 |
 
-## Issue & PR SLA (the part that retains stars)
+## Issue & PR 响应 SLA（这是留住 star 的关键）
 
-- New issue: first response within 72 hours, even if it's just triage.
-- `good first issue` PRs: review within a few days; a stale newcomer PR is a lost contributor.
-- Keep labels tidy (`bug`, `enhancement`, `self-hosting`, `good first issue`) so the repo reads as actively maintained.
+- 新 issue：72 小时内首次响应，哪怕只是分诊。
+- `good first issue` 的 PR：几天内 review；放着不管的新人 PR = 丢失的贡献者。
+- 标签保持整洁（`bug`、`enhancement`、`self-hosting`、`good first issue`），让仓库读起来像在被积极维护。
 
-## Second-round content (space at least 2 weeks after launch)
+## 第二轮内容（与发帖至少间隔 2 周）
 
-Do not re-submit a Show HN. Instead, submit a regular HN post or share elsewhere:
+不要重复发 Show HN。可以发普通 HN 帖或在别处分享：
 
-- "How we implement reverse-pull file transfer" — the deep version of [blog-reverse-pull.md](blog-reverse-pull.md).
-- "Self-hosting ShrimpSend in 10 minutes" — a polished walkthrough born from the dry-run fixes.
+- 「How we implement reverse-pull file transfer」—— [blog-reverse-pull.md](blog-reverse-pull.md) 的深度版。
+- 「Self-hosting ShrimpSend in 10 minutes」—— 从实测修复中打磨出来的精细教程。
 
-## Metrics to evaluate (D+7)
+## 评估指标（D+7）
 
-| Tier | HN result | GitHub 7-day delta | Read as |
+| 档位 | HN 结果 | GitHub 7 日增量 | 解读 |
 |---|---|---|---|
-| Over-target | Top 5, 300+ points | 500+ stars | Product + narrative + luck aligned |
-| On-target | Front page 4-8h, 80-150 points | 150-300 stars | Healthy result for an indie tool |
-| Acceptable | 30-80 points | 50-150 stars | Still real SEO + community value |
-| Needs review | <30 points | <50 stars | Re-examine title, first comment, README try-it friction |
+| 超预期 | Top 5，300+ points | 500+ stars | 产品 + 叙事 + 运气齐了 |
+| 达标 | 首页 4–8 小时，80–150 points | 150–300 stars | 独立工具的合理结果 |
+| 及格 | 30–80 points | 50–150 stars | 仍有长期 SEO + 社区价值 |
+| 需复盘 | <30 points | <50 stars | 重查标题、首评、README 试用门槛 |
 
-Also track quality signals, not just stars: number of self-host attempts that succeeded, issues opened by non-team accounts, and any PRs from first-time contributors. Those predict whether the project keeps growing after the spike fades.
+也要看质量信号，而不只是 star：成功跑通的自托管次数、非团队账号开的 issue、首次贡献者的 PR。这些更能预测热度退去后项目是否还在长大。
 
-## Retro (write it down)
+## 复盘（写下来）
 
-After D+7, capture: which title/first-comment framing landed, which objection came up most, where self-host still tripped people, and the single biggest fix for next time. Feed it back into the README and these docs.
+D+7 之后记录：哪种标题/首评框架最有效、哪个质疑最常出现、self-host 还在哪里绊人、下次最该改的一件事。把这些反哺回 README 和本套文档。

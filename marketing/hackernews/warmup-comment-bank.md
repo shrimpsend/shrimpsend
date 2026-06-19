@@ -1,42 +1,69 @@
-# Warm-up comment bank (HN organic participation)
+# HN 养号评论库
 
-Use in the 2-3 weeks before launch. The goal is to build a small, genuine track record on HN so your account is not brand-new on launch day, and to learn how this audience talks about transfer/NAT/self-hosting topics.
+用于发帖前 2–3 周。目的：在 HN 上积累一点真实的发言记录，让你发帖当天不是全新账号；同时摸清这个受众怎么聊传输 / NAT / 自托管话题。
 
-## Rules (do not skip)
+## 规则（别跳过）
 
-- Add real value first. Answer the question or share a concrete insight; mention ShrimpSend only when it is genuinely relevant, and disclose that you built it.
-- Never astroturf: no sock-puppet accounts, no asking friends to upvote, no dropping links with no substance. HN detects and punishes this, and it is unrecoverable.
-- 2-3 substantive comments per week is plenty. Quality over volume.
-- If a thread is not actually about your problem space, do not shoehorn the product in.
+- 先提供真实价值。先回答问题或给出具体见解；只在真正相关时提到 ShrimpSend，并披露你是作者。
+- 绝不刷水军：不用马甲号、不喊人点赞、不发没干货的纯链接。HN 能识别并重罚，且不可恢复。
+- 每周 2–3 条有实质内容的评论足矣。质量优先于数量。
+- thread 若跟你的领域无关，不要硬塞产品。
 
-## Where to look
+## 去哪里找
 
-Search HN (via Algolia: https://hn.algolia.com) and comment on live threads about:
+用 HN 搜索（Algolia：https://hn.algolia.com）找正在活跃的、关于以下话题的 thread 去评论：
 
-- LocalSend, Syncthing, Snapdrop/Pairdrop, Magic Wormhole, KDE Connect
-- NAT traversal, hole punching, WebRTC data channels, STUN/TURN
-- Self-hosting file transfer / "send a file between my own devices"
-- Windows firewall / one-way connectivity frustrations
+- LocalSend、Syncthing、Snapdrop/Pairdrop、Magic Wormhole、KDE Connect
+- NAT 穿透、打洞、WebRTC 数据通道、STUN/TURN
+- 自托管文件传输 / 「在自己的设备间传文件」
+- Windows 防火墙 / 单向连通的吐槽
 
-## Disclosure line (reuse)
+## 披露语（复用）
 
-> Disclosure: I work on ShrimpSend, an open-source tool in this space, so I'm biased.
+英文，直接用：
 
-## Example comments (adapt, never paste verbatim)
+```text
+Disclosure: I work on ShrimpSend, an open-source tool in this space, so I'm biased.
+```
 
-### On a NAT/connectivity thread
-> One thing that surprised me building a device-to-device transfer tool: reachability is directional. On the same Wi-Fi, a phone can usually POST to a desktop, but the desktop often can't connect back (Windows firewall, mobile listener restrictions, or the AP isolating clients). Retrying the same direction just times out. Flipping it — let the reachable side pull instead of insisting the sender push — recovers a surprising fraction of "same network but won't connect" cases before you even reach for WebRTC. (Disclosure: I work on a tool that does this.)
+## 示例评论（英文，按情况改写，切勿原样照抄）
 
-### On a LocalSend / LAN-transfer thread
-> LocalSend is great when every device is on a reachable LAN with the app installed. The cases it doesn't target are cross-network sends, one-way firewalls, resume after a drop, and joining from a browser on a machine where you can't install anything. Those are exactly the gaps that pushed me to build something with a server-coordinated fallback chain. Different tradeoff — more moving parts, but it keeps working off the happy path. (Disclosure: biased, I build one of these.)
+### 在 NAT / 连通性 thread 下
 
-### On a self-hosting thread
-> If you self-host this kind of thing, the detail that bit me was Centrifugo/WebSocket auth config — easy to get a backend up and then spend an hour on why the realtime channel won't connect. Worth documenting the required env vars with a startup validation check. Happy to share what we ended up with.
+```text
+One thing that surprised me building a device-to-device transfer tool: reachability is
+directional. On the same Wi-Fi, a phone can usually POST to a desktop, but the desktop
+often can't connect back (Windows firewall, mobile listener restrictions, or the AP
+isolating clients). Retrying the same direction just times out. Flipping it — let the
+reachable side pull instead of insisting the sender push — recovers a surprising fraction
+of "same network but won't connect" cases before you even reach for WebRTC.
+(Disclosure: I work on a tool that does this.)
+```
 
-## Track it
+### 在 LocalSend / 局域网传输 thread 下
 
-Keep a short log so you do not over-post or repeat yourself:
+```text
+LocalSend is great when every device is on a reachable LAN with the app installed. The
+cases it doesn't target are cross-network sends, one-way firewalls, resume after a drop,
+and joining from a browser on a machine where you can't install anything. Those are exactly
+the gaps that pushed me to build something with a server-coordinated fallback chain.
+Different tradeoff — more moving parts, but it keeps working off the happy path.
+(Disclosure: biased, I build one of these.)
+```
+
+### 在自托管 thread 下
+
+```text
+If you self-host this kind of thing, the detail that bit me was Centrifugo/WebSocket auth
+config — easy to get a backend up and then spend an hour on why the realtime channel won't
+connect. Worth documenting the required env vars with a startup validation check. Happy to
+share what we ended up with.
+```
+
+## 记录在案
+
+用一张小表记录，避免过度发帖或重复自己：
 
 ```
-Date | Thread (url) | Topic | Linked product? (Y/N) | Notes
+日期 | thread (url) | 话题 | 是否链了产品 (是/否) | 备注
 ```
