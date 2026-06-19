@@ -26,6 +26,8 @@
 Disclosure: I work on ShrimpSend, an open-source tool in this space, so I'm biased.
 ```
 
+中文译文：披露一下：我在做 ShrimpSend，一个这个领域的开源工具，所以我有立场偏向。
+
 ## 示例评论（英文，按情况改写，切勿原样照抄）
 
 ### 在 NAT / 连通性 thread 下
@@ -40,6 +42,8 @@ of "same network but won't connect" cases before you even reach for WebRTC.
 (Disclosure: I work on a tool that does this.)
 ```
 
+中文译文：做设备间传输工具时让我意外的一点是：可达性是有方向的。同一个 Wi-Fi 下，手机通常能 POST 给台式机，但台式机往往连不回来（Windows 防火墙、移动端监听限制，或 AP 隔离了客户端）。一味重试同一个方向只会超时。把它翻转过来——让可达的一方去拉取，而不是非要发送方推送——能在你动用 WebRTC 之前救回相当一部分「同网却连不上」的情况。（披露：我在做一个这么干的工具。）
+
 ### 在 LocalSend / 局域网传输 thread 下
 
 ```text
@@ -51,6 +55,8 @@ Different tradeoff — more moving parts, but it keeps working off the happy pat
 (Disclosure: biased, I build one of these.)
 ```
 
+中文译文：LocalSend 在每台设备都装了应用、且局域网可达时很棒。它没瞄准的场景是：跨网发送、单向防火墙、断线续传，以及从一台装不了软件的机器上用浏览器加入。正是这些缺口促使我做了一个带服务端协调兜底链路的东西。取舍不同——环节更多，但在非理想路径下也能继续工作。（披露：我有立场，我就在做这类工具之一。）
+
 ### 在自托管 thread 下
 
 ```text
@@ -59,6 +65,8 @@ config — easy to get a backend up and then spend an hour on why the realtime c
 connect. Worth documenting the required env vars with a startup validation check. Happy to
 share what we ended up with.
 ```
+
+中文译文：如果你自托管这类东西，让我栽过跟头的细节是 Centrifugo/WebSocket 的鉴权配置——很容易把后端跑起来，然后花一个小时排查实时频道为什么连不上。值得把必需的环境变量写进文档，并加一个启动时校验。乐意分享我们最后的做法。
 
 ## 记录在案
 

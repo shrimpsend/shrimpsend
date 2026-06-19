@@ -20,6 +20,12 @@
 3. Show HN: When HTTP push fails, pull instead – AGPL device-to-device transfer
 ```
 
+中文译文（仅供理解，发布用英文）：
+
+1. Show HN: ShrimpSend —— AGPL 开源的跨设备文件传输，局域网优先、反向拉取兜底
+2. Show HN: 在你自己的设备之间开源传文件（断点续传、WebRTC、可自托管）
+3. Show HN: 当 HTTP 推送失败时，改为拉取 —— AGPL 设备间传输
+
 原则：事实陈述、带 `Show HN:` 前缀、至少出现 `AGPL` / `self-hostable` 之一，不用浮夸词。
 
 ## 链接目标
@@ -35,7 +41,7 @@
 | T+0 | 用选定标题提交 Show HN，URL = 仓库地址。 |
 | T+1 分钟 | 粘贴 [maker-comment.md](maker-comment.md) 里的英文首评。 |
 | T+0 ~ T+3h | 每隔几分钟刷 HN + GitHub 通知。按下方优先级回复。 |
-| 下线前 10 分钟 | 发一句英文：`Heading offline for a bit — I'll keep replying in GitHub Discussions.` |
+| 下线前 10 分钟 | 发一句英文：`Heading offline for a bit — I'll keep replying in GitHub Discussions.`（中文意思：我先下线一会儿，会继续在 GitHub Discussions 回复） |
 | 下线后 | 有同事就用 [faq-responses.md](faq-responses.md) 接力；否则回复转到 Discussions 继续。 |
 
 **不要**让任何人帮你点赞，**不要**用全新账号发帖——用按 [warmup-comment-bank.md](warmup-comment-bank.md) 养过的账号。

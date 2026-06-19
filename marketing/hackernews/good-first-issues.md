@@ -30,6 +30,8 @@ first boot, and where logs live. Acceptance: the section exists and links from t
 quickstart.
 ```
 
+中文译文：标题《Docs: 增加 docker-compose 故障排查章节》。正文：README 的 5 分钟 Docker 上手是新用户最先会试的东西。在 docs/SELF_HOST.md 的 Docker 说明下加一个「Troubleshooting」小节，至少覆盖：端口冲突（3306/8000/9000/3000）、首次启动 MySQL healthcheck 未就绪、日志在哪。验收：该小节存在，并从 README 上手处链接过去。
+
 ## 2. 首次运行的英文截图说明
 
 - 标签：`good first issue`、`documentation`
@@ -43,6 +45,8 @@ or a short numbered list under "Try it in 5 minutes" in README.md: sign up on yo
 instance, add a second device/browser, send the first message.
 ```
 
+中文译文：标题《Docs: 增加首次运行的步骤截图》。正文：README 截图展示了 UI，但没展示首次运行流程。在 README.md 的「Try it in 5 minutes」下加 3-4 张带标注的截图或一个简短编号列表：在自己的实例上注册、加第二台设备/浏览器、发出第一条消息。
+
 ## 3. Web 端：收到文本消息的「复制」按钮
 
 - 标签：`good first issue`、`web`、`enhancement`
@@ -55,6 +59,8 @@ Text/clipboard sending is a core use case. Add a copy button on text messages in
 chat view with a "copied" toast. Acceptance: button works and `npm run lint` passes in web/.
 ```
 
+中文译文：标题《Web: 收到的文本消息加一键复制按钮》。正文：文本/剪贴板发送是核心场景。在 Web 端聊天视图的文本消息上加一个复制按钮，附「已复制」toast。验收：按钮可用，且 web/ 下 `npm run lint` 通过。
+
 ## 4. Web 端：显示本次传输走的路径
 
 - 标签：`good first issue`、`web`、`enhancement`
@@ -66,6 +72,8 @@ chat view with a "copied" toast. Acceptance: button works and `npm run lint` pas
 The connection diagnostic already knows whether a transfer used LAN / reverse pull /
 WebRTC / S3. Add a small badge/label near the transfer indicating the path used.
 ```
+
+中文译文：标题《Web: 在界面上显示本次传输走的路径》。正文：连接诊断已经知道传输走的是 LAN / 反向拉取 / WebRTC / S3。在传输旁加一个小徽标/标签，标明本次走的路径。
 
 ## 5. Backend：启动时校验并说明必需的环境变量
 
@@ -80,6 +88,8 @@ actionable message naming any missing required variable (e.g. datasource URL, Ce
 keys) instead of failing deep in the stack.
 ```
 
+中文译文：标题《Backend: 启动时校验并说明必需的环境变量》。正文：缺某个环境变量时自托管者会遇到迷惑的报错。启动时输出一条清晰、可操作的信息，点名任何缺失的必需变量（如数据源 URL、Centrifugo 密钥），而不是在调用栈深处才失败。
+
 ## 6. i18n：审校 Web 端英文文案
 
 - 标签：`good first issue`、`web`、`i18n`
@@ -91,6 +101,8 @@ keys) instead of failing deep in the stack.
 The project is bilingual (zh/en). Submit a PR fixing awkward or inconsistent English
 strings in web/, noting before/after in the description.
 ```
+
+中文译文：标题《i18n: 审校 Web 端的英文文案》。正文：项目是双语（zh/en）。提交一个 PR 修正 web/ 下别扭或不一致的英文文案，并在描述里写明修改前后。
 
 ## 7. 仓库：给只改 Web 的贡献者加 CONTRIBUTING 快速上手
 
@@ -104,6 +116,8 @@ Many contributors only want to touch the web client. Add a short "Web-only setup
 CONTRIBUTING.md pointing the web client at the official/your dev API.
 ```
 
+中文译文：标题《Repo: 给只改 Web 的贡献者加 CONTRIBUTING 快速上手》。正文：很多贡献者只想动 Web 客户端。在 CONTRIBUTING.md 加一段简短的「Web-only setup」，把 Web 客户端指向官方/你自己的开发 API。
+
 ## 8. 协议：给英文摘要加上请求/响应示例
 
 - 标签：`good first issue`、`documentation`
@@ -115,3 +129,5 @@ CONTRIBUTING.md pointing the web client at the official/your dev API.
 shared/protocol.en.md describes the endpoints. Add a short "Examples" section with
 copy-pasteable curl commands for /probe, /transfer-status, and a presigned upload.
 ```
+
+中文译文：标题《Protocol: 给英文摘要加上请求/响应示例》。正文：shared/protocol.en.md 描述了各端点。加一个简短的「Examples」小节，给 /probe、/transfer-status 和预签名上传配上可直接复制的 curl 命令。
