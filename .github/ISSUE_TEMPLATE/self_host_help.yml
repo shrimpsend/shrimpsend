@@ -1,0 +1,40 @@
+name: Self-hosting help
+description: Trouble deploying or running your own ShrimpSend instance
+labels: ["self-hosting", "question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening, please check [docs/SELF_HOST.md](../docs/SELF_HOST.md) and the 5-minute Docker path in the [README](../README.md#try-it-in-5-minutes).
+  - type: dropdown
+    id: method
+    attributes:
+      label: Deployment method
+      options:
+        - Docker compose
+        - Local dev scripts (start-dev.sh)
+        - Bare metal (deploy.sh)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Host OS / architecture
+      placeholder: e.g. Ubuntu 24.04 x86_64, macOS arm64
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What did you run and what happened?
+      description: Include the exact command and the error. Which service failed (MySQL :3306 / Centrifugo :8000 / backend :9000 / web :3000)? Redact secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: From scripts/logs/ or `docker compose logs`. Redact tokens.
+    validations:
+      required: false
