@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/shrimpsend/shrimpsend/blob/main/SECURITY.md
+    about: Please report vulnerabilities privately. Do not open a public issue.
+  - name: Questions & discussion
+    url: https://github.com/shrimpsend/shrimpsend/discussions
+    about: Usage questions, ideas, and general discussion belong in Discussions.
+  - name: International hosted service
+    url: https://shrimpsend.com
+    about: Try the official hosted edition without self-hosting.

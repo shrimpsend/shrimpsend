@@ -39,10 +39,25 @@ This repository (**`shrimpsend`**) is the open-source codebase for **ShrimpSend*
 - **No install for recipients** — send directly to browsers and temporary devices when the other side cannot install software.
 - **Resume after disconnects** — large native client ↔ client transfers continue from the interrupted position instead of restarting from 0%.
 - **Works on restrictive networks** — server-assisted relay when hotel Wi‑Fi, campus networks, or carrier NAT block direct reachability.
-- **Breaks through one-way networks** — firewalls and NAT often allow traffic in only one direction (e.g. phone → PC works, PC → phone does not). After sign-in, the server coordinates reachability probes between your devices; if direct HTTP push fails, ShrimpSend automatically **reverse-pulls** the file from the reachable side, or falls back to WebRTC / S3 relay. See [shared/protocol.md](shared/protocol.md#反向拉取-reverse-pull).
+- **Breaks through one-way networks** — firewalls and NAT often allow traffic in only one direction (e.g. phone → PC works, PC → phone does not). After sign-in, the server coordinates reachability probes between your devices; if direct HTTP push fails, ShrimpSend automatically **reverse-pulls** the file from the reachable side, or falls back to WebRTC / S3 relay. See [shared/protocol.en.md](shared/protocol.en.md#reverse-pull).
 - **LAN-first, still built for speed** — prefer direct LAN / WebRTC on the same network; use relay or S3-compatible fallback only when needed.
 - **Real-time sync** — [Centrifugo](https://centrifugal.dev/) pushes updates to every signed-in client on channel `user#<userId>`.
 - **Self-host friendly** — run the full stack on your infrastructure under [AGPL-3.0-or-later](LICENSE); production secrets stay in private ops templates ([docs/SELF_HOST.md](docs/SELF_HOST.md)).
+
+## Try it in 5 minutes
+
+Bring up MySQL, Centrifugo, and the backend with Docker, then run the web client:
+
+```bash
+git clone https://github.com/shrimpsend/shrimpsend.git
+cd shrimpsend
+./scripts/setup-local-config.sh   # writes .env + config.docker.json from examples
+docker compose up -d              # MySQL :3306, Centrifugo :8000, backend :9000
+
+cd web && npm ci && npm run dev   # web client on :3000
+```
+
+Open http://localhost:3000, create an account on your own instance, and add a second device (or a second browser) to send your first message. Full options, troubleshooting, and bare-metal/production paths: [docs/SELF_HOST.md](docs/SELF_HOST.md).
 
 ## Screenshots
 
@@ -258,7 +273,8 @@ shrimpsend/
 | Topic | Document |
 |-------|----------|
 | Self-hosting | [docs/SELF_HOST.md](docs/SELF_HOST.md) |
-| Transfer protocol | [shared/protocol.md](shared/protocol.md) |
+| Transfer protocol (English summary) | [shared/protocol.en.md](shared/protocol.en.md) |
+| Transfer protocol (full, 中文) | [shared/protocol.md](shared/protocol.md) |
 | Contributing + DCO | [CONTRIBUTING.md](CONTRIBUTING.md), [DCO.md](DCO.md) |
 | Security disclosures | [SECURITY.md](SECURITY.md) |
 | Setup guide (Chinese) | [docs/README.zh-CN.md](docs/README.zh-CN.md) |

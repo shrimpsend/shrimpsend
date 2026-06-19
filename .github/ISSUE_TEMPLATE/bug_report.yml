@@ -1,0 +1,71 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please redact any tokens or credentials from logs and screenshots.
+        For security vulnerabilities, do **not** open a public issue — see [SECURITY.md](../SECURITY.md).
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - iOS
+        - Android
+        - macOS
+        - Windows
+        - Linux
+        - Web
+        - HarmonyOS
+    validations:
+      required: true
+  - type: dropdown
+    id: instance
+    attributes:
+      label: Instance
+      options:
+        - Official hosted (shrimpsend.com)
+        - Official hosted (xiachuan.net)
+        - Self-hosted
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App / build version
+      description: e.g. 1.4.9+49 (Settings > About), or the commit you built from
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: network
+    attributes:
+      label: Network context (if transfer-related)
+      description: Same LAN or across networks? Any firewall/VPN/NAT? Which transfer path did the connection diagnostic show (LAN / reverse pull / WebRTC / S3)?
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Redact tokens. For self-hosted, backend logs live under scripts/logs/.
+    validations:
+      required: false
