@@ -13,6 +13,8 @@ export type S3ConfigRequest = {
   pathStyleAccessEnabled?: boolean;
   /** CSTCloud Data Capsule client binding id. */
   clientApp?: string;
+  /** S3 provider preset id. */
+  providerId?: string;
 };
 
 /**
@@ -43,6 +45,8 @@ export type S3ConfigResponse = {
   pathStyleAccessEnabled?: boolean;
   clientApp?: string;
   userAgent?: string;
+  providerId?: string;
+  providerDocsUrl?: string;
 };
 
 function disabledResponse(): S3ConfigResponse {
@@ -75,6 +79,9 @@ function normalizeS3Response(raw: unknown): S3ConfigResponse {
       typeof obj.pathStyleAccessEnabled === 'boolean' ? obj.pathStyleAccessEnabled : undefined,
     clientApp: typeof obj.clientApp === 'string' ? obj.clientApp : undefined,
     userAgent: typeof obj.userAgent === 'string' ? obj.userAgent : undefined,
+    providerId: typeof obj.providerId === 'string' ? obj.providerId : undefined,
+    providerDocsUrl:
+      typeof obj.providerDocsUrl === 'string' ? obj.providerDocsUrl : undefined,
   };
 }
 
@@ -101,6 +108,24 @@ export async function getS3Config(): Promise<S3ConfigResponse> {
 export async function hasS3Config(): Promise<boolean> {
   const data = await getS3Config();
   return data.configured;
+}
+
+export async function getS3Providers(): Promise<import('../s3Providers').S3ProvidersCatalog> {
+  logger.debug(TAG, 'getS3Providers');
+  return withAuthRetry(async () => {
+    const token = getToken();
+    if (!token) {
+      return { providers: [], clientAppOptions: [], tencentCosRegions: [] };
+    }
+    const res = await fetch(`${getApiUrl()}/api/s3/providers`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (isAuthFailure(res)) throw new AuthError();
+    if (!res.ok) {
+      return { providers: [], clientAppOptions: [], tencentCosRegions: [] };
+    }
+    return (await res.json()) as import('../s3Providers').S3ProvidersCatalog;
+  });
 }
 
 export async function saveS3Config(data: S3ConfigRequest): Promise<void> {
@@ -215,8 +240,8 @@ export async function testS3Config(): Promise<void> {
       serverError ? `serverError=${serverError}` : '',
     );
     if (serverProbe === 'failed') {
-      const endpoint = cfg.endpoint ?? '';
-      const hint = endpoint.includes('cstcloud.cn')
+      const providerId = cfg.providerId ?? '';
+      const hint = providerId === 'data_capsule'
         ? ' (Data Capsule: verify Endpoint/Bucket/Path-style in Client access; some keys require app binding)'
         : '';
       const detailMsg = serverError?.trim() ? serverError : 'HTTP 401';

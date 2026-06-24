@@ -2847,7 +2847,7 @@ abstract class AppLocalizations {
   /// No description provided for @s3SettingsPlaceholderRegion.
   ///
   /// In en, this message translates to:
-  /// **'cn-east-1'**
+  /// **'us-east-1'**
   String get s3SettingsPlaceholderRegion;
 
   /// No description provided for @s3SettingsPlaceholderBucket.

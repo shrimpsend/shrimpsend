@@ -6,6 +6,8 @@ import dev.ultrasend.backend.entity.User;
 import dev.ultrasend.backend.repository.S3ConfigRepository;
 import dev.ultrasend.backend.repository.UserRepository;
 import dev.ultrasend.backend.s3.S3ClientAppSupport;
+import dev.ultrasend.backend.s3.S3ProviderCatalog;
+import dev.ultrasend.backend.s3.S3ProviderId;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,27 +70,87 @@ public class S3Service {
         return base + path;
     }
 
+    private String buildProviderDocumentationUrl(String docsSection) {
+        if (docsSection == null || docsSection.isBlank() || "overview".equals(docsSection)) {
+            return buildS3DocumentationUrl();
+        }
+        String base = publicWebBaseUrl == null ? "" : publicWebBaseUrl.trim();
+        if (base.isEmpty()) {
+            return "";
+        }
+        String path = s3DocsPath == null ? "/zh/docs/s3/overview" : s3DocsPath.trim();
+        if (path.isEmpty()) {
+            path = "/zh/docs/s3/overview";
+        }
+        if (path.endsWith("/overview")) {
+            path = path.substring(0, path.length() - "/overview".length()) + "/" + docsSection;
+        } else if (!path.endsWith("/" + docsSection)) {
+            if (!path.endsWith("/")) {
+                path = path + "/";
+            }
+            path = path + docsSection;
+        }
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base + path;
+    }
+
+    public S3ProvidersResponse getProviders() {
+        return S3ProviderCatalog.buildCatalogResponse();
+    }
+
     @Transactional
     public void saveConfig(Long userId, S3ConfigRequest req) {
-        S3ClientAppSupport.validateClientAppForEndpoint(req.getEndpoint(), req.getClientApp());
+        String providerId = resolveProviderIdForSave(req);
+        S3ClientAppSupport.validateClientAppForProvider(providerId, req.getClientApp());
         User user = userRepository.findById(userId).orElseThrow();
         S3Config config = s3ConfigRepository.findByUserId(userId)
                 .orElse(S3Config.builder().user(user).build());
         config.setEndpoint(req.getEndpoint());
-        config.setRegion(req.getRegion() != null ? req.getRegion() : "cn-east-1");
+        config.setRegion(resolveRegionForSave(providerId, req.getRegion()));
         config.setBucket(req.getBucket());
         config.setAccessKeyId(req.getAccessKeyId());
         if (req.getSecretAccessKey() != null && !req.getSecretAccessKey().isBlank()) {
             config.setSecretAccessKey(userDataEncryption.encryptForUser(userId, req.getSecretAccessKey()));
         }
-        config.setPathStyleAccessEnabled(
-                req.getPathStyleAccessEnabled() != null ? req.getPathStyleAccessEnabled() : true);
+        boolean pathStyle = req.getPathStyleAccessEnabled() != null ? req.getPathStyleAccessEnabled() : true;
+        config.setPathStyleAccessEnabled(pathStyle);
+        warnIfPathStyleMismatch(providerId, pathStyle);
         config.setClientApp(normalizeClientApp(req.getClientApp()));
+        config.setProviderId(providerId);
         // 用户主动保存 BYO 即视为「使用自建 S3」
         config.setPrefersHosted(false);
         s3ConfigRepository.save(config);
-        log.info("s3 saveConfig saved userId={} bucket={} clientApp={}", userId, config.getBucket(),
-                config.getClientApp());
+        log.info("s3 saveConfig saved userId={} bucket={} providerId={} clientApp={}", userId, config.getBucket(),
+                providerId, config.getClientApp());
+    }
+
+    private static String resolveProviderIdForSave(S3ConfigRequest req) {
+        if (req.getProviderId() != null && !req.getProviderId().isBlank()) {
+            return S3ProviderId.normalize(req.getProviderId());
+        }
+        return S3ProviderCatalog.inferProviderIdFromEndpoint(req.getEndpoint());
+    }
+
+    private static String resolveRegionForSave(String providerId, String region) {
+        if (region != null && !region.isBlank()) {
+            return region.trim();
+        }
+        return S3ProviderCatalog.resolveDefaultRegion(providerId);
+    }
+
+    private static void warnIfPathStyleMismatch(String providerId, boolean pathStyle) {
+        if (!pathStyle) {
+            return;
+        }
+        String id = S3ProviderId.normalize(providerId);
+        if (S3ProviderId.BITIFUL.equals(id) || S3ProviderId.TENCENT_COS.equals(id)) {
+            log.warn("s3 saveConfig pathStyle=true for provider={} (usually should be false)", id);
+        }
     }
 
     private static String normalizeClientApp(String clientApp) {
@@ -129,6 +191,8 @@ public class S3Service {
                             .pathStyleAccessEnabled(resolvePathStyle(c.getPathStyleAccessEnabled()))
                             .clientApp(c.getClientApp())
                             .userAgent(resolveByoUserAgent(c))
+                            .providerId(S3ProviderCatalog.inferProviderId(c))
+                            .providerDocsUrl(buildProviderDocsUrlForConfig(c))
                             .build();
                 })
                 .orElseGet(() -> {
@@ -492,6 +556,22 @@ public class S3Service {
         return LEGACY_UPLOAD_PREFIX + ts + "-" + safeBase + ext;
     }
 
+    private String buildProviderDocsUrlForConfig(S3Config config) {
+        String providerId = S3ProviderCatalog.inferProviderId(config);
+        return S3ProviderCatalog.buildCatalogResponse().getProviders().stream()
+                .filter(p -> providerId.equals(p.getId()))
+                .findFirst()
+                .map(p -> buildProviderDocumentationUrl(p.getDocsSection()))
+                .orElse(buildS3DocumentationUrl());
+    }
+
+    private static String resolveConfigRegion(S3Config config) {
+        if (config.getRegion() != null && !config.getRegion().isBlank()) {
+            return config.getRegion();
+        }
+        return S3ProviderCatalog.resolveDefaultRegion(S3ProviderCatalog.inferProviderId(config));
+    }
+
     private static boolean resolvePathStyle(Boolean pathStyleAccessEnabled) {
         return pathStyleAccessEnabled == null || pathStyleAccessEnabled;
     }
@@ -508,7 +588,7 @@ public class S3Service {
         String secretAccessKey = resolveSecretAccessKey(userId, config);
         String userAgent = resolveByoUserAgent(config);
         return S3Client.builder()
-                .region(Region.of(config.getRegion() != null ? config.getRegion() : "cn-east-1"))
+                .region(Region.of(resolveConfigRegion(config)))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(config.getAccessKeyId(), secretAccessKey)))
                 .endpointOverride(java.net.URI.create(config.getEndpoint()))
@@ -531,7 +611,7 @@ public class S3Service {
         S3Client client = buildS3Client(userId, config);
         String secretAccessKey = resolveSecretAccessKey(userId, config);
         S3Presigner presigner = S3Presigner.builder()
-                .region(Region.of(config.getRegion() != null ? config.getRegion() : "cn-east-1"))
+                .region(Region.of(resolveConfigRegion(config)))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(config.getAccessKeyId(), secretAccessKey)))
                 .endpointOverride(java.net.URI.create(config.getEndpoint()))

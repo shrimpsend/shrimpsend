@@ -28,4 +28,9 @@ public class S3ConfigRequest {
      * s3drive | s3browser | rclone | obsidian | cherry_studio
      */
     private String clientApp;
+
+    /**
+     * S3 服务提供商预设：custom | data_capsule | bitiful | tencent_cos | cloudflare_r2
+     */
+    private String providerId;
 }

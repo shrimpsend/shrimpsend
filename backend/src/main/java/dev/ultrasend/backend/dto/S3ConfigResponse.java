@@ -55,4 +55,10 @@ public class S3ConfigResponse {
 
     /** Resolved User-Agent for direct S3 HTTP from clients (matches {@link #clientApp}). */
     private String userAgent;
+
+    /** S3 provider preset id (custom, data_capsule, bitiful, tencent_cos, cloudflare_r2). */
+    private String providerId;
+
+    /** Provider-specific setup guide URL (derived from catalog docsSection). */
+    private String providerDocsUrl;
 }

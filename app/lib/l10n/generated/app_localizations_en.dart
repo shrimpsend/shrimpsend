@@ -1526,7 +1526,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get s3SettingsPlaceholderEndpoint => 'https://s3.amazonaws.com';
 
   @override
-  String get s3SettingsPlaceholderRegion => 'cn-east-1';
+  String get s3SettingsPlaceholderRegion => 'us-east-1';
 
   @override
   String get s3SettingsPlaceholderBucket => 'my-bucket';

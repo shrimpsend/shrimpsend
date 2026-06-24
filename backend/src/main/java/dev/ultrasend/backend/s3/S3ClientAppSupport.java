@@ -29,11 +29,8 @@ public final class S3ClientAppSupport {
         return USER_AGENTS.containsKey(clientApp.trim().toLowerCase(Locale.ROOT));
     }
 
-    public static boolean requiresClientApp(String endpoint) {
-        if (endpoint == null || endpoint.isBlank()) {
-            return false;
-        }
-        return endpoint.toLowerCase(Locale.ROOT).contains("cstcloud.cn");
+    public static boolean requiresClientApp(String providerId) {
+        return S3ProviderId.DATA_CAPSULE.equals(S3ProviderId.normalize(providerId));
     }
 
     public static String resolveUserAgent(String clientApp) {
@@ -43,8 +40,8 @@ public final class S3ClientAppSupport {
         return USER_AGENTS.getOrDefault(clientApp.trim().toLowerCase(Locale.ROOT), DEFAULT_USER_AGENT);
     }
 
-    public static void validateClientAppForEndpoint(String endpoint, String clientApp) {
-        if (!requiresClientApp(endpoint)) {
+    public static void validateClientAppForProvider(String providerId, String clientApp) {
+        if (!requiresClientApp(providerId)) {
             return;
         }
         if (!isKnownApp(clientApp)) {

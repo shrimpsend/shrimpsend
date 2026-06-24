@@ -768,7 +768,7 @@
   "s3SettingsFieldAccessKeyId": "Access Key ID",
   "s3SettingsFieldSecretAccessKey": "Secret Access Key",
   "s3SettingsPlaceholderEndpoint": "https://s3.amazonaws.com",
-  "s3SettingsPlaceholderRegion": "cn-east-1",
+  "s3SettingsPlaceholderRegion": "us-east-1",
   "s3SettingsPlaceholderBucket": "my-bucket",
   "s3SettingsPlaceholderAccessKeyId": "AKIAIOSFODNN7EXAMPLE",
   "s3SettingsConfiguredSummary": "{endpoint} · {bucket}",

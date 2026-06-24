@@ -14,10 +14,10 @@ class S3ClientAppSupportTest {
     }
 
     @Test
-    void validateRequiresClientAppForCstCloud() {
+    void validateRequiresClientAppForDataCapsuleProvider() {
         assertThrows(IllegalArgumentException.class, () ->
-                S3ClientAppSupport.validateClientAppForEndpoint("https://s3.cstcloud.cn", null));
-        S3ClientAppSupport.validateClientAppForEndpoint("https://s3.cstcloud.cn", "s3browser");
-        S3ClientAppSupport.validateClientAppForEndpoint("https://s3.amazonaws.com", null);
+                S3ClientAppSupport.validateClientAppForProvider(S3ProviderId.DATA_CAPSULE, null));
+        S3ClientAppSupport.validateClientAppForProvider(S3ProviderId.DATA_CAPSULE, "s3browser");
+        S3ClientAppSupport.validateClientAppForProvider(S3ProviderId.CUSTOM, null);
     }
 }

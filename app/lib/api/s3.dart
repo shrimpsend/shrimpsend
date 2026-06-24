@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../logger.dart';
 import '../services/s3_local_test.dart';
+import '../services/s3_providers.dart';
 import 'client.dart';
 
 enum S3StorageMode {
@@ -42,6 +43,8 @@ class S3ConfigDetail {
   final String? documentationUrl;
   final String? clientApp;
   final String? userAgent;
+  final String? providerId;
+  final String? providerDocsUrl;
 
   S3ConfigDetail({
     required this.configured,
@@ -56,6 +59,8 @@ class S3ConfigDetail {
     this.documentationUrl,
     this.clientApp,
     this.userAgent,
+    this.providerId,
+    this.providerDocsUrl,
   });
 
   factory S3ConfigDetail.fromJson(Map<String, dynamic> j) {
@@ -78,6 +83,8 @@ class S3ConfigDetail {
       documentationUrl: j['documentationUrl'] as String?,
       clientApp: j['clientApp'] as String?,
       userAgent: j['userAgent'] as String?,
+      providerId: j['providerId'] as String?,
+      providerDocsUrl: j['providerDocsUrl'] as String?,
     );
   }
 
@@ -124,6 +131,7 @@ class S3ConfigRequest {
   final String secretAccessKey;
   final bool pathStyleAccessEnabled;
   final String? clientApp;
+  final String? providerId;
 
   S3ConfigRequest({
     required this.endpoint,
@@ -133,6 +141,7 @@ class S3ConfigRequest {
     required this.secretAccessKey,
     this.pathStyleAccessEnabled = true,
     this.clientApp,
+    this.providerId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -143,6 +152,7 @@ class S3ConfigRequest {
     if (secretAccessKey.isNotEmpty) 'secretAccessKey': secretAccessKey,
     'pathStyleAccessEnabled': pathStyleAccessEnabled,
     if (clientApp != null && clientApp!.isNotEmpty) 'clientApp': clientApp,
+    if (providerId != null && providerId!.isNotEmpty) 'providerId': providerId,
   };
 }
 
@@ -195,8 +205,7 @@ Future<void> testS3Config() async {
       '${serverError != null && serverError.isNotEmpty ? ' serverError=$serverError' : ''}',
     );
     if (serverProbe == 'failed') {
-      final endpoint = detail.endpoint ?? '';
-      final hint = endpoint.contains('cstcloud.cn')
+      final hint = detail.providerId == s3ProviderDataCapsule
           ? '（数据胶囊：请在「客户端访问」创建 AccessKey 并确认 Endpoint、Bucket、Path-style 与控制台一致；部分环境需绑定应用后才能用 S3）'
           : '';
       final detailMsg = (serverError != null && serverError.isNotEmpty)
