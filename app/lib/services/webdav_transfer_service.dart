@@ -140,11 +140,12 @@ class WebDavTransferService extends ChangeNotifier {
     required String relativeDir,
     required List<({String name, String localPath, int size})> files,
   }) async {
+    final tasks = <Future<void>>[];
     for (final file in files) {
       final remote = relativeDir.isEmpty
           ? file.name
           : '$relativeDir/${file.name}';
-      unawaited(
+      tasks.add(
         _runUpload(
           client: client,
           connection: connection,
@@ -155,6 +156,7 @@ class WebDavTransferService extends ChangeNotifier {
         ),
       );
     }
+    await Future.wait(tasks);
   }
 
   Future<bool> _runDownload({

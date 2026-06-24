@@ -168,4 +168,24 @@ final class PendingFilesPathStabilizer {
       return null;
     }
   }
+
+  static bool isPendingCachePath(String path, String cacheRoot) {
+    if (!FileStore.isPathUnderDirectory(path, cacheRoot)) return false;
+    final relative = p.relative(p.normalize(path), from: p.normalize(cacheRoot));
+    final firstSegment = relative.split(Platform.pathSeparator).firstOrNull;
+    return firstSegment != null && firstSegment.startsWith('pending_');
+  }
+
+  static Future<void> deletePendingCacheFile(String? path) async {
+    if (path == null || path.isEmpty) return;
+    final cacheRoot = await FileStore.getCacheDir();
+    if (!isPendingCachePath(path, cacheRoot)) return;
+    await FileStore.deleteFile(path);
+  }
+
+  static Future<void> deletePendingCacheFiles(Iterable<PlatformFile> files) async {
+    for (final file in files) {
+      await deletePendingCacheFile(file.path);
+    }
+  }
 }

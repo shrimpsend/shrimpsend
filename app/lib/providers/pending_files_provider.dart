@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/pending_files_path_stabilizer.dart';
 import '../services/pending_files_store.dart';
-import '../services/share/share_pending_cache.dart';
 import '../services/share_receive_service.dart';
 import '../utils/pending_files_merge.dart';
 import 'pending_add_result.dart';
@@ -54,14 +53,14 @@ final class PendingFilesNotifier extends Notifier<List<PlatformFile>> {
   }
 
   void remove(PlatformFile file) {
-    unawaited(SharePendingCache.deleteStagingFile(file.path));
+    unawaited(PendingFilesPathStabilizer.deletePendingCacheFile(file.path));
     state = List<PlatformFile>.from(state)..remove(file);
     unawaited(PendingFilesStore.save(state));
   }
 
   void clear() {
     final files = List<PlatformFile>.from(state);
-    unawaited(SharePendingCache.deleteStagingFiles(files));
+    unawaited(PendingFilesPathStabilizer.deletePendingCacheFiles(files));
     state = [];
     unawaited(PendingFilesStore.save(state));
   }

@@ -19,6 +19,7 @@ import '../services/webdav_recent_dao.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../services/file_store.dart';
+import '../services/pending_files_path_stabilizer.dart';
 import '../ui/app_ui.dart';
 import '../ui/platform_performance.dart';
 import '../utils/file_utils.dart';
@@ -486,15 +487,22 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
   }
 
   Future<int> uploadPlatformFiles(List<PlatformFile> files) async {
+    final stabilized = await PendingFilesPathStabilizer.stabilizeAll(
+      files,
+      logSource: 'webdav_upload',
+    );
     final uploads = <({String name, String localPath, int size})>[];
-    for (final file in files) {
-      if (file.path == null) continue;
-      final local = File(file.path!);
-      if (!local.existsSync()) continue;
+    for (final file in stabilized) {
+      final path = file.path;
+      if (path == null || path.isEmpty) continue;
+      final local = File(path);
+      if (!await local.exists()) continue;
+      final diskSize = await local.length();
+      if (diskSize <= 0) continue;
       uploads.add((
         name: file.name,
-        localPath: file.path!,
-        size: file.size > 0 ? file.size : local.lengthSync(),
+        localPath: path,
+        size: diskSize,
       ));
     }
     if (uploads.isEmpty) return 0;
