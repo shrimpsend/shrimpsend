@@ -1,13 +1,17 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../l10n/generated/app_localizations.dart';
 import '../logger.dart';
+import '../providers/pending_files_provider.dart';
+import '../services/pending_files_path_stabilizer.dart';
+import '../services/pending_files_store.dart';
 import '../utils/desktop_drop_files.dart';
+import '../utils/pending_files_merge.dart';
 import '../utils/runtime_platform.dart';
 import '../utils/toast.dart';
-import 'pending_files_store.dart';
 
 typedef DesktopDropHandler = Future<void> Function(List<PlatformFile> files);
 
@@ -44,42 +48,33 @@ final class DesktopFileDropDispatcher {
       await _handlers.last.handler(files);
       return;
     }
-    await _persistFallback(files);
-    _showFallbackToast(
-      files,
-      navigatorKey: navigatorKey,
-      locale: locale,
-    );
-  }
-
-  Future<void> _persistFallback(List<PlatformFile> files) async {
-    final existing = await PendingFilesStore.load();
-    final merged = _mergePending(existing.files, files);
-    await PendingFilesStore.save(merged);
-  }
-
-  List<PlatformFile> _mergePending(
-    List<PlatformFile> existing,
-    List<PlatformFile> incoming,
-  ) {
-    final paths = existing
-        .where((f) => f.path != null)
-        .map((f) => f.path!)
-        .toSet();
-    final keys = existing
-        .where((f) => f.path == null)
-        .map((f) => '${f.name}_${f.size}')
-        .toSet();
-    final out = List<PlatformFile>.from(existing);
-    for (final file in incoming) {
-      if (file.path != null) {
-        if (paths.add(file.path!)) out.add(file);
-      } else {
-        final key = '${file.name}_${file.size}';
-        if (keys.add(key)) out.add(file);
-      }
+    final added = await _persistFallback(files, navigatorKey: navigatorKey);
+    if (added) {
+      _showFallbackToast(
+        files,
+        navigatorKey: navigatorKey,
+        locale: locale,
+      );
     }
-    return out;
+  }
+
+  Future<bool> _persistFallback(
+    List<PlatformFile> files, {
+    GlobalKey<NavigatorState>? navigatorKey,
+  }) async {
+    final ctx = navigatorKey?.currentContext;
+    if (ctx != null && ctx.mounted) {
+      final result = await ProviderScope.containerOf(ctx, listen: false)
+          .read(pendingFilesProvider.notifier)
+          .add(files);
+      return result.added > 0;
+    }
+    final existing = await PendingFilesStore.load();
+    final stabilized = await PendingFilesPathStabilizer.stabilizeAll(files);
+    if (stabilized.isEmpty) return false;
+    final merged = mergePendingFiles(existing.files, stabilized);
+    await PendingFilesStore.save(merged);
+    return merged.length > existing.files.length;
   }
 
   void _showFallbackToast(

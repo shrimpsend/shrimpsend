@@ -1,11 +1,9 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
-import 'package:uuid/uuid.dart';
 
 import '../file_store.dart';
+import '../pending_files_path_stabilizer.dart';
 import 'share_inbound_payload.dart';
 
 final Logger _logIngest = Logger('虾传.share.ingest');
@@ -49,44 +47,37 @@ class ShareIngestPipeline {
         _logIngest.fine('$source: skip empty path');
         continue;
       }
-      final file = File(pathStr);
-      if (!await file.exists()) {
-        _logIngest.warning('$source: shared file not found: $pathStr');
-        continue;
-      }
       final originalName = p.basename(pathStr);
-      if (originalName.isEmpty) {
+      if (originalName.isEmpty && !pathStr.startsWith('content://')) {
         _logIngest.warning('$source: empty basename for path $pathStr');
         continue;
       }
 
       try {
         final alreadyInCache = FileStore.isPathUnderDirectory(pathStr, cacheRoot);
-        late final String destPath;
-        if (alreadyInCache) {
-          destPath = pathStr;
+        final platformFile = await PendingFilesPathStabilizer.stabilizeOne(
+          PlatformFile(
+            name: originalName.isNotEmpty ? originalName : 'shared_file',
+            path: pathStr,
+            size: 0,
+          ),
+          logSource: source,
+          cacheIdPrefix: 'share',
+        );
+        if (platformFile == null) continue;
+
+        if (!alreadyInCache) {
+          anyCopiedToCache = true;
           _logIngest.info(
-            '$source: reuse cache path name=$originalName '
-            'nativeStagingPath=$pathStr cachePath=$destPath skippedCopy=true skippedExport=true',
+            '$source: copied to cache name=${platformFile.name} '
+            'nativeStagingPath=$pathStr cachePath=${platformFile.path} skippedExport=true',
           );
         } else {
-          final messageId = 'share_${const Uuid().v4()}';
-          destPath = await FileStore.buildCachePath(messageId, originalName);
-          await file.copy(destPath);
           _logIngest.info(
-            '$source: copied to cache name=$originalName '
-            'nativeStagingPath=$pathStr cachePath=$destPath skippedExport=true',
+            '$source: reuse cache path name=${platformFile.name} '
+            'nativeStagingPath=$pathStr cachePath=${platformFile.path} skippedCopy=true skippedExport=true',
           );
         }
-
-        final destFile = File(destPath);
-        final stat = await destFile.stat();
-        final platformFile = PlatformFile(
-          name: originalName,
-          path: destPath,
-          size: stat.size,
-        );
-        anyCopiedToCache = true;
         saved.add(platformFile);
       } catch (e, st) {
         _logIngest.warning('$source: failed to ingest $pathStr: $e', e, st);

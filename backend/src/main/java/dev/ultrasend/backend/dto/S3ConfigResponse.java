@@ -49,4 +49,16 @@ public class S3ConfigResponse {
 
     /** true = Path-style; false = virtual-hosted. */
     private Boolean pathStyleAccessEnabled;
+
+    /** CSTCloud Data Capsule client binding id, if configured. */
+    private String clientApp;
+
+    /** Resolved User-Agent for direct S3 HTTP from clients (matches {@link #clientApp}). */
+    private String userAgent;
+
+    /** S3 provider preset id (custom, data_capsule, bitiful, tencent_cos, cloudflare_r2). */
+    private String providerId;
+
+    /** Provider-specific setup guide URL (derived from catalog docsSection). */
+    private String providerDocsUrl;
 }

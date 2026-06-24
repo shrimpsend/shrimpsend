@@ -61,16 +61,19 @@ final class PendingFilesStore {
 
   static Future<void> save(List<PlatformFile> files) async {
     final p = await SharedPreferences.getInstance();
-    final list = files
-        .where((f) => f.path != null && f.path!.isNotEmpty)
-        .map(
-          (f) => <String, Object?>{
-            'path': f.path!,
-            'name': f.name,
-            'size': f.size,
-          },
-        )
-        .toList();
+    final list = <Map<String, Object?>>[];
+    for (final f in files) {
+      final path = f.path;
+      if (path == null || path.isEmpty) continue;
+      if (!await File(path).exists()) continue;
+      list.add(
+        <String, Object?>{
+          'path': path,
+          'name': f.name,
+          'size': f.size,
+        },
+      );
+    }
     await p.setString(_key, jsonEncode(list));
   }
 }

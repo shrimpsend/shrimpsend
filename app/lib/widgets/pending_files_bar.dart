@@ -1,40 +1,64 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import '../providers/pending_files_provider.dart';
+import '../services/attachment_picker_service.dart';
 import '../ui/app_ui.dart';
 import '../utils/file_utils.dart';
+import '../utils/toast.dart';
+import 'attachment_picker_sheet.dart';
 import 'file_icon_widget.dart';
 
 const int _maxVisibleChipsDesktop = 20;
 const double _pendingChipHeight = 32;
-const double _pendingManageSheetMaxHeightFactor = 0.8;
+const double _pendingOutboxSheetMaxHeightFactor = 0.8;
 const double _pendingChipMaxWidth = 150;
 
-/// Opens the same pending-files list as [PendingFilesBar]「管理」.
-Future<void> showPendingFilesManageSheet(
+/// Optional primary action for [showPendingOutboxSheet] (e.g. upload to WebDAV).
+class PendingOutboxPrimaryAction {
+  final String label;
+  final IconData icon;
+  final String? destinationHint;
+  final Future<void> Function(List<PlatformFile> files) onExecute;
+
+  const PendingOutboxPrimaryAction({
+    required this.label,
+    required this.icon,
+    this.destinationHint,
+    required this.onExecute,
+  });
+}
+
+/// Unified pending outbox sheet (manage-only or with deliver action + add files).
+Future<void> showPendingOutboxSheet(
   BuildContext context, {
-  required List<PlatformFile> files,
-  required void Function(PlatformFile file) onRemove,
-  required VoidCallback onClearAll,
+  PendingOutboxPrimaryAction? primaryAction,
+  bool showAddFiles = false,
 }) {
   final colors = _pendingBarColors(context);
   final maxHeight =
-      MediaQuery.of(context).size.height * _pendingManageSheetMaxHeightFactor;
+      MediaQuery.of(context).size.height * _pendingOutboxSheetMaxHeightFactor;
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: colors.surface,
     isScrollControlled: true,
     constraints: BoxConstraints(maxHeight: maxHeight),
-    builder: (_) => _PendingFilesSheet(
-      initialFiles: List.of(files),
-      onRemove: onRemove,
-      onClearAll: onClearAll,
+    builder: (sheetContext) => _PendingOutboxSheet(
+      primaryAction: primaryAction,
+      showAddFiles: showAddFiles,
     ),
   );
+}
+
+/// Manage-only outbox (home bottom bar). Prefer [showPendingOutboxSheet].
+Future<void> showPendingFilesManageSheet(BuildContext context) {
+  return showPendingOutboxSheet(context);
 }
 
 bool get _isMobilePlatform => Platform.isAndroid || Platform.isIOS;
@@ -90,12 +114,7 @@ class PendingFilesBar extends StatelessWidget {
   });
 
   void _showManageSheet(BuildContext context) {
-    showPendingFilesManageSheet(
-      context,
-      files: files,
-      onRemove: onRemove,
-      onClearAll: onClearAll,
-    );
+    showPendingOutboxSheet(context);
   }
 
   Widget _buildSendButton(BuildContext context, _PendingBarColors colors) {
@@ -258,44 +277,62 @@ class _CompactChip extends StatelessWidget {
   }
 }
 
-class _PendingFilesSheet extends StatefulWidget {
-  final List<PlatformFile> initialFiles;
-  final void Function(PlatformFile file) onRemove;
-  final VoidCallback onClearAll;
+class _PendingOutboxSheet extends ConsumerStatefulWidget {
+  final PendingOutboxPrimaryAction? primaryAction;
+  final bool showAddFiles;
 
-  const _PendingFilesSheet({
-    required this.initialFiles,
-    required this.onRemove,
-    required this.onClearAll,
+  const _PendingOutboxSheet({
+    this.primaryAction,
+    this.showAddFiles = false,
   });
 
   @override
-  State<_PendingFilesSheet> createState() => _PendingFilesSheetState();
+  ConsumerState<_PendingOutboxSheet> createState() =>
+      _PendingOutboxSheetState();
 }
 
-class _PendingFilesSheetState extends State<_PendingFilesSheet> {
-  late List<PlatformFile> _localFiles;
+class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
+  Future<void> _addFiles() async {
+    final choice = await showModalBottomSheet<AttachmentPickerChoice>(
+      context: context,
+      backgroundColor: context.appColors.surface,
+      builder: (ctx) => const AttachmentPickerSheet(),
+    );
+    if (choice == null || !mounted) return;
 
-  @override
-  void initState() {
-    super.initState();
-    _localFiles = List.of(widget.initialFiles);
-  }
-
-  void _removeAt(int index) {
-    final file = _localFiles[index];
-    widget.onRemove(file);
-    setState(() {
-      _localFiles.removeAt(index);
-    });
-    if (_localFiles.isEmpty) {
-      Navigator.pop(context);
+    final picked = await AttachmentPickerService.pick(choice, context);
+    if (picked.isEmpty || !mounted) return;
+    final result = await ref.read(pendingFilesProvider.notifier).add(picked);
+    if (!mounted) return;
+    if (result.added == 0) {
+      AppToast.show(
+        context,
+        message: AppLocalizations.of(context).fmPendingAddFailed,
+      );
     }
   }
 
-  void _clearAll() {
-    widget.onClearAll();
-    Navigator.pop(context);
+  Future<void> _executePrimary(List<PlatformFile> files) async {
+    final action = widget.primaryAction;
+    if (action == null || files.isEmpty) return;
+
+    final rootContext = context;
+    Navigator.pop(rootContext);
+
+    final dispatch =
+        await ref.read(pendingFilesProvider.notifier).beginDispatch(files);
+    if (!rootContext.mounted) return;
+
+    final l10n = AppLocalizations.of(rootContext);
+    if (dispatch.skipped > 0) {
+      AppToast.show(
+        rootContext,
+        message: l10n.fmPendingDispatchPartialSkipped(dispatch.skipped),
+      );
+    }
+    if (dispatch.queued.isEmpty) return;
+
+    unawaited(action.onExecute(dispatch.queued));
   }
 
   @override
@@ -303,6 +340,23 @@ class _PendingFilesSheetState extends State<_PendingFilesSheet> {
     final colors = _pendingBarColors(context);
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
+    final files = ref.watch(pendingFilesProvider);
+    final notifier = ref.read(pendingFilesProvider.notifier);
+    final primaryAction = widget.primaryAction;
+
+    void removeAt(int index) {
+      final file = files[index];
+      notifier.remove(file);
+      if (ref.read(pendingFilesProvider).isEmpty && context.mounted) {
+        Navigator.pop(context);
+      }
+    }
+
+    void clearAll() {
+      notifier.clear();
+      Navigator.pop(context);
+    }
+
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -327,54 +381,134 @@ class _PendingFilesSheetState extends State<_PendingFilesSheet> {
             child: Row(
               children: [
                 Text(
-                  l10n.pendingFilesSelectedCount(_localFiles.length),
-                  style: Theme.of(context).textTheme.titleMedium,
+                  l10n.mobileHomePendingOutbox,
+                  style: theme.textTheme.titleMedium,
                 ),
                 const Spacer(),
-                TextButton(
-                  onPressed: _clearAll,
-                  child: Text(l10n.pendingFilesClearAll,
-                      style: TextStyle(color: colors.danger)),
-                ),
+                if (files.isNotEmpty)
+                  TextButton(
+                    onPressed: clearAll,
+                    child: Text(
+                      l10n.pendingFilesClearAll,
+                      style: TextStyle(color: colors.danger),
+                    ),
+                  ),
               ],
             ),
           ),
           Divider(height: 1, color: colors.chipBorder),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _localFiles.length,
-              itemBuilder: (context, index) {
-                final file = _localFiles[index];
-                final category = getFileCategory(file.name);
-                return ListTile(
-                  dense: true,
-                  leading: FileIconWidget(category: category, size: 32),
-                  title: Text(
-                    file.name,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurface,
+          if (files.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Text(
+                l10n.webdavOutboxEmpty,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.muted,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: files.length,
+                itemBuilder: (context, index) {
+                  final file = files[index];
+                  final category = getFileCategory(file.name);
+                  return ListTile(
+                    dense: true,
+                    leading: FileIconWidget(category: category, size: 32),
+                    title: Text(
+                      file.name,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    formatFileSize(file.size),
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    subtitle: Text(
+                      formatFileSize(file.size),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.muted,
+                      ),
+                    ),
+                    trailing: GestureDetector(
+                      onTap: () => removeAt(index),
+                      child: Icon(
+                        LucideIcons.x,
+                        size: 18,
+                        color: colors.muted,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                    ),
+                  );
+                },
+              ),
+            ),
+          if (primaryAction != null || widget.showAddFiles) ...[
+            Divider(height: 1, color: colors.chipBorder),
+            if (primaryAction?.destinationHint != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  AppSpacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      LucideIcons.folder,
+                      size: 16,
                       color: colors.muted,
                     ),
-                  ),
-                  trailing: GestureDetector(
-                    onTap: () => _removeAt(index),
-                    child: Icon(LucideIcons.x, size: 18, color: colors.muted),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                  ),
-                );
-              },
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        primaryAction!.destinationHint!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.muted,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (primaryAction != null)
+                    FilledButton.icon(
+                      onPressed: files.isEmpty
+                          ? null
+                          : () => _executePrimary(List.of(files)),
+                      icon: Icon(primaryAction.icon, size: 16),
+                      label: Text(primaryAction.label),
+                    ),
+                  if (primaryAction != null && widget.showAddFiles)
+                    const SizedBox(height: AppSpacing.xs),
+                  if (widget.showAddFiles)
+                    OutlinedButton.icon(
+                      onPressed: _addFiles,
+                      icon: const Icon(LucideIcons.plus, size: 16),
+                      label: Text(l10n.webdavOutboxAddFiles),
+                    ),
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -13,6 +13,14 @@ import 'transfer_protocol.dart';
 import 'transfer_record.dart';
 import 'transfer_state_manager.dart';
 import 'transfer_status.dart';
+import 's3_local_test.dart' show kS3CompatibleUserAgent;
+
+Future<String> _resolveS3UserAgent() async {
+  final detail = await s3_api.getS3Config();
+  final ua = detail.userAgent;
+  if (ua != null && ua.isNotEmpty) return ua;
+  return kS3CompatibleUserAgent;
+}
 
 const _multipartThreshold = 5 * 1024 * 1024; // 5 MB
 const _partSize = 10 * 1024 * 1024; // 10 MB per part
@@ -42,6 +50,7 @@ class S3TransferService extends CloudTransferService {
           contentType: contentType,
           cancelToken: cancelToken,
           onProgress: onProgress,
+          userAgent: await _resolveS3UserAgent(),
         );
       } catch (e) {
         logChat.warning(
@@ -57,6 +66,7 @@ class S3TransferService extends CloudTransferService {
       contentType: contentType,
       cancelToken: cancelToken,
       onProgress: onProgress,
+      userAgent: await _resolveS3UserAgent(),
     );
   }
 
@@ -69,6 +79,7 @@ class S3TransferService extends CloudTransferService {
     String? contentType,
     CancelToken? cancelToken,
     OnTransferProgress? onProgress,
+    required String userAgent,
   }) async {
     final pres = await s3_api.presignUpload(
       fileName,
@@ -85,6 +96,7 @@ class S3TransferService extends CloudTransferService {
       contentType: contentType,
       cancelToken: cancelToken,
       onProgress: onProgress,
+      userAgent: userAgent,
     );
     return CloudUploadResult(key: pres.key, fileName: fileName);
   }
@@ -98,6 +110,7 @@ class S3TransferService extends CloudTransferService {
     String? contentType,
     CancelToken? cancelToken,
     OnTransferProgress? onProgress,
+    required String userAgent,
   }) async {
     final mgr = TransferStateManager.instance;
 
@@ -199,6 +212,7 @@ class S3TransferService extends CloudTransferService {
           length: partLength,
           contentType: contentType,
           cancelToken: cancelToken,
+          userAgent: userAgent,
           onPartProgress: (sent) {
             onProgress?.call(totalSent + sent, fileSize);
           },
@@ -259,11 +273,13 @@ class S3TransferService extends CloudTransferService {
     String? contentType,
     CancelToken? cancelToken,
     OnTransferProgress? onProgress,
+    required String userAgent,
   }) async {
     final total = fileSize;
     final client = HttpClient();
     try {
       final request = await client.putUrl(uploadUrl);
+      request.headers.set('User-Agent', userAgent);
       request.headers.set(
         'Content-Type',
         contentType ?? 'application/octet-stream',
@@ -317,11 +333,13 @@ class S3TransferService extends CloudTransferService {
     required int length,
     String? contentType,
     CancelToken? cancelToken,
+    required String userAgent,
     void Function(int sent)? onPartProgress,
   }) async {
     final client = HttpClient();
     try {
       final request = await client.putUrl(Uri.parse(presignedUrl));
+      request.headers.set('User-Agent', userAgent);
       request.headers.set(
         'Content-Type',
         contentType ?? 'application/octet-stream',
@@ -362,6 +380,7 @@ class S3TransferService extends CloudTransferService {
   }) async {
     final urlStr = await s3_api.getDownloadUrl(key);
     final downloadUrl = Uri.parse(urlStr);
+    final userAgent = await _resolveS3UserAgent();
     logChat.info('S3TransferService download start key=$key');
 
     final mgr = TransferStateManager.instance;
@@ -406,6 +425,7 @@ class S3TransferService extends CloudTransferService {
     int received = offset;
     try {
       final request = await client.getUrl(downloadUrl);
+      request.headers.set('User-Agent', userAgent);
       if (offset > 0) {
         request.headers.set('Range', 'bytes=$offset-');
       }

@@ -58,6 +58,7 @@ function s3SectionNavKey(section: S3SectionId): keyof typeof MESSAGES.zh.docs.na
   const map: Record<S3SectionId, keyof typeof MESSAGES.zh.docs.nav> = {
     overview: 's3Overview',
     bitiful: 's3Bitiful',
+    'data-capsule': 's3DataCapsule',
     'built-in': 's3BuiltIn',
     'tencent-cos': 's3TencentCos',
     'cloudflare-r2': 's3CloudflareR2',

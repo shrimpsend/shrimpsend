@@ -27,6 +27,7 @@ export { getMessageHistory, sendMessage, deleteMessage, deleteThreadMessages } f
 export type { S3ConfigRequest, S3ConfigResponse, S3StorageMode, PresignUploadResponse } from './s3';
 export {
   getS3Config,
+  getS3Providers,
   hasS3Config,
   saveS3Config,
   clearS3Config,

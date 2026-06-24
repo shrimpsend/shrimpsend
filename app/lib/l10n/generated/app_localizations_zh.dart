@@ -695,7 +695,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get chatPickDeviceToStart => '选择一个设备开始对话';
+  String get chatPickDeviceToStart => '选择设备、云端中转或 WebDAV 连接';
 
   @override
   String get chatTooltipBackDeviceList => '返回设备列表';
@@ -937,6 +937,14 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String fmPendingAddedMany(int count) {
     return '已添加 $count 个文件到待发文件箱';
+  }
+
+  @override
+  String get fmPendingAddFailed => '无法添加到待发文件箱';
+
+  @override
+  String fmPendingDispatchPartialSkipped(int count) {
+    return '$count 个文件未能加入队列，仍保留在待发';
   }
 
   @override
@@ -1450,6 +1458,16 @@ class AppLocalizationsZh extends AppLocalizations {
       'MinIO 及多数自建网关通常需开启；AWS S3 等区域 Endpoint 可关闭以使用虚拟托管。';
 
   @override
+  String get s3SettingsFieldClientApp => '客户端应用';
+
+  @override
+  String get s3SettingsClientAppHint =>
+      '中国科技云数据胶囊必填：须与控制台创建 AccessKey 时选择的应用一致';
+
+  @override
+  String get s3SettingsClientAppRequired => '请选择客户端应用';
+
+  @override
   String get s3SettingsFieldAccessKeyId => 'Access Key ID';
 
   @override
@@ -1459,7 +1477,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get s3SettingsPlaceholderEndpoint => 'https://s3.amazonaws.com';
 
   @override
-  String get s3SettingsPlaceholderRegion => 'cn-east-1';
+  String get s3SettingsPlaceholderRegion => 'us-east-1';
 
   @override
   String get s3SettingsPlaceholderBucket => 'my-bucket';
@@ -2139,6 +2157,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String devicePanelDevicesOnlineCount(int count) {
     return '$count 台在线';
   }
+
+  @override
+  String devicePanelFooterSummary(int deviceOnline, int webDavCount) {
+    return '$deviceOnline 台在线 · $webDavCount 个 WebDAV';
+  }
+
+  @override
+  String get homeSectionCloudRelay => '云端中转';
+
+  @override
+  String get homeSectionRemoteStorage => '远程存储';
+
+  @override
+  String get homeSectionDevices => '设备互传';
+
+  @override
+  String get homeListEmptyTitle => '暂无可用的连接';
+
+  @override
+  String get homeListEmptyHint => '扫码添加设备、配置云端中转或添加 WebDAV 连接。';
+
+  @override
+  String get homeWebDavLoadFailed => '加载 WebDAV 连接失败';
+
+  @override
+  String get homeWebDavAddConnection => '添加 WebDAV 连接';
+
+  @override
+  String get homeWebDavRetry => '重试';
+
+  @override
+  String get homeListOfflineBanner => '离线模式，列表可能不是最新';
 
   @override
   String get connectionBarDefaultTitle => '连接状态';
@@ -2952,4 +3002,287 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get chatMenuCopyFile => '复制文件';
+
+  @override
+  String get webdavAddMenuTooltip => '添加连接';
+
+  @override
+  String get webdavScanLogin => '扫码登录';
+
+  @override
+  String get webdavAddConnection => '添加 WebDAV';
+
+  @override
+  String get webdavEditConnection => '编辑 WebDAV';
+
+  @override
+  String get webdavSectionTitle => 'WebDAV';
+
+  @override
+  String get webdavFormName => '名称';
+
+  @override
+  String get webdavFormNameRequired => '请输入名称';
+
+  @override
+  String get webdavFormUrl => '服务器地址';
+
+  @override
+  String get webdavFormUrlRequired => '请输入服务器地址';
+
+  @override
+  String get webdavFormUrlInvalid => '地址需以 http:// 或 https:// 开头';
+
+  @override
+  String get webdavFormUsername => '用户名';
+
+  @override
+  String get webdavFormUsernameRequired => '请输入用户名';
+
+  @override
+  String get webdavFormPassword => '密码';
+
+  @override
+  String get webdavFormPasswordHintEdit => '留空则不修改';
+
+  @override
+  String get webdavFormRootPath => '根路径';
+
+  @override
+  String get webdavPasswordRequired => '请输入密码';
+
+  @override
+  String get webdavTestConnection => '测试连接';
+
+  @override
+  String get webdavTestSuccess => '连接成功';
+
+  @override
+  String webdavTestFailed(String error) {
+    return '连接测试失败：$error';
+  }
+
+  @override
+  String get webdavSavedToast => '已保存';
+
+  @override
+  String webdavSaveFailed(String error) {
+    return '保存失败：$error';
+  }
+
+  @override
+  String get webdavBrowserEmpty => '此文件夹为空';
+
+  @override
+  String get webdavSearchHint => '搜索当前目录';
+
+  @override
+  String get webdavEntryFolder => '文件夹';
+
+  @override
+  String get webdavActionDownload => '下载';
+
+  @override
+  String get webdavActionRename => '重命名';
+
+  @override
+  String get webdavActionDelete => '删除';
+
+  @override
+  String get webdavActionUpload => '上传文件';
+
+  @override
+  String get webdavActionNewFolder => '新建文件夹';
+
+  @override
+  String get webdavDeleteConfirmTitle => '删除所选项目？';
+
+  @override
+  String webdavDeleteConfirmBody(int count) {
+    return '将删除 $count 个项目，此操作不可撤销。';
+  }
+
+  @override
+  String get webdavDeleteConnection => '删除连接';
+
+  @override
+  String get webdavDeleteConnectionTitle => '删除 WebDAV 连接？';
+
+  @override
+  String webdavDeleteConnectionBody(String name) {
+    return '将删除「$name」及其保存的凭证。';
+  }
+
+  @override
+  String get webdavDeletedToast => '已删除';
+
+  @override
+  String webdavDeleteFailed(String error) {
+    return '删除失败：$error';
+  }
+
+  @override
+  String get webdavRenameTitle => '重命名';
+
+  @override
+  String get webdavRenameHint => '新名称';
+
+  @override
+  String webdavRenameFailed(String error) {
+    return '重命名失败：$error';
+  }
+
+  @override
+  String get webdavNewFolderTitle => '新建文件夹';
+
+  @override
+  String get webdavNewFolderHint => '文件夹名称';
+
+  @override
+  String webdavCreateFolderFailed(String error) {
+    return '创建失败：$error';
+  }
+
+  @override
+  String get webdavUploadDone => '上传完成';
+
+  @override
+  String webdavUploadFailed(String error) {
+    return '上传失败：$error';
+  }
+
+  @override
+  String get webdavDownloadDone => '已准备好分享/保存';
+
+  @override
+  String webdavDownloadFailed(String error) {
+    return '下载失败：$error';
+  }
+
+  @override
+  String webdavSelectedCount(int count) {
+    return '已选 $count 项';
+  }
+
+  @override
+  String get webdavTabFiles => '文件';
+
+  @override
+  String get webdavTabRecent => '最近';
+
+  @override
+  String get webdavTabFavorites => '收藏';
+
+  @override
+  String get webdavTabUpload => '上传';
+
+  @override
+  String get webdavTabSettings => '设置';
+
+  @override
+  String get webdavTransferList => '传输列表';
+
+  @override
+  String get webdavTransferUploading => '上传中';
+
+  @override
+  String get webdavTransferDownloading => '下载中';
+
+  @override
+  String get webdavTransferPauseAll => '全部暂停';
+
+  @override
+  String get webdavTransferEmpty => '暂无传输任务';
+
+  @override
+  String webdavTransferQueued(int count) {
+    return '已加入传输队列（$count）';
+  }
+
+  @override
+  String get webdavOutboxUpload => '上传到 WebDAV';
+
+  @override
+  String webdavOutboxUploadTarget(String path) {
+    return '上传至 $path';
+  }
+
+  @override
+  String get webdavOutboxAddFiles => '添加文件';
+
+  @override
+  String get webdavOutboxEmpty => '暂无待发文件，可添加文件或从其他应用分享到此';
+
+  @override
+  String get webdavActionFavorite => '收藏';
+
+  @override
+  String get webdavActionUnfavorite => '取消收藏';
+
+  @override
+  String get webdavActionCopy => '复制';
+
+  @override
+  String get webdavActionMove => '移动';
+
+  @override
+  String get webdavActionDetails => '详情';
+
+  @override
+  String get webdavActionOpenWith => '打开方式';
+
+  @override
+  String get webdavActionShare => '分享';
+
+  @override
+  String get webdavRecentEmpty => '暂无最近访问';
+
+  @override
+  String get webdavFavoritesEmpty => '暂无收藏';
+
+  @override
+  String get webdavSettingsCurrentConnection => '当前连接';
+
+  @override
+  String get webdavSettingsSwitchConnection => '切换连接';
+
+  @override
+  String get webdavViewList => '列表视图';
+
+  @override
+  String get webdavViewGrid => '网格视图';
+
+  @override
+  String get webdavDetailType => '类型';
+
+  @override
+  String get webdavDetailSize => '大小';
+
+  @override
+  String get webdavDetailLocation => '位置';
+
+  @override
+  String get webdavDetailModified => '修改时间';
+
+  @override
+  String get webdavMoveHint => '目标路径（相对根目录）';
+
+  @override
+  String get webdavCopiedToast => '已复制';
+
+  @override
+  String webdavCopyFailed(String error) {
+    return '复制失败：$error';
+  }
+
+  @override
+  String webdavMoveFailed(String error) {
+    return '移动失败：$error';
+  }
+
+  @override
+  String get webdavShareNeedDownload => '请先下载文件后再分享';
+
+  @override
+  String get webdavLocalDownloaded => '已下载';
 }

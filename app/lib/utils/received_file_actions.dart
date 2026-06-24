@@ -31,7 +31,7 @@ const double kFilePreviewActionBarInset = 72;
 
 class ReceivedFilePreviewCallbacks {
   final VoidCallback? onEnterMultiSelect;
-  final void Function(PlatformFile file)? onAddToPending;
+  final Future<bool> Function(List<PlatformFile> files)? onAddToPending;
   final VoidCallback? onDeleted;
 
   const ReceivedFilePreviewCallbacks({
@@ -167,14 +167,22 @@ List<ReceivedFileActionItem> buildReceivedFileActions({
         icon: LucideIcons.plus,
         tooltip: l10n.chatMenuAddToPending,
         onTap: (ctx) async {
-          callbacks!.onAddToPending!(
-            PlatformFile(
-              name: file.displayName,
-              size: file.size,
-              path: file.path,
-            ),
+          final ok = await callbacks!.onAddToPending!(
+            [
+              PlatformFile(
+                name: file.displayName,
+                size: file.size,
+                path: file.path,
+              ),
+            ],
           );
-          AppToast.show(ctx, message: l10n.fmPendingAddedOne(file.displayName));
+          if (!ctx.mounted) return;
+          AppToast.show(
+            ctx,
+            message: ok
+                ? l10n.fmPendingAddedOne(file.displayName)
+                : l10n.fmPendingAddFailed,
+          );
         },
       ),
     if (_isMobilePlatform())

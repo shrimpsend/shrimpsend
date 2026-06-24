@@ -78,6 +78,8 @@ class S3ServicePresignUploadTest {
         String uploadUrl = resp.getUploadUrl();
         assertTrue(uploadUrl.contains("X-Amz-SignedHeaders=host"),
                 "Expected host-only signed headers, got: " + uploadUrl);
+        assertFalse(uploadUrl.toLowerCase().contains("x-amz-content-sha256"),
+                "Checksum header must not be part of presigned signature for S3-compatible endpoints");
         assertFalse(uploadUrl.toLowerCase().contains("content-type"),
                 "Content-Type must not be part of presigned PUT signature");
     }

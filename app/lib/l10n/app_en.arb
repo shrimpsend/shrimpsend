@@ -326,7 +326,7 @@
       }
     }
   },
-  "chatPickDeviceToStart": "Choose a device to start chatting",
+  "chatPickDeviceToStart": "Choose a device, cloud relay, or WebDAV connection",
   "chatTooltipBackDeviceList": "Back to device list",
   "chatTooltipS3Settings": "S3 settings",
   "chatTooltipFileManager": "File manager",
@@ -470,6 +470,15 @@
     }
   },
   "fmPendingAddedMany": "Added {count} files to outbox",
+  "fmPendingAddFailed": "Could not add to outbox",
+  "fmPendingDispatchPartialSkipped": "{count} file(s) could not be queued and remain in the outbox",
+  "@fmPendingDispatchPartialSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "@fmPendingAddedMany": {
     "placeholders": {
       "count": {
@@ -753,10 +762,13 @@
   "s3SettingsFieldBucket": "Bucket",
   "s3SettingsFieldPathStyle": "Path-style access",
   "s3SettingsPathStyleHint": "Usually required for MinIO and self-hosted gateways. Turn off for AWS regional endpoints to use virtual-hosted URLs.",
+  "s3SettingsFieldClientApp": "Client application",
+  "s3SettingsClientAppHint": "Required for CSTCloud Data Capsule — must match the app selected when creating the AccessKey",
+  "s3SettingsClientAppRequired": "Select a client application",
   "s3SettingsFieldAccessKeyId": "Access Key ID",
   "s3SettingsFieldSecretAccessKey": "Secret Access Key",
   "s3SettingsPlaceholderEndpoint": "https://s3.amazonaws.com",
-  "s3SettingsPlaceholderRegion": "cn-east-1",
+  "s3SettingsPlaceholderRegion": "us-east-1",
   "s3SettingsPlaceholderBucket": "my-bucket",
   "s3SettingsPlaceholderAccessKeyId": "AKIAIOSFODNN7EXAMPLE",
   "s3SettingsConfiguredSummary": "{endpoint} · {bucket}",
@@ -1247,6 +1259,26 @@
       }
     }
   },
+  "devicePanelFooterSummary": "{deviceOnline} online · {webDavCount} WebDAV",
+  "@devicePanelFooterSummary": {
+    "placeholders": {
+      "deviceOnline": {
+        "type": "int"
+      },
+      "webDavCount": {
+        "type": "int"
+      }
+    }
+  },
+  "homeSectionCloudRelay": "Cloud relay",
+  "homeSectionRemoteStorage": "Remote storage",
+  "homeSectionDevices": "Device transfer",
+  "homeListEmptyTitle": "Nothing here yet",
+  "homeListEmptyHint": "Scan to add a device, set up cloud relay, or connect WebDAV.",
+  "homeWebDavLoadFailed": "Failed to load WebDAV connections",
+  "homeWebDavAddConnection": "Add WebDAV connection",
+  "homeWebDavRetry": "Retry",
+  "homeListOfflineBanner": "Offline — list may be outdated",
   "connectionBarDefaultTitle": "Connection status",
   "connectionBarManualShort": "Manual",
   "connectionBarAutoShort": "Auto",
@@ -1749,5 +1781,160 @@
   "fileClipboardCopyFailed": "Copy failed",
   "fileClipboardPasteAdded": "Added to outbox — open chat to send",
   "fileClipboardNothingToCopy": "Select files to copy first",
-  "chatMenuCopyFile": "Copy file"
+  "chatMenuCopyFile": "Copy file",
+  "webdavAddMenuTooltip": "Add connection",
+  "webdavScanLogin": "Scan to sign in",
+  "webdavAddConnection": "Add WebDAV",
+  "webdavEditConnection": "Edit WebDAV",
+  "webdavSectionTitle": "WebDAV",
+  "webdavFormName": "Name",
+  "webdavFormNameRequired": "Enter a name",
+  "webdavFormUrl": "Server URL",
+  "webdavFormUrlRequired": "Enter server URL",
+  "webdavFormUrlInvalid": "URL must start with http:// or https://",
+  "webdavFormUsername": "Username",
+  "webdavFormUsernameRequired": "Enter username",
+  "webdavFormPassword": "Password",
+  "webdavFormPasswordHintEdit": "Leave blank to keep current",
+  "webdavFormRootPath": "Root path",
+  "webdavPasswordRequired": "Enter password",
+  "webdavTestConnection": "Test connection",
+  "webdavTestSuccess": "Connection successful",
+  "webdavTestFailed": "Connection test failed: {error}",
+  "@webdavTestFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavSavedToast": "Saved",
+  "webdavSaveFailed": "Save failed: {error}",
+  "@webdavSaveFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavBrowserEmpty": "This folder is empty",
+  "webdavSearchHint": "Search this folder",
+  "webdavEntryFolder": "Folder",
+  "webdavActionDownload": "Download",
+  "webdavActionRename": "Rename",
+  "webdavActionDelete": "Delete",
+  "webdavActionUpload": "Upload file",
+  "webdavActionNewFolder": "New folder",
+  "webdavDeleteConfirmTitle": "Delete selected items?",
+  "webdavDeleteConfirmBody": "Delete {count} item(s)? This cannot be undone.",
+  "@webdavDeleteConfirmBody": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavDeleteConnection": "Delete connection",
+  "webdavDeleteConnectionTitle": "Delete WebDAV connection?",
+  "webdavDeleteConnectionBody": "Remove \"{name}\" and stored credentials.",
+  "@webdavDeleteConnectionBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "webdavDeletedToast": "Deleted",
+  "webdavDeleteFailed": "Delete failed: {error}",
+  "@webdavDeleteFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavRenameTitle": "Rename",
+  "webdavRenameHint": "New name",
+  "webdavRenameFailed": "Rename failed: {error}",
+  "@webdavRenameFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavNewFolderTitle": "New folder",
+  "webdavNewFolderHint": "Folder name",
+  "webdavCreateFolderFailed": "Create failed: {error}",
+  "@webdavCreateFolderFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavUploadDone": "Upload complete",
+  "webdavUploadFailed": "Upload failed: {error}",
+  "@webdavUploadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavDownloadDone": "Ready to share or save",
+  "webdavDownloadFailed": "Download failed: {error}",
+  "@webdavDownloadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavSelectedCount": "{count} selected",
+  "@webdavSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTabFiles": "Files",
+  "webdavTabRecent": "Recent",
+  "webdavTabFavorites": "Favorites",
+  "webdavTabUpload": "Upload",
+  "webdavTabSettings": "Settings",
+  "webdavTransferList": "Transfers",
+  "webdavTransferUploading": "Uploading",
+  "webdavTransferDownloading": "Downloading",
+  "webdavTransferPauseAll": "Pause all",
+  "webdavTransferEmpty": "No active transfers",
+  "webdavTransferQueued": "Queued {count} transfer(s)",
+  "@webdavTransferQueued": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavOutboxUpload": "Upload to WebDAV",
+  "webdavOutboxUploadTarget": "Upload to {path}",
+  "@webdavOutboxUploadTarget": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "webdavOutboxAddFiles": "Add files",
+  "webdavOutboxEmpty": "No pending files. Add files or share from another app.",
+  "webdavActionFavorite": "Favorite",
+  "webdavActionUnfavorite": "Unfavorite",
+  "webdavActionCopy": "Copy",
+  "webdavActionMove": "Move",
+  "webdavActionDetails": "Details",
+  "webdavActionOpenWith": "Open with",
+  "webdavActionShare": "Share",
+  "webdavRecentEmpty": "No recent items",
+  "webdavFavoritesEmpty": "No favorites yet",
+  "webdavSettingsCurrentConnection": "Current connection",
+  "webdavSettingsSwitchConnection": "Switch connection",
+  "webdavViewList": "List view",
+  "webdavViewGrid": "Grid view",
+  "webdavDetailType": "Type",
+  "webdavDetailSize": "Size",
+  "webdavDetailLocation": "Location",
+  "webdavDetailModified": "Modified",
+  "webdavMoveHint": "Destination path (relative to root)",
+  "webdavCopiedToast": "Copied",
+  "webdavCopyFailed": "Copy failed: {error}",
+  "@webdavCopyFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavMoveFailed": "Move failed: {error}",
+  "@webdavMoveFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavShareNeedDownload": "Download the file first to share",
+  "webdavLocalDownloaded": "Downloaded"
 }

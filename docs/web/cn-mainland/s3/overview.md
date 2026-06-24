@@ -13,12 +13,15 @@
 
 ## 设置页字段
 
-在 **设置 → S3** 中填写以下字段：
+在 **设置 → S3** 顶部先选择 **服务提供商**（自定义、数据胶囊、缤纷云、腾讯云 COS、Cloudflare R2 等）。选择预设后会自动填入推荐的 Endpoint、Region、Path-style 等默认值；MinIO、RustFS、AWS 等无特殊规则的对象存储请选择 **自定义 / 其他 S3 兼容**，再按文档自行填写。
+
+填写以下字段：
 
 | 字段 | 说明 |
 | --- | --- |
+| 服务提供商 | 有特殊配置要求的厂商请选择对应预设；其余走「自定义」。 |
 | Endpoint | S3 API 根地址，必须包含协议，例如 `https://cos.ap-guangzhou.myqcloud.com`。 |
-| Region | 桶所在地域。不同厂商命名不同，请与控制台保持一致。 |
+| Region | 桶所在地域。自定义模式下占位示例为 `us-east-1`；各厂商请以控制台为准。 |
 | Bucket | 用于中转和暂存文件的桶名。 |
 | Access Key ID | 建议使用只授权该桶的子账号密钥。 |
 | Secret Access Key | 仅在保存或测试时提交；重新编辑时可留空以保留原密钥。 |
@@ -63,6 +66,7 @@ https://xiachuan.net
 按你使用的对象存储，在左侧选择对应指南（**推荐优先使用缤纷云**）：
 
 - [缤纷云（推荐）](/zh/docs/s3/bitiful)
+- [中国科技云数据胶囊](/zh/docs/s3/data-capsule)
 - [腾讯云 COS](/zh/docs/s3/tencent-cos)
 - [Cloudflare R2](/zh/docs/s3/cloudflare-r2)
 - [RustFS](/zh/docs/s3/rustfs)

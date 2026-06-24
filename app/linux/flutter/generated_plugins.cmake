@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   desktop_updater
+  flutter_secure_storage_linux
   flutter_webrtc
   irondash_engine_context
   pasteboard

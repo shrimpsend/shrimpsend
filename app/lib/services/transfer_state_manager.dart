@@ -180,6 +180,42 @@ class TransferStateManager {
     await _db.delete(_table, where: 'transfer_id = ?', whereArgs: [transferId]);
   }
 
+  Future<List<TransferRecord>> listWebDavTransfers({
+    required String connectionId,
+    String? direction,
+    bool activeOnly = false,
+  }) async {
+    final where = <String>['channel = ?', 'webdav_connection_id = ?'];
+    final args = <Object>['webdav', connectionId];
+    if (direction != null) {
+      where.add('direction = ?');
+      args.add(direction);
+    }
+    if (activeOnly) {
+      where.add("status IN ('in_progress', 'paused', 'failed', 'cancelled')");
+    }
+    final rows = await _db.query(
+      _table,
+      where: where.join(' AND '),
+      whereArgs: args,
+      orderBy: 'updated_at DESC',
+    );
+    return rows.map((r) => TransferRecord.fromMap(r)).toList();
+  }
+
+  Future<int> countActiveWebDavTransfers(String connectionId) async {
+    final rows = await _db.rawQuery(
+      '''
+SELECT COUNT(*) AS c FROM $_table
+WHERE channel = 'webdav'
+  AND webdav_connection_id = ?
+  AND status IN ('in_progress', 'paused')
+''',
+      [connectionId],
+    );
+    return (rows.first['c'] as int?) ?? 0;
+  }
+
   Future<void> clear() async {
     await _db.delete(_table);
   }

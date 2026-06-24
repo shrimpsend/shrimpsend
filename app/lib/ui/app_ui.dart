@@ -103,6 +103,14 @@ class AppLayout {
         floatingBottomBarHeight +
         floatingBottomBarScrollExtra;
   }
+
+  /// Docked WebDAV tab bar (full-width, not the home floating pill).
+  static const double webDavBottomBarHeight = 56;
+
+  /// List bottom padding inside WebDAV tabs (bar is laid out below content, not overlaid).
+  static double webDavBottomBarScrollInset(BuildContext context) {
+    return floatingBottomBarScrollExtra;
+  }
 }
 
 @immutable

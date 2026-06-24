@@ -26,6 +26,7 @@ import 'logger.dart';
 import 'providers/app_locale.dart';
 import 'providers/auth_provider.dart';
 import 'providers/auth_session_provider.dart';
+import 'providers/pending_files_provider.dart';
 import 'theme_store.dart';
 import 'ui/app_ui.dart';
 import 'l10n/app_brand.dart';
@@ -40,6 +41,7 @@ import 'screens/settings_screen.dart';
 import 'screens/font_settings_screen.dart';
 import 'screens/shortcut_settings_screen.dart';
 import 'screens/s3_settings_screen.dart';
+import 'screens/webdav_connection_screen.dart';
 import 'screens/version_history_screen.dart';
 import 'screens/app_log_screen.dart';
 import 'screens/membership_screen.dart';
@@ -459,11 +461,15 @@ class _UpdateCheckWrapperState extends State<_UpdateCheckWrapper> {
     super.dispose();
   }
 
-  void _onFilesSavedFromShare(int count, List<dynamic> files) {
+  Future<void> _onFilesSavedFromShare(int count, List<dynamic> files) async {
     if (!mounted) return;
     var totalBytes = 0;
+    final platformFiles = <PlatformFile>[];
     for (final f in files) {
-      if (f is PlatformFile) totalBytes += f.size;
+      if (f is PlatformFile) {
+        platformFiles.add(f);
+        totalBytes += f.size;
+      }
     }
     Analytics.track(AnalyticsEvents.shareIntoAppReceived, {
       'file_count': count,
@@ -471,14 +477,19 @@ class _UpdateCheckWrapperState extends State<_UpdateCheckWrapper> {
     });
     final ctx = widget.navigatorKey.currentContext;
     if (ctx == null) return;
+    if (platformFiles.isNotEmpty) {
+      await ProviderScope.containerOf(ctx, listen: false)
+          .read(pendingFilesProvider.notifier)
+          .add(platformFiles);
+    }
+    if (!mounted) return;
     final msg = count == 1 ? '已添加 1 个文件到待发文件箱' : '已添加 $count 个文件到待发文件箱';
+    AppToast.show(ctx, message: msg);
     final applyPending = ShareReceiveService.instance.onPendingShareReady;
     if (applyPending != null) {
       applyPending();
-      AppToast.show(ctx, message: msg);
       return;
     }
-    AppToast.show(ctx, message: msg);
     Navigator.of(ctx).pushNamedAndRemoveUntil('/', (_) => false);
   }
 
@@ -693,6 +704,8 @@ class MyApp extends StatelessWidget {
                                       const MembershipScreen(),
                                   '/settings/s3': (_) =>
                                       const S3SettingsScreen(),
+                                  '/webdav/add': (_) =>
+                                      const WebDavConnectionScreen(),
                             '/settings/shortcuts': (_) =>
                                 const ShortcutSettingsScreen(),
                             '/settings/fonts': (_) =>

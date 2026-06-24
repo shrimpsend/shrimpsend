@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../logger.dart';
 import '../services/s3_local_test.dart';
+import '../services/s3_providers.dart';
 import 'client.dart';
 
 enum S3StorageMode {
@@ -40,6 +41,10 @@ class S3ConfigDetail {
   final String? accessKeyId;
   final bool? pathStyleAccessEnabled;
   final String? documentationUrl;
+  final String? clientApp;
+  final String? userAgent;
+  final String? providerId;
+  final String? providerDocsUrl;
 
   S3ConfigDetail({
     required this.configured,
@@ -52,6 +57,10 @@ class S3ConfigDetail {
     this.accessKeyId,
     this.pathStyleAccessEnabled,
     this.documentationUrl,
+    this.clientApp,
+    this.userAgent,
+    this.providerId,
+    this.providerDocsUrl,
   });
 
   factory S3ConfigDetail.fromJson(Map<String, dynamic> j) {
@@ -72,6 +81,10 @@ class S3ConfigDetail {
       accessKeyId: j['accessKeyId'] as String?,
       pathStyleAccessEnabled: j['pathStyleAccessEnabled'] as bool?,
       documentationUrl: j['documentationUrl'] as String?,
+      clientApp: j['clientApp'] as String?,
+      userAgent: j['userAgent'] as String?,
+      providerId: j['providerId'] as String?,
+      providerDocsUrl: j['providerDocsUrl'] as String?,
     );
   }
 
@@ -117,6 +130,8 @@ class S3ConfigRequest {
   final String accessKeyId;
   final String secretAccessKey;
   final bool pathStyleAccessEnabled;
+  final String? clientApp;
+  final String? providerId;
 
   S3ConfigRequest({
     required this.endpoint,
@@ -125,6 +140,8 @@ class S3ConfigRequest {
     required this.accessKeyId,
     required this.secretAccessKey,
     this.pathStyleAccessEnabled = true,
+    this.clientApp,
+    this.providerId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -134,6 +151,8 @@ class S3ConfigRequest {
     'accessKeyId': accessKeyId,
     if (secretAccessKey.isNotEmpty) 'secretAccessKey': secretAccessKey,
     'pathStyleAccessEnabled': pathStyleAccessEnabled,
+    if (clientApp != null && clientApp!.isNotEmpty) 'clientApp': clientApp,
+    if (providerId != null && providerId!.isNotEmpty) 'providerId': providerId,
   };
 }
 
@@ -179,7 +198,23 @@ Future<void> testS3Config() async {
     final data = jsonDecode(r.body) as Map<String, dynamic>;
     final url = data['url'] as String?;
     if (url == null || url.isEmpty) throw Exception('S3 连接测试失败');
-    await headPresignedUrl(url);
+    final serverProbe = data['serverProbe'] as String?;
+    final serverError = data['serverError'] as String?;
+    logApi.info(
+      'testS3Config presign ok serverProbe=$serverProbe'
+      '${serverError != null && serverError.isNotEmpty ? ' serverError=$serverError' : ''}',
+    );
+    if (serverProbe == 'failed') {
+      final hint = detail.providerId == s3ProviderDataCapsule
+          ? '（数据胶囊：请在「客户端访问」创建 AccessKey 并确认 Endpoint、Bucket、Path-style 与控制台一致；部分环境需绑定应用后才能用 S3）'
+          : '';
+      final detailMsg = (serverError != null && serverError.isNotEmpty)
+          ? serverError
+          : 'HTTP 401';
+      throw Exception('S3 服务端连接失败: $detailMsg$hint');
+    }
+    logPresignedUrlSummary(url, bucket: detail.bucket);
+    await headPresignedUrl(url, userAgent: detail.userAgent);
     logApi.info('testS3Config success');
   });
 }

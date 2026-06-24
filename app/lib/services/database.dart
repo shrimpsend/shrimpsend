@@ -11,7 +11,7 @@ import 'transfer_record.dart';
 import '../chat/thread_key.dart';
 import '../logger.dart';
 
-const _dbVersion = 7;
+const _dbVersion = 8;
 
 const _createTransferRecords = '''
 CREATE TABLE transfer_records (
@@ -34,7 +34,9 @@ CREATE TABLE transfer_records (
   lan_target_device_ids TEXT,
   webrtc_file_id TEXT,
   webrtc_offset  INTEGER,
-  webrtc_target_device_id TEXT
+  webrtc_target_device_id TEXT,
+  webdav_connection_id TEXT,
+  webdav_remote_path TEXT
 );
 
 CREATE INDEX idx_transfer_status ON transfer_records(status);
@@ -92,6 +94,32 @@ CREATE INDEX idx_recv_user_mtime ON received_files(user_id, mtime DESC);
 CREATE INDEX idx_recv_thread_mtime ON received_files(thread_key, mtime DESC);
 CREATE INDEX idx_recv_category_mtime ON received_files(category, mtime DESC);
 CREATE INDEX idx_recv_mtime ON received_files(mtime DESC);
+''';
+
+const _createWebDavFavorites = '''
+CREATE TABLE webdav_favorites (
+  connection_id TEXT NOT NULL,
+  remote_path   TEXT NOT NULL,
+  name          TEXT NOT NULL,
+  is_directory  INTEGER NOT NULL DEFAULT 0,
+  size          INTEGER,
+  last_modified TEXT,
+  created_at    TEXT NOT NULL,
+  PRIMARY KEY (connection_id, remote_path)
+);
+''';
+
+const _createWebDavRecent = '''
+CREATE TABLE webdav_recent (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  connection_id TEXT NOT NULL,
+  remote_path   TEXT NOT NULL,
+  name          TEXT NOT NULL,
+  is_directory  INTEGER NOT NULL DEFAULT 0,
+  accessed_at   TEXT NOT NULL
+);
+
+CREATE INDEX idx_webdav_recent_conn_time ON webdav_recent(connection_id, accessed_at DESC);
 ''';
 
 /// Application SQLite database. Singleton; must be initialized in main() before use.
@@ -276,6 +304,8 @@ class AppDatabase {
     await db.execute(_createTransferRecords);
     await db.execute(_createChatMessages);
     await db.execute(_createReceivedFiles);
+    await db.execute(_createWebDavFavorites);
+    await db.execute(_createWebDavRecent);
   }
 
   Future<bool> _tableHasColumn(
@@ -389,6 +419,19 @@ SET cache_path = abs_path,
     export_status = 'legacy'
 WHERE cache_path IS NULL OR cache_path = ''
 ''');
+    }
+    if (oldVersion < 8) {
+      for (final col in [
+        'webdav_connection_id TEXT',
+        'webdav_remote_path TEXT',
+      ]) {
+        final name = col.split(' ').first;
+        if (!await _tableHasColumn(db, 'transfer_records', name)) {
+          await db.execute('ALTER TABLE transfer_records ADD COLUMN $col');
+        }
+      }
+      await db.execute(_createWebDavFavorites);
+      await db.execute(_createWebDavRecent);
     }
   }
 

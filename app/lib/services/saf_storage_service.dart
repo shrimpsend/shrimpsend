@@ -92,6 +92,22 @@ class SafStorageService {
     return ok ?? false;
   }
 
+  /// Copy a SAF document URI to [targetPath] (used for pending outbox cache).
+  static Future<String?> copyFileUriToTargetPath(
+    String fileUri,
+    String targetPath,
+  ) async {
+    if (!isSupported) return null;
+    final result = await _channel.invokeMethod<String>(
+      'copyFileUriToPath',
+      {
+        'fileUri': fileUri,
+        'targetPath': targetPath,
+      },
+    );
+    return result;
+  }
+
   /// Copy a SAF document URI into app temp cache for preview / clipboard.
   static Future<String?> copyFileToCache(
     String fileUri,
@@ -104,14 +120,7 @@ class SafStorageService {
       tempDir.path,
       'save_folder_preview_${DateTime.now().microsecondsSinceEpoch}_$safeName',
     );
-    final result = await _channel.invokeMethod<String>(
-      'copyFileUriToPath',
-      {
-        'fileUri': fileUri,
-        'targetPath': targetPath,
-      },
-    );
-    return result;
+    return copyFileUriToTargetPath(fileUri, targetPath);
   }
 }
 

@@ -1,6 +1,6 @@
 import { logger } from '../logger';
 import { getApiUrl, TAG, AuthError, getToken, isAuthFailure, withAuthRetry } from './client';
-import { clearLegacyS3ConfigCache, headPresignedUrl } from '../services/s3LocalTest';
+import { clearLegacyS3ConfigCache, headPresignedUrl, logPresignedUrlSummary } from '../services/s3LocalTest';
 
 export type S3ConfigRequest = {
   endpoint: string;
@@ -11,6 +11,10 @@ export type S3ConfigRequest = {
   secretAccessKey?: string;
   /** true = path-style; false = virtual-hosted. Defaults to true when omitted. */
   pathStyleAccessEnabled?: boolean;
+  /** CSTCloud Data Capsule client binding id. */
+  clientApp?: string;
+  /** S3 provider preset id. */
+  providerId?: string;
 };
 
 /**
@@ -39,6 +43,10 @@ export type S3ConfigResponse = {
   bucket?: string;
   accessKeyId?: string;
   pathStyleAccessEnabled?: boolean;
+  clientApp?: string;
+  userAgent?: string;
+  providerId?: string;
+  providerDocsUrl?: string;
 };
 
 function disabledResponse(): S3ConfigResponse {
@@ -69,6 +77,11 @@ function normalizeS3Response(raw: unknown): S3ConfigResponse {
     accessKeyId: typeof obj.accessKeyId === 'string' ? obj.accessKeyId : undefined,
     pathStyleAccessEnabled:
       typeof obj.pathStyleAccessEnabled === 'boolean' ? obj.pathStyleAccessEnabled : undefined,
+    clientApp: typeof obj.clientApp === 'string' ? obj.clientApp : undefined,
+    userAgent: typeof obj.userAgent === 'string' ? obj.userAgent : undefined,
+    providerId: typeof obj.providerId === 'string' ? obj.providerId : undefined,
+    providerDocsUrl:
+      typeof obj.providerDocsUrl === 'string' ? obj.providerDocsUrl : undefined,
   };
 }
 
@@ -95,6 +108,24 @@ export async function getS3Config(): Promise<S3ConfigResponse> {
 export async function hasS3Config(): Promise<boolean> {
   const data = await getS3Config();
   return data.configured;
+}
+
+export async function getS3Providers(): Promise<import('../s3Providers').S3ProvidersCatalog> {
+  logger.debug(TAG, 'getS3Providers');
+  return withAuthRetry(async () => {
+    const token = getToken();
+    if (!token) {
+      return { providers: [], clientAppOptions: [], tencentCosRegions: [] };
+    }
+    const res = await fetch(`${getApiUrl()}/api/s3/providers`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (isAuthFailure(res)) throw new AuthError();
+    if (!res.ok) {
+      return { providers: [], clientAppOptions: [], tencentCosRegions: [] };
+    }
+    return (await res.json()) as import('../s3Providers').S3ProvidersCatalog;
+  });
 }
 
 export async function saveS3Config(data: S3ConfigRequest): Promise<void> {
@@ -174,7 +205,7 @@ export async function switchToCustomS3(): Promise<void> {
   });
 }
 
-async function fetchS3TestUrl(): Promise<string> {
+async function fetchS3TestUrl(): Promise<{ url: string; serverProbe?: string; serverError?: string }> {
   const token = getToken();
   if (!token) throw new Error('errors.notAuthenticated');
   const res = await fetch(`${getApiUrl()}/api/s3/test`, {
@@ -188,9 +219,9 @@ async function fetchS3TestUrl(): Promise<string> {
     const msg = (err as { error?: string }).error || 'errors.s3TestFailed';
     throw new Error(msg);
   }
-  const data = (await res.json()) as { url?: string };
+  const data = (await res.json()) as { url?: string; serverProbe?: string; serverError?: string };
   if (!data.url) throw new Error('errors.s3TestFailed');
-  return data.url;
+  return { url: data.url, serverProbe: data.serverProbe, serverError: data.serverError };
 }
 
 /** CUSTOM：服务端签发 HeadBucket 预签名 URL，本机 HEAD 探测。HOSTED：无需测试。 */
@@ -201,8 +232,23 @@ export async function testS3Config(): Promise<void> {
   if (cfg.mode !== 'CUSTOM') throw new Error('errors.s3TestFailed');
 
   return withAuthRetry(async () => {
-    const url = await fetchS3TestUrl();
-    await headPresignedUrl(url);
+    const { url, serverProbe, serverError } = await fetchS3TestUrl();
+    logger.info(
+      TAG,
+      'testS3Config presign ok serverProbe=',
+      serverProbe,
+      serverError ? `serverError=${serverError}` : '',
+    );
+    if (serverProbe === 'failed') {
+      const providerId = cfg.providerId ?? '';
+      const hint = providerId === 'data_capsule'
+        ? ' (Data Capsule: verify Endpoint/Bucket/Path-style in Client access; some keys require app binding)'
+        : '';
+      const detailMsg = serverError?.trim() ? serverError : 'HTTP 401';
+      throw new Error(`S3 server probe failed: ${detailMsg}${hint}`);
+    }
+    logPresignedUrlSummary(url, cfg.bucket);
+    await headPresignedUrl(url, undefined, cfg.userAgent);
     logger.info(TAG, 'testS3Config success');
   });
 }

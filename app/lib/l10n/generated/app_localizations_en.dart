@@ -725,7 +725,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get chatPickDeviceToStart => 'Choose a device to start chatting';
+  String get chatPickDeviceToStart =>
+      'Choose a device, cloud relay, or WebDAV connection';
 
   @override
   String get chatTooltipBackDeviceList => 'Back to device list';
@@ -970,6 +971,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String fmPendingAddedMany(int count) {
     return 'Added $count files to outbox';
+  }
+
+  @override
+  String get fmPendingAddFailed => 'Could not add to outbox';
+
+  @override
+  String fmPendingDispatchPartialSkipped(int count) {
+    return '$count file(s) could not be queued and remain in the outbox';
   }
 
   @override
@@ -1498,6 +1507,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Usually required for MinIO and self-hosted gateways. Turn off for AWS regional endpoints to use virtual-hosted URLs.';
 
   @override
+  String get s3SettingsFieldClientApp => 'Client application';
+
+  @override
+  String get s3SettingsClientAppHint =>
+      'Required for CSTCloud Data Capsule — must match the app selected when creating the AccessKey';
+
+  @override
+  String get s3SettingsClientAppRequired => 'Select a client application';
+
+  @override
   String get s3SettingsFieldAccessKeyId => 'Access Key ID';
 
   @override
@@ -1507,7 +1526,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get s3SettingsPlaceholderEndpoint => 'https://s3.amazonaws.com';
 
   @override
-  String get s3SettingsPlaceholderRegion => 'cn-east-1';
+  String get s3SettingsPlaceholderRegion => 'us-east-1';
 
   @override
   String get s3SettingsPlaceholderBucket => 'my-bucket';
@@ -2225,6 +2244,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String devicePanelDevicesOnlineCount(int count) {
     return '$count online';
   }
+
+  @override
+  String devicePanelFooterSummary(int deviceOnline, int webDavCount) {
+    return '$deviceOnline online · $webDavCount WebDAV';
+  }
+
+  @override
+  String get homeSectionCloudRelay => 'Cloud relay';
+
+  @override
+  String get homeSectionRemoteStorage => 'Remote storage';
+
+  @override
+  String get homeSectionDevices => 'Device transfer';
+
+  @override
+  String get homeListEmptyTitle => 'Nothing here yet';
+
+  @override
+  String get homeListEmptyHint =>
+      'Scan to add a device, set up cloud relay, or connect WebDAV.';
+
+  @override
+  String get homeWebDavLoadFailed => 'Failed to load WebDAV connections';
+
+  @override
+  String get homeWebDavAddConnection => 'Add WebDAV connection';
+
+  @override
+  String get homeWebDavRetry => 'Retry';
+
+  @override
+  String get homeListOfflineBanner => 'Offline — list may be outdated';
 
   @override
   String get connectionBarDefaultTitle => 'Connection status';
@@ -3090,4 +3142,288 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatMenuCopyFile => 'Copy file';
+
+  @override
+  String get webdavAddMenuTooltip => 'Add connection';
+
+  @override
+  String get webdavScanLogin => 'Scan to sign in';
+
+  @override
+  String get webdavAddConnection => 'Add WebDAV';
+
+  @override
+  String get webdavEditConnection => 'Edit WebDAV';
+
+  @override
+  String get webdavSectionTitle => 'WebDAV';
+
+  @override
+  String get webdavFormName => 'Name';
+
+  @override
+  String get webdavFormNameRequired => 'Enter a name';
+
+  @override
+  String get webdavFormUrl => 'Server URL';
+
+  @override
+  String get webdavFormUrlRequired => 'Enter server URL';
+
+  @override
+  String get webdavFormUrlInvalid => 'URL must start with http:// or https://';
+
+  @override
+  String get webdavFormUsername => 'Username';
+
+  @override
+  String get webdavFormUsernameRequired => 'Enter username';
+
+  @override
+  String get webdavFormPassword => 'Password';
+
+  @override
+  String get webdavFormPasswordHintEdit => 'Leave blank to keep current';
+
+  @override
+  String get webdavFormRootPath => 'Root path';
+
+  @override
+  String get webdavPasswordRequired => 'Enter password';
+
+  @override
+  String get webdavTestConnection => 'Test connection';
+
+  @override
+  String get webdavTestSuccess => 'Connection successful';
+
+  @override
+  String webdavTestFailed(String error) {
+    return 'Connection test failed: $error';
+  }
+
+  @override
+  String get webdavSavedToast => 'Saved';
+
+  @override
+  String webdavSaveFailed(String error) {
+    return 'Save failed: $error';
+  }
+
+  @override
+  String get webdavBrowserEmpty => 'This folder is empty';
+
+  @override
+  String get webdavSearchHint => 'Search this folder';
+
+  @override
+  String get webdavEntryFolder => 'Folder';
+
+  @override
+  String get webdavActionDownload => 'Download';
+
+  @override
+  String get webdavActionRename => 'Rename';
+
+  @override
+  String get webdavActionDelete => 'Delete';
+
+  @override
+  String get webdavActionUpload => 'Upload file';
+
+  @override
+  String get webdavActionNewFolder => 'New folder';
+
+  @override
+  String get webdavDeleteConfirmTitle => 'Delete selected items?';
+
+  @override
+  String webdavDeleteConfirmBody(int count) {
+    return 'Delete $count item(s)? This cannot be undone.';
+  }
+
+  @override
+  String get webdavDeleteConnection => 'Delete connection';
+
+  @override
+  String get webdavDeleteConnectionTitle => 'Delete WebDAV connection?';
+
+  @override
+  String webdavDeleteConnectionBody(String name) {
+    return 'Remove \"$name\" and stored credentials.';
+  }
+
+  @override
+  String get webdavDeletedToast => 'Deleted';
+
+  @override
+  String webdavDeleteFailed(String error) {
+    return 'Delete failed: $error';
+  }
+
+  @override
+  String get webdavRenameTitle => 'Rename';
+
+  @override
+  String get webdavRenameHint => 'New name';
+
+  @override
+  String webdavRenameFailed(String error) {
+    return 'Rename failed: $error';
+  }
+
+  @override
+  String get webdavNewFolderTitle => 'New folder';
+
+  @override
+  String get webdavNewFolderHint => 'Folder name';
+
+  @override
+  String webdavCreateFolderFailed(String error) {
+    return 'Create failed: $error';
+  }
+
+  @override
+  String get webdavUploadDone => 'Upload complete';
+
+  @override
+  String webdavUploadFailed(String error) {
+    return 'Upload failed: $error';
+  }
+
+  @override
+  String get webdavDownloadDone => 'Ready to share or save';
+
+  @override
+  String webdavDownloadFailed(String error) {
+    return 'Download failed: $error';
+  }
+
+  @override
+  String webdavSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get webdavTabFiles => 'Files';
+
+  @override
+  String get webdavTabRecent => 'Recent';
+
+  @override
+  String get webdavTabFavorites => 'Favorites';
+
+  @override
+  String get webdavTabUpload => 'Upload';
+
+  @override
+  String get webdavTabSettings => 'Settings';
+
+  @override
+  String get webdavTransferList => 'Transfers';
+
+  @override
+  String get webdavTransferUploading => 'Uploading';
+
+  @override
+  String get webdavTransferDownloading => 'Downloading';
+
+  @override
+  String get webdavTransferPauseAll => 'Pause all';
+
+  @override
+  String get webdavTransferEmpty => 'No active transfers';
+
+  @override
+  String webdavTransferQueued(int count) {
+    return 'Queued $count transfer(s)';
+  }
+
+  @override
+  String get webdavOutboxUpload => 'Upload to WebDAV';
+
+  @override
+  String webdavOutboxUploadTarget(String path) {
+    return 'Upload to $path';
+  }
+
+  @override
+  String get webdavOutboxAddFiles => 'Add files';
+
+  @override
+  String get webdavOutboxEmpty =>
+      'No pending files. Add files or share from another app.';
+
+  @override
+  String get webdavActionFavorite => 'Favorite';
+
+  @override
+  String get webdavActionUnfavorite => 'Unfavorite';
+
+  @override
+  String get webdavActionCopy => 'Copy';
+
+  @override
+  String get webdavActionMove => 'Move';
+
+  @override
+  String get webdavActionDetails => 'Details';
+
+  @override
+  String get webdavActionOpenWith => 'Open with';
+
+  @override
+  String get webdavActionShare => 'Share';
+
+  @override
+  String get webdavRecentEmpty => 'No recent items';
+
+  @override
+  String get webdavFavoritesEmpty => 'No favorites yet';
+
+  @override
+  String get webdavSettingsCurrentConnection => 'Current connection';
+
+  @override
+  String get webdavSettingsSwitchConnection => 'Switch connection';
+
+  @override
+  String get webdavViewList => 'List view';
+
+  @override
+  String get webdavViewGrid => 'Grid view';
+
+  @override
+  String get webdavDetailType => 'Type';
+
+  @override
+  String get webdavDetailSize => 'Size';
+
+  @override
+  String get webdavDetailLocation => 'Location';
+
+  @override
+  String get webdavDetailModified => 'Modified';
+
+  @override
+  String get webdavMoveHint => 'Destination path (relative to root)';
+
+  @override
+  String get webdavCopiedToast => 'Copied';
+
+  @override
+  String webdavCopyFailed(String error) {
+    return 'Copy failed: $error';
+  }
+
+  @override
+  String webdavMoveFailed(String error) {
+    return 'Move failed: $error';
+  }
+
+  @override
+  String get webdavShareNeedDownload => 'Download the file first to share';
+
+  @override
+  String get webdavLocalDownloaded => 'Downloaded';
 }

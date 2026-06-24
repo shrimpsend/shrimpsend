@@ -28,6 +28,7 @@ import '../providers/app_mode_provider.dart';
 import '../providers/auth_session_provider.dart';
 import '../services/auth_session_controller.dart';
 import '../providers/device_provider.dart';
+import '../providers/webdav_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:saver_gallery/saver_gallery.dart';
 import 'package:share_plus/share_plus.dart';
@@ -38,7 +39,6 @@ import '../logger.dart';
 import '../utils/file_utils.dart';
 import '../utils/gallery_permission.dart';
 import '../utils/helpers.dart';
-import '../utils/runtime_platform.dart';
 import '../utils/open_received_file.dart';
 import '../utils/received_file_actions.dart';
 import '../utils/save_as_feedback.dart';
@@ -55,6 +55,7 @@ import '../widgets/chat/connection_diagnostic_dialog.dart';
 import '../widgets/chat/delete_file_message_dialog.dart';
 import '../widgets/layout/main_layout.dart';
 import '../widgets/pending_files_bar.dart';
+import '../widgets/pending_outbox_badge_button.dart';
 import '../network/connection_bar_view_model.dart';
 import '../network/connection_diagnostic.dart';
 import '../network/connection_orchestrator.dart';
@@ -65,6 +66,7 @@ import '../widgets/file_card_bubble.dart';
 import 'file_manager_screen.dart';
 import 'message_search_screen.dart';
 import 'settings_screen.dart';
+import 'webdav_connection_screen.dart';
 import '../services/file_store.dart';
 import '../services/file_transfer.dart';
 import '../services/file_times_apply.dart';
@@ -85,8 +87,8 @@ import '../chat/thread_key.dart';
 import '../services/desktop_file_clipboard.dart';
 import '../services/desktop_file_drop_dispatcher.dart';
 import '../services/share/share_pending_cache.dart';
-import '../services/share_receive_service.dart';
-import '../services/pending_files_store.dart';
+import '../services/pending_dispatch_bridge.dart';
+import '../providers/pending_files_provider.dart';
 import '../widgets/desktop_paste_shortcuts.dart';
 import '../services/transfer_record.dart';
 import '../services/transfer_state_manager.dart';
@@ -271,7 +273,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final Map<String, _PullPartial> _lanPullPartialBySenderLocalId = {};
   final Map<String, String> _localMessageStatus = {};
   final Map<String, int> _localMessageProgress = {};
-  List<PlatformFile> _pendingFiles = [];
   final _composerKey = GlobalKey<ChatComposerState>();
   String? _initError;
   int _initGeneration = 0;
@@ -577,12 +578,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       };
       NativeTabBarService.instance.onOpenPendingFiles = () {
         if (mounted) {
-          showPendingFilesManageSheet(
-            context,
-            files: List.of(_pendingFiles),
-            onRemove: _removePendingFileRef,
-            onClearAll: _clearPendingFiles,
-          );
+          showPendingOutboxSheet(context);
         }
       };
     }
@@ -608,7 +604,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           // Tear down the always-on foreground service on logout.
           unawaited(TransferKeepAlive.instance.disablePersistent());
           ref.read(selectedSendModeProvider.notifier).resetForLogout();
-          if (ref.read(selectedDeviceIdProvider) == s3VirtualDeviceId) {
+          if (ref.read(selectedDeviceIdProvider) != null) {
             ref.read(selectedDeviceIdProvider.notifier).select(null);
           }
           // AppEntryScreen replaces ChatScreen; do not restart _init().
@@ -628,30 +624,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (prev != next) {
         ref.read(selectedSendModeProvider.notifier).activateDevice(next);
         ref.read(connectionSwitchProbeProvider.notifier).state = null;
-        unawaited(_reloadThreadForSelectionChange());
-        if (next != null && next != s3VirtualDeviceId) {
+        if (!isWebDavSelection(next)) {
+          unawaited(_reloadThreadForSelectionChange());
+        }
+        if (isPeerSelection(next)) {
           ref.read(chatSendModeAutoProvider.notifier).state = true;
           ref.read(connectionManualOverrideProvider.notifier).state = false;
           ref.read(connectionManualModeProvider.notifier).state = null;
           ref
               .read(selectedSendModeProvider.notifier)
               .select(SendMode.lan, persist: false);
-          _seedSelectedPeerReachabilitySnapshot(next);
+          _seedSelectedPeerReachabilitySnapshot(next!);
         } else {
           _clearSelectedPeerReachabilitySnapshot();
         }
         if (next != null) {
           Analytics.track(AnalyticsEvents.chatSessionOpen, {
-            'session_type': next == s3VirtualDeviceId ? 's3' : 'peer',
+            'session_type': next == s3VirtualDeviceId
+                ? 's3'
+                : isWebDavSelection(next)
+                ? 'webdav'
+                : 'peer',
           });
         }
       }
-      if (next != null && next != s3VirtualDeviceId) {
+      if (isPeerSelection(next)) {
+        final peerId = next!;
         // Always override multi-select state with the conversation device,
         // even if the same device is re-selected.
-        ref.read(selectedLanTargetsProvider.notifier).setAll({next});
-        if (next != prev) {
-          _probeSingleDevice(next);
+        ref.read(selectedLanTargetsProvider.notifier).setAll({peerId});
+        if (peerId != prev) {
+          _probeSingleDevice(peerId);
         }
       }
     });
@@ -678,7 +681,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
     FileStore.addReceiveDirChangedListener(_onReceiveDirChanged);
     WidgetsBinding.instance.addObserver(this);
-    ShareReceiveService.instance.onPendingShareReady = _onPendingShareReady;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_bootstrapPendingFilesAfterFirstFrame());
     });
@@ -692,24 +694,52 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _bootstrapPendingFilesAfterFirstFrame() async {
-    final result = await PendingFilesStore.load();
+    final dropped = await ref.read(pendingFilesProvider.notifier).bootstrap();
     if (!mounted) return;
-    if (result.droppedMissing > 0) {
-      await PendingFilesStore.save(result.files);
-      if (!mounted) return;
+    if (dropped > 0) {
       AppToast.show(
         context,
         message: AppLocalizations.of(context).chatScreenPendingFilesMissing,
       );
     }
-    if (result.files.isNotEmpty) {
-      _addPendingFiles(result.files);
-    }
-    _applyPendingFilesFromShare();
   }
 
-  void _persistPendingFiles() {
-    unawaited(PendingFilesStore.save(_pendingFiles));
+  Future<bool> _addPendingFiles(List<PlatformFile> files) async {
+    if (files.isEmpty) return false;
+    final result = await ref.read(pendingFilesProvider.notifier).add(files);
+    return result.added > 0;
+  }
+
+  Future<List<PlatformFile>?> _beginPendingSendDispatch() async {
+    final pending = List<PlatformFile>.from(ref.read(pendingFilesProvider));
+    if (pending.isEmpty) return null;
+    final dispatch =
+        await ref.read(pendingFilesProvider.notifier).beginDispatch(pending);
+    if (!mounted) {
+      return dispatch.queued.isEmpty ? null : dispatch.queued;
+    }
+    if (dispatch.skipped > 0) {
+      AppToast.show(
+        context,
+        message: AppLocalizations.of(context)
+            .fmPendingDispatchPartialSkipped(dispatch.skipped),
+      );
+    }
+    if (dispatch.queued.isEmpty) return null;
+    return dispatch.queued;
+  }
+
+  void _notifyPendingDispatchSettled(String? path, {required bool success}) {
+    if (path == null || path.isEmpty) return;
+    PendingDispatchBridge.notifySettled(path, success: success);
+  }
+
+  void _removePendingFileRef(PlatformFile file) {
+    ref.read(pendingFilesProvider.notifier).remove(file);
+  }
+
+  void _clearPendingFiles() {
+    ref.read(pendingFilesProvider.notifier).clear();
   }
 
   void _scheduleDiffProbeNewPeers() {
@@ -1441,18 +1471,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       unawaited(_probeSingleDevice(peerId, force: true));
     }
-  }
-
-  void _applyPendingFilesFromShare() {
-    if (!mounted) return;
-    final files = ShareReceiveService.instance.takePendingFromShare();
-    if (files != null && files.isNotEmpty) {
-      _addPendingFiles(files);
-    }
-  }
-
-  void _onPendingShareReady() {
-    _applyPendingFilesFromShare();
   }
 
   void _onReceiveDirChanged() {
@@ -2734,7 +2752,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<String?> _threadKeyForCurrentSelection() async {
     if (!mounted) return null;
     final peer = ref.read(selectedDeviceIdProvider);
-    if (peer == null) return null;
+    if (peer == null || isWebDavSelection(peer)) return null;
     final ap = await _accountPartForThreadKey();
     return threadKeyForPeerSelection(
       accountPart: ap,
@@ -4693,12 +4711,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       'picked_count': picked.length,
     });
     if (picked.isEmpty || !mounted) return;
-    _addPendingFiles(picked);
+    final ok = await _addPendingFiles(picked);
+    if (!ok && mounted) {
+      AppToast.show(
+        context,
+        message: AppLocalizations.of(context).fmPendingAddFailed,
+      );
+    }
   }
 
   Future<void> _handleDesktopDropFiles(List<PlatformFile> files) async {
     if (!_isDesktopPlatform || files.isEmpty || !mounted) return;
-    _addPendingFiles(files);
+    final ok = await _addPendingFiles(files);
+    if (!ok && mounted) {
+      AppToast.show(
+        context,
+        message: AppLocalizations.of(context).fmPendingAddFailed,
+      );
+    }
   }
 
   Future<void> _onAttachmentTap() async {
@@ -4885,46 +4915,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return result;
   }
 
-  void _addPendingFiles(List<PlatformFile> files) {
-    var toAdd = files;
-    if (Env.androidPlayDistribution) {
-      toAdd = files
-          .where((f) => !looksLikeApkInstallerFileName(f.name))
-          .toList();
-    }
-    if (toAdd.isEmpty) return;
-    var changed = false;
-    setState(() {
-      final existingPaths = _pendingFiles
-          .where((f) => f.path != null)
-          .map((f) => f.path!)
-          .toSet();
-      final existingFiles = _pendingFiles
-          .where((f) => f.path == null)
-          .map((f) => '${f.name}_${f.size}')
-          .toSet();
-
-      final newFiles = toAdd.where((file) {
-        if (file.path != null) {
-          return !existingPaths.contains(file.path);
-        } else {
-          return !existingFiles.contains('${file.name}_${file.size}');
-        }
-      }).toList();
-
-      if (newFiles.isNotEmpty) {
-        _pendingFiles = [...newFiles, ..._pendingFiles];
-        changed = true;
-      }
-    });
-    if (changed) _persistPendingFiles();
-  }
-
   Future<void> _handleDesktopPasteFromClipboard(
     List<PlatformFile> files,
   ) async {
     if (!_isDesktopPlatform || files.isEmpty) return;
-    _addPendingFiles(files);
+    final ok = await _addPendingFiles(files);
+    if (!ok && mounted) {
+      AppToast.show(
+        context,
+        message: AppLocalizations.of(context).fmPendingAddFailed,
+      );
+    }
   }
 
   Future<void> _copyChatFileToClipboard(String path) async {
@@ -4937,8 +4938,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  void _addFileMessageToPending(_FileMeta fileMeta, String localPath) {
-    _addPendingFiles([
+  Future<void> _addFileMessageToPending(_FileMeta fileMeta, String localPath) async {
+    final ok = await _addPendingFiles([
       PlatformFile(
         name: fileMeta.fileName,
         size: fileMeta.size ?? 0,
@@ -4948,27 +4949,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (!mounted) return;
     AppToast.show(
       context,
-      message: AppLocalizations.of(
-        context,
-      ).fmPendingAddedOne(fileMeta.fileName),
+      message: ok
+          ? AppLocalizations.of(context).fmPendingAddedOne(fileMeta.fileName)
+          : AppLocalizations.of(context).fmPendingAddFailed,
     );
-  }
-
-  void _removePendingFileRef(PlatformFile file) {
-    unawaited(SharePendingCache.deleteStagingFile(file.path));
-    setState(() {
-      _pendingFiles = List.from(_pendingFiles)..remove(file);
-    });
-    _persistPendingFiles();
-  }
-
-  void _clearPendingFiles() {
-    final files = List<PlatformFile>.from(_pendingFiles);
-    unawaited(SharePendingCache.deleteStagingFiles(files));
-    setState(() {
-      _pendingFiles = [];
-    });
-    _persistPendingFiles();
   }
 
   Message? _findMessageById(String id) {
@@ -5603,7 +5587,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _showFileSendModal() async {
-    if (_pendingFiles.isEmpty || !mounted) return;
+    if (ref.read(pendingFilesProvider).isEmpty || !mounted) return;
 
     var selectedTargets = ref.read(effectiveSelectedTargetsProvider);
     // When the S3 virtual device conversation is active, always use S3 mode
@@ -5677,9 +5661,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
         return;
       }
-      final filesToSend = List<PlatformFile>.from(_pendingFiles);
-      setState(() => _pendingFiles = []);
-      _persistPendingFiles();
+      final filesToSend = await _beginPendingSendDispatch();
+      if (filesToSend == null || filesToSend.isEmpty) return;
       // S3 virtual device conversation is a broadcast to all own devices (no toDeviceId).
       // A real device conversation uses toDeviceId so only that device gets the notification.
       final s3ToDeviceId =
@@ -5753,9 +5736,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
           return;
         }
-        final nearbyFiles = List<PlatformFile>.from(_pendingFiles);
-        setState(() => _pendingFiles = []);
-        _persistPendingFiles();
+        final nearbyFiles = await _beginPendingSendDispatch();
+        if (nearbyFiles == null || nearbyFiles.isEmpty) return;
         final nbBytes = nearbyFiles.fold<int>(0, (a, f) => a + f.size);
         Analytics.track(AnalyticsEvents.fileSendIntent, {
           'channel': 'nearby',
@@ -5794,9 +5776,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
           return;
         }
-        final filesToSend = List<PlatformFile>.from(_pendingFiles);
-        setState(() => _pendingFiles = []);
-        _persistPendingFiles();
+        final filesToSend = await _beginPendingSendDispatch();
+        if (filesToSend == null || filesToSend.isEmpty) return;
         final lanBytes = filesToSend.fold<int>(0, (a, f) => a + f.size);
         Analytics.track(AnalyticsEvents.fileSendIntent, {
           'channel': 'lan',
@@ -5809,7 +5790,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           (file) => _sendSingleFileViaLan(file, targets),
         );
       case SendMode.webrtc:
-        final unsupportedFiles = _pendingFiles
+        final unsupportedFiles = ref.read(pendingFilesProvider)
             .where((f) => f.path == null || f.path!.isEmpty)
             .toList();
         if (unsupportedFiles.isNotEmpty) {
@@ -5836,9 +5817,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
           return;
         }
-        final rtcFiles = List<PlatformFile>.from(_pendingFiles);
-        setState(() => _pendingFiles = []);
-        _persistPendingFiles();
+        final rtcFiles = await _beginPendingSendDispatch();
+        if (rtcFiles == null || rtcFiles.isEmpty) return;
         final rtcBytes = rtcFiles.fold<int>(0, (a, f) => a + f.size);
         Analytics.track(AnalyticsEvents.fileSendIntent, {
           'channel': 'webrtc',
@@ -6041,6 +6021,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         final fileName =
             _webrtcFileNameMap[entry.key] ?? _l10n.chatScreenGenericFile;
         final localId = entry.value;
+        final filePath = filesWithMeta
+            .where((f) => f.meta.fileId == entry.key)
+            .map((f) => f.filePath)
+            .firstOrNull;
         _webrtcFileLocalIdMap.remove(entry.key);
         _webrtcLocalIdToFileIdMap.remove(localId);
         _webrtcFileNameMap.remove(entry.key);
@@ -6066,6 +6050,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           });
         }
         TransferKeepAlive.instance.release(_webrtcKeepAliveId(localId));
+        _notifyPendingDispatchSettled(filePath, success: false);
       }
     }
   }
@@ -6533,6 +6518,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         );
         if (cancelToken.isCancelled) {
           await TransferStateManager.instance.markStatus(localId, 'paused');
+          _notifyPendingDispatchSettled(file.path, success: false);
           return;
         }
         if (pulled) {
@@ -6598,6 +6584,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           'size_bucket': Analytics.sizeBucket(file.size),
         });
         unawaited(SharePendingCache.deleteStagingFile(file.path));
+        _notifyPendingDispatchSettled(file.path, success: true);
         transferCompleted = true;
       }
       if (mounted && !didSendFile && !anyPushed) {
@@ -6612,11 +6599,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           'status': 'failed',
           'size_bucket': Analytics.sizeBucket(file.size),
         });
+        _notifyPendingDispatchSettled(file.path, success: false);
       }
     } catch (e) {
       // Distinguish user cancel (paused, resumable) from genuine failure.
       if (cancelToken.isCancelled) {
         await TransferStateManager.instance.markStatus(localId, 'paused');
+        _notifyPendingDispatchSettled(file.path, success: false);
       } else {
         if (mounted) {
           _updateSendingMessage(
@@ -6631,6 +6620,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           'status': 'failed',
           'size_bucket': Analytics.sizeBucket(file.size),
         });
+        _notifyPendingDispatchSettled(file.path, success: false);
       }
     } finally {
       _untrackActiveTransfer(localId, completed: transferCompleted);
@@ -6673,7 +6663,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     logChat.info('chat_screen sendFileViaS3 fileName=${file.name}');
     try {
-      if (!mounted) return;
+      if (!mounted) {
+        _notifyPendingDispatchSettled(file.path, success: false);
+        return;
+      }
       if (!ref.read(s3ConfiguredProvider)) {
         logChat.warning('chat_screen sendFileViaS3 hasS3Config=false');
         if (mounted) {
@@ -6682,6 +6675,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             message: _l10n.chatScreenConfigureS3FirstToast,
           );
         }
+        _notifyPendingDispatchSettled(file.path, success: false);
         return;
       }
       if (!ref.read(s3OnlineProvider)) {
@@ -6689,6 +6683,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         if (mounted) {
           AppToast.show(context, message: _l10n.chatScreenS3UnavailableToast);
         }
+        _notifyPendingDispatchSettled(file.path, success: false);
         return;
       }
       final contentType = file.extension != null
@@ -6856,9 +6851,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'size_bucket': Analytics.sizeBucket(file.size),
       });
       unawaited(SharePendingCache.deleteStagingFile(file.path));
+      _notifyPendingDispatchSettled(file.path, success: true);
       transferCompleted = true;
     } catch (e) {
-      if (cancelToken.isCancelled) return;
+      if (cancelToken.isCancelled) {
+        _notifyPendingDispatchSettled(file.path, success: false);
+        return;
+      }
       logChat.warning('chat_screen sendFileViaS3 failed: $e');
       if (mounted) {
         _updateSendingMessage(
@@ -6879,6 +6878,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'status': 'failed',
         'size_bucket': Analytics.sizeBucket(file.size),
       });
+      _notifyPendingDispatchSettled(file.path, success: false);
     } finally {
       _untrackActiveTransfer(localId, completed: transferCompleted);
       _speedTrackers.remove('local_$localId');
@@ -7245,6 +7245,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final targetDeviceId = retryInfo?.webrtcTargetDeviceId;
     _retryInfoByLocalId.remove(localId);
     unawaited(SharePendingCache.deleteStagingFile(retryInfo?.filePath));
+    _notifyPendingDispatchSettled(retryInfo?.filePath, success: true);
     setState(() {
       _setMessageStatus(localId, 'sent');
       _localMessageProgress.remove(localId);
@@ -7364,6 +7365,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     // Original failure path: tear down per-file bookkeeping and surface the
     // failure to the user.
+    final retry = localId != null ? _retryInfoByLocalId[localId] : null;
+    final failedFilePath = retry?.filePath;
     _webrtcFileLocalIdMap.remove(fileId);
     if (localId != null) _webrtcLocalIdToFileIdMap.remove(localId);
     _webrtcFileNameMap.remove(fileId);
@@ -7396,6 +7399,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
     logChat.warning('WebRTC file failed: $fileName error=$error');
     TransferKeepAlive.instance.release(_webrtcKeepAliveId(localId));
+    if (!wasDownloading) {
+      _notifyPendingDispatchSettled(failedFilePath, success: false);
+    }
   }
 
   void _onWebRTCFileCancelled(String fileId, String fileName) {
@@ -8077,7 +8083,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _selectedMessages.add(messageId);
         });
       },
-      onAddToPending: (file) => _addPendingFiles([file]),
+      onAddToPending: (files) => _addPendingFiles(files),
     );
   }
 
@@ -8828,7 +8834,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     unawaited(NativeTabBarService.instance.updateState(
       visible: mobileHomeFloatingBar,
       selectedIndex: _mobileMainTabIndex,
-      badgeCount: _pendingFiles.length,
+      badgeCount: ref.watch(pendingFilesProvider).length,
       primaryColorHex: hexColor,
       connectLabel: l10n.mobileHomeTabConnect,
       filesLabel: l10n.mobileHomeTabFiles,
@@ -8878,10 +8884,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (_isDesktopPlatform) {
       DesktopFileDropDispatcher.instance.unregister(this);
     }
-    if (ShareReceiveService.instance.onPendingShareReady == _onPendingShareReady) {
-      ShareReceiveService.instance.onPendingShareReady = null;
-    }
     super.dispose();
+  }
+
+  Future<void> _openAddWebDavConnection() async {
+    _composerKey.currentState?.unfocus();
+    if (!ref.read(authProvider).isLoggedIn) {
+      await Navigator.pushNamed(context, '/login');
+      return;
+    }
+    final ok = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const WebDavConnectionScreen(),
+      ),
+    );
+    if (ok == true && mounted) {
+      await ref.read(webDavConnectionsProvider.notifier).refresh();
+    }
   }
 
   Widget _buildMainLayout({
@@ -8924,15 +8944,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           MaterialPageRoute(builder: (_) => const MessageSearchScreen()),
         );
       },
-      onScanQr: !isOffline && RuntimePlatform.isMobile
-          ? () {
+      onScanTap: !isOffline
+          ? () async {
               _composerKey.currentState?.unfocus();
-              Navigator.push(
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const QrScannerScreen()),
               );
             }
           : null,
+      onAddWebDavTap: !isOffline ? () => _openAddWebDavConnection() : null,
       onFileManager: () {
         _composerKey.currentState?.unfocus();
         if (mobileHomeTabs) {
@@ -8945,8 +8966,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             context,
             MaterialPageRoute(
               builder: (_) => FileManagerScreen(
-                onAddToPending: (file) {
-                  if (mounted) _addPendingFiles([file]);
+                onAddToPending: (files) async {
+                  if (!mounted) return false;
+                  return _addPendingFiles(files);
                 },
               ),
             ),
@@ -9064,43 +9086,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             icon: LucideIcons.settings,
           ),
           const SizedBox(width: _kMobileGlassBarExtraSpacing),
-          Semantics(
-            button: true,
-            label: l10n.mobileHomePendingOutbox,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                showPendingFilesManageSheet(
-                  context,
-                  files: List.of(_pendingFiles),
-                  onRemove: _removePendingFileRef,
-                  onClearAll: _clearPendingFiles,
-                );
-              },
-              child: SizedBox(
-                width: _kMobileGlassBarExtraSize,
-                height: _kMobileGlassBarExtraSize,
-                child: Center(
-                  child: Badge(
-                    isLabelVisible: _pendingFiles.isNotEmpty,
-                    label: Text(
-                      _pendingFiles.length > 99
-                          ? '99+'
-                          : '${_pendingFiles.length}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    child: Icon(
-                      LucideIcons.package,
-                      color: colors.muted,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          PendingOutboxBadgeButton(
+            count: ref.watch(pendingFilesProvider).length,
+            enabled: true,
+            onTap: () => showPendingOutboxSheet(context),
+            size: _kMobileGlassBarExtraSize,
+            iconColor: colors.muted,
           ),
           const SizedBox(width: AppSpacing.xs),
         ],
@@ -9123,7 +9114,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final isDark = theme.brightness == Brightness.dark;
     final selectedDeviceId = ref.watch(selectedDeviceIdProvider);
     final mobileChatSession =
-        !_isDesktopPlatform && selectedDeviceId != null;
+        !_isDesktopPlatform && isChatSelection(selectedDeviceId);
     final mobileHomeFloatingBar =
         !_isDesktopPlatform &&
         selectedDeviceId == null &&
@@ -9252,10 +9243,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                   embedded: true,
                                   embeddedFileTabActivation:
                                       _embeddedFileTabActivation,
-                                  onAddToPending: (file) {
-                                    if (mounted) {
-                                      _addPendingFiles([file]);
-                                    }
+                                  onAddToPending: (files) async {
+                                    if (!mounted) return false;
+                                    return _addPendingFiles(files);
                                   },
                                 ),
                                 const SettingsScreen(embedded: true),
@@ -9338,35 +9328,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                                     .mobileHomePendingOutbox,
                                                 size: _kMobileGlassBarExtraSize,
                                                 iconColor: colors.muted,
-                                                icon: Badge(
-                                                  isLabelVisible:
-                                                      _pendingFiles.isNotEmpty,
-                                                  label: Text(
-                                                    _pendingFiles.length > 99
-                                                        ? '99+'
-                                                        : '${_pendingFiles.length}',
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  child: Icon(
-                                                    LucideIcons.package,
-                                                    color: colors.muted,
-                                                    size: 24,
-                                                  ),
+                                                icon: PendingOutboxBadgeIcon(
+                                                  count: ref
+                                                      .watch(
+                                                        pendingFilesProvider,
+                                                      )
+                                                      .length,
+                                                  iconColor: colors.muted,
                                                 ),
                                                 onTap: () {
-                                                  showPendingFilesManageSheet(
+                                                  showPendingOutboxSheet(
                                                     context,
-                                                    files: List.of(
-                                                      _pendingFiles,
-                                                    ),
-                                                    onRemove:
-                                                        _removePendingFileRef,
-                                                    onClearAll:
-                                                        _clearPendingFiles,
                                                   );
                                                 },
                                               ),
@@ -9479,13 +9451,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       key: _composerKey,
       onSend: _sendText,
       onAttachmentChoice: _handleAttachmentChoice,
-      pendingFiles: _pendingFiles,
+      pendingFiles: ref.watch(pendingFilesProvider),
       onSendPendingFiles: _showFileSendModal,
       onRemovePendingFile: _removePendingFileRef,
       onClearPendingFiles: _clearPendingFiles,
       onPasteFiles: _isDesktopPlatform
-          ? (files) {
-              _addPendingFiles(files);
+          ? (files) async {
+              await _addPendingFiles(files);
             }
           : null,
       onToggleDesktopSidebar: _isDesktopPlatform

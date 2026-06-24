@@ -66,9 +66,28 @@ CREATE TABLE IF NOT EXISTS s3_config (
         COMMENT '1=用户主动切到内置 S3 但保留自建凭证；0=以自建 S3 为活跃模式',
     path_style_access_enabled TINYINT(1) NOT NULL DEFAULT 1
         COMMENT '1=Path-style URL；0=虚拟托管（bucket 作为子域）',
+    client_app VARCHAR(32) DEFAULT NULL
+        COMMENT 'CSTCloud Data Capsule client binding: s3drive|s3browser|rclone|obsidian|cherry_studio',
     PRIMARY KEY (id),
     UNIQUE KEY uk_s3_config_user_id (user_id),
     CONSTRAINT fk_s3_config_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- WebDAV 连接（每用户可有多条）
+CREATE TABLE IF NOT EXISTS webdav_connections (
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id       BIGINT       NOT NULL,
+    name          VARCHAR(128) NOT NULL COMMENT '显示名',
+    base_url      VARCHAR(512) NOT NULL COMMENT 'WebDAV 服务器地址',
+    username_enc  VARCHAR(1024) NOT NULL COMMENT 'enc:u:v1: 密文',
+    password_enc  VARCHAR(1024) NOT NULL COMMENT 'enc:u:v1: 密文',
+    root_path     VARCHAR(512) DEFAULT '/' COMMENT '可选根路径',
+    sort_order    INT          NOT NULL DEFAULT 0,
+    created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    KEY idx_webdav_user (user_id),
+    CONSTRAINT fk_webdav_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 邮箱验证码表

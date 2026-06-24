@@ -1401,7 +1401,7 @@ abstract class AppLocalizations {
   /// No description provided for @chatPickDeviceToStart.
   ///
   /// In en, this message translates to:
-  /// **'Choose a device to start chatting'**
+  /// **'Choose a device, cloud relay, or WebDAV connection'**
   String get chatPickDeviceToStart;
 
   /// No description provided for @chatTooltipBackDeviceList.
@@ -1841,6 +1841,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Added {count} files to outbox'**
   String fmPendingAddedMany(int count);
+
+  /// No description provided for @fmPendingAddFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not add to outbox'**
+  String get fmPendingAddFailed;
+
+  /// No description provided for @fmPendingDispatchPartialSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} file(s) could not be queued and remain in the outbox'**
+  String fmPendingDispatchPartialSkipped(int count);
 
   /// No description provided for @fmMultiSelectMode.
   ///
@@ -2796,6 +2808,24 @@ abstract class AppLocalizations {
   /// **'Usually required for MinIO and self-hosted gateways. Turn off for AWS regional endpoints to use virtual-hosted URLs.'**
   String get s3SettingsPathStyleHint;
 
+  /// No description provided for @s3SettingsFieldClientApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Client application'**
+  String get s3SettingsFieldClientApp;
+
+  /// No description provided for @s3SettingsClientAppHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Required for CSTCloud Data Capsule — must match the app selected when creating the AccessKey'**
+  String get s3SettingsClientAppHint;
+
+  /// No description provided for @s3SettingsClientAppRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a client application'**
+  String get s3SettingsClientAppRequired;
+
   /// No description provided for @s3SettingsFieldAccessKeyId.
   ///
   /// In en, this message translates to:
@@ -2817,7 +2847,7 @@ abstract class AppLocalizations {
   /// No description provided for @s3SettingsPlaceholderRegion.
   ///
   /// In en, this message translates to:
-  /// **'cn-east-1'**
+  /// **'us-east-1'**
   String get s3SettingsPlaceholderRegion;
 
   /// No description provided for @s3SettingsPlaceholderBucket.
@@ -3995,6 +4025,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} online'**
   String devicePanelDevicesOnlineCount(int count);
+
+  /// No description provided for @devicePanelFooterSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{deviceOnline} online · {webDavCount} WebDAV'**
+  String devicePanelFooterSummary(int deviceOnline, int webDavCount);
+
+  /// No description provided for @homeSectionCloudRelay.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud relay'**
+  String get homeSectionCloudRelay;
+
+  /// No description provided for @homeSectionRemoteStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote storage'**
+  String get homeSectionRemoteStorage;
+
+  /// No description provided for @homeSectionDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Device transfer'**
+  String get homeSectionDevices;
+
+  /// No description provided for @homeListEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet'**
+  String get homeListEmptyTitle;
+
+  /// No description provided for @homeListEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan to add a device, set up cloud relay, or connect WebDAV.'**
+  String get homeListEmptyHint;
+
+  /// No description provided for @homeWebDavLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load WebDAV connections'**
+  String get homeWebDavLoadFailed;
+
+  /// No description provided for @homeWebDavAddConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Add WebDAV connection'**
+  String get homeWebDavAddConnection;
+
+  /// No description provided for @homeWebDavRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get homeWebDavRetry;
+
+  /// No description provided for @homeListOfflineBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline — list may be outdated'**
+  String get homeListOfflineBanner;
 
   /// No description provided for @connectionBarDefaultTitle.
   ///
@@ -5465,6 +5555,516 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copy file'**
   String get chatMenuCopyFile;
+
+  /// No description provided for @webdavAddMenuTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Add connection'**
+  String get webdavAddMenuTooltip;
+
+  /// No description provided for @webdavScanLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan to sign in'**
+  String get webdavScanLogin;
+
+  /// No description provided for @webdavAddConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Add WebDAV'**
+  String get webdavAddConnection;
+
+  /// No description provided for @webdavEditConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit WebDAV'**
+  String get webdavEditConnection;
+
+  /// No description provided for @webdavSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WebDAV'**
+  String get webdavSectionTitle;
+
+  /// No description provided for @webdavFormName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get webdavFormName;
+
+  /// No description provided for @webdavFormNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name'**
+  String get webdavFormNameRequired;
+
+  /// No description provided for @webdavFormUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL'**
+  String get webdavFormUrl;
+
+  /// No description provided for @webdavFormUrlRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter server URL'**
+  String get webdavFormUrlRequired;
+
+  /// No description provided for @webdavFormUrlInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'URL must start with http:// or https://'**
+  String get webdavFormUrlInvalid;
+
+  /// No description provided for @webdavFormUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get webdavFormUsername;
+
+  /// No description provided for @webdavFormUsernameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter username'**
+  String get webdavFormUsernameRequired;
+
+  /// No description provided for @webdavFormPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get webdavFormPassword;
+
+  /// No description provided for @webdavFormPasswordHintEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave blank to keep current'**
+  String get webdavFormPasswordHintEdit;
+
+  /// No description provided for @webdavFormRootPath.
+  ///
+  /// In en, this message translates to:
+  /// **'Root path'**
+  String get webdavFormRootPath;
+
+  /// No description provided for @webdavPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter password'**
+  String get webdavPasswordRequired;
+
+  /// No description provided for @webdavTestConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection'**
+  String get webdavTestConnection;
+
+  /// No description provided for @webdavTestSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection successful'**
+  String get webdavTestSuccess;
+
+  /// No description provided for @webdavTestFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection test failed: {error}'**
+  String webdavTestFailed(String error);
+
+  /// No description provided for @webdavSavedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get webdavSavedToast;
+
+  /// No description provided for @webdavSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed: {error}'**
+  String webdavSaveFailed(String error);
+
+  /// No description provided for @webdavBrowserEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'This folder is empty'**
+  String get webdavBrowserEmpty;
+
+  /// No description provided for @webdavSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search this folder'**
+  String get webdavSearchHint;
+
+  /// No description provided for @webdavEntryFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder'**
+  String get webdavEntryFolder;
+
+  /// No description provided for @webdavActionDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get webdavActionDownload;
+
+  /// No description provided for @webdavActionRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get webdavActionRename;
+
+  /// No description provided for @webdavActionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get webdavActionDelete;
+
+  /// No description provided for @webdavActionUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload file'**
+  String get webdavActionUpload;
+
+  /// No description provided for @webdavActionNewFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'New folder'**
+  String get webdavActionNewFolder;
+
+  /// No description provided for @webdavDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selected items?'**
+  String get webdavDeleteConfirmTitle;
+
+  /// No description provided for @webdavDeleteConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {count} item(s)? This cannot be undone.'**
+  String webdavDeleteConfirmBody(int count);
+
+  /// No description provided for @webdavDeleteConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete connection'**
+  String get webdavDeleteConnection;
+
+  /// No description provided for @webdavDeleteConnectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete WebDAV connection?'**
+  String get webdavDeleteConnectionTitle;
+
+  /// No description provided for @webdavDeleteConnectionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove \"{name}\" and stored credentials.'**
+  String webdavDeleteConnectionBody(String name);
+
+  /// No description provided for @webdavDeletedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted'**
+  String get webdavDeletedToast;
+
+  /// No description provided for @webdavDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete failed: {error}'**
+  String webdavDeleteFailed(String error);
+
+  /// No description provided for @webdavRenameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get webdavRenameTitle;
+
+  /// No description provided for @webdavRenameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'New name'**
+  String get webdavRenameHint;
+
+  /// No description provided for @webdavRenameFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename failed: {error}'**
+  String webdavRenameFailed(String error);
+
+  /// No description provided for @webdavNewFolderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New folder'**
+  String get webdavNewFolderTitle;
+
+  /// No description provided for @webdavNewFolderHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder name'**
+  String get webdavNewFolderHint;
+
+  /// No description provided for @webdavCreateFolderFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Create failed: {error}'**
+  String webdavCreateFolderFailed(String error);
+
+  /// No description provided for @webdavUploadDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload complete'**
+  String get webdavUploadDone;
+
+  /// No description provided for @webdavUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload failed: {error}'**
+  String webdavUploadFailed(String error);
+
+  /// No description provided for @webdavDownloadDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to share or save'**
+  String get webdavDownloadDone;
+
+  /// No description provided for @webdavDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed: {error}'**
+  String webdavDownloadFailed(String error);
+
+  /// No description provided for @webdavSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String webdavSelectedCount(int count);
+
+  /// No description provided for @webdavTabFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Files'**
+  String get webdavTabFiles;
+
+  /// No description provided for @webdavTabRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get webdavTabRecent;
+
+  /// No description provided for @webdavTabFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get webdavTabFavorites;
+
+  /// No description provided for @webdavTabUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload'**
+  String get webdavTabUpload;
+
+  /// No description provided for @webdavTabSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get webdavTabSettings;
+
+  /// No description provided for @webdavTransferList.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfers'**
+  String get webdavTransferList;
+
+  /// No description provided for @webdavTransferUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading'**
+  String get webdavTransferUploading;
+
+  /// No description provided for @webdavTransferDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading'**
+  String get webdavTransferDownloading;
+
+  /// No description provided for @webdavTransferPauseAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause all'**
+  String get webdavTransferPauseAll;
+
+  /// No description provided for @webdavTransferEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No active transfers'**
+  String get webdavTransferEmpty;
+
+  /// No description provided for @webdavTransferQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued {count} transfer(s)'**
+  String webdavTransferQueued(int count);
+
+  /// No description provided for @webdavOutboxUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload to WebDAV'**
+  String get webdavOutboxUpload;
+
+  /// No description provided for @webdavOutboxUploadTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload to {path}'**
+  String webdavOutboxUploadTarget(String path);
+
+  /// No description provided for @webdavOutboxAddFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Add files'**
+  String get webdavOutboxAddFiles;
+
+  /// No description provided for @webdavOutboxEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending files. Add files or share from another app.'**
+  String get webdavOutboxEmpty;
+
+  /// No description provided for @webdavActionFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite'**
+  String get webdavActionFavorite;
+
+  /// No description provided for @webdavActionUnfavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfavorite'**
+  String get webdavActionUnfavorite;
+
+  /// No description provided for @webdavActionCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get webdavActionCopy;
+
+  /// No description provided for @webdavActionMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get webdavActionMove;
+
+  /// No description provided for @webdavActionDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get webdavActionDetails;
+
+  /// No description provided for @webdavActionOpenWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Open with'**
+  String get webdavActionOpenWith;
+
+  /// No description provided for @webdavActionShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get webdavActionShare;
+
+  /// No description provided for @webdavRecentEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent items'**
+  String get webdavRecentEmpty;
+
+  /// No description provided for @webdavFavoritesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No favorites yet'**
+  String get webdavFavoritesEmpty;
+
+  /// No description provided for @webdavSettingsCurrentConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Current connection'**
+  String get webdavSettingsCurrentConnection;
+
+  /// No description provided for @webdavSettingsSwitchConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch connection'**
+  String get webdavSettingsSwitchConnection;
+
+  /// No description provided for @webdavViewList.
+  ///
+  /// In en, this message translates to:
+  /// **'List view'**
+  String get webdavViewList;
+
+  /// No description provided for @webdavViewGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid view'**
+  String get webdavViewGrid;
+
+  /// No description provided for @webdavDetailType.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get webdavDetailType;
+
+  /// No description provided for @webdavDetailSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get webdavDetailSize;
+
+  /// No description provided for @webdavDetailLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get webdavDetailLocation;
+
+  /// No description provided for @webdavDetailModified.
+  ///
+  /// In en, this message translates to:
+  /// **'Modified'**
+  String get webdavDetailModified;
+
+  /// No description provided for @webdavMoveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Destination path (relative to root)'**
+  String get webdavMoveHint;
+
+  /// No description provided for @webdavCopiedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get webdavCopiedToast;
+
+  /// No description provided for @webdavCopyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy failed: {error}'**
+  String webdavCopyFailed(String error);
+
+  /// No description provided for @webdavMoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Move failed: {error}'**
+  String webdavMoveFailed(String error);
+
+  /// No description provided for @webdavShareNeedDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download the file first to share'**
+  String get webdavShareNeedDownload;
+
+  /// No description provided for @webdavLocalDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded'**
+  String get webdavLocalDownloaded;
 }
 
 class _AppLocalizationsDelegate

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../api/api.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../providers/device_provider.dart';
+import '../../providers/webdav_provider.dart';
+import '../../screens/webdav_shell_screen.dart';
 import '../../ui/app_ui.dart';
 import '../../services/auth_session_controller.dart';
 import 'device_list_panel.dart';
@@ -25,7 +28,8 @@ class MainLayout extends ConsumerStatefulWidget {
   final AuthSessionPhase authSessionPhase;
   final VoidCallback onShowSettings;
   final VoidCallback? onSearch;
-  final VoidCallback? onScanQr;
+  final VoidCallback? onScanTap;
+  final VoidCallback? onAddWebDavTap;
   final VoidCallback? onFileManager;
   final VoidCallback? onOpenS3Settings;
   final Future<void> Function()? onRefresh;
@@ -60,7 +64,8 @@ class MainLayout extends ConsumerStatefulWidget {
     this.authSessionPhase = AuthSessionPhase.authenticated,
     required this.onShowSettings,
     this.onSearch,
-    this.onScanQr,
+    this.onScanTap,
+    this.onAddWebDavTap,
     this.onFileManager,
     this.onOpenS3Settings,
     this.onRefresh,
@@ -109,6 +114,20 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     await prefs.setDouble(_keyPanelWidth, width);
   }
 
+  WebDavConnectionSummary? _resolveWebDavConnection(String? selection) {
+    final connectionId = parseWebDavConnectionId(selection);
+    if (connectionId == null) return null;
+    final connections = ref.read(webDavConnectionsProvider).valueOrNull ?? [];
+    for (final conn in connections) {
+      if (conn.id == connectionId) return conn;
+    }
+    return null;
+  }
+
+  void _clearSelection() {
+    ref.read(selectedDeviceIdProvider.notifier).select(null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedDeviceId = ref.watch(selectedDeviceIdProvider);
@@ -141,6 +160,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       kDeviceListPanelDragMaxWidth,
     );
     final effectiveWidth = _resolveEffectivePanelWidth(totalWidth, maxAllowed);
+    final webDavConnection = isWebDavSelection(selectedDeviceId)
+        ? _resolveWebDavConnection(selectedDeviceId)
+        : null;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -158,7 +180,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 authSessionPhase: widget.authSessionPhase,
                 onShowSettings: widget.onShowSettings,
                 onSearch: widget.onSearch,
-                onScanQr: widget.onScanQr,
+                onScanTap: widget.onScanTap,
+                onAddWebDavTap: widget.onAddWebDavTap,
                 onFileManager: widget.onFileManager,
                 onRefresh: widget.onRefresh,
                 onLoginTap: widget.onLoginTap,
@@ -170,26 +193,33 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             Expanded(
               child: ColoredBox(
                 color: colors.surface,
-                child: Column(
-                  children: [
-                    ChatHeader(
-                      isSelectionMode: widget.isSelectionMode,
-                      selectedCount: widget.selectedCount,
-                      totalCount: widget.totalCount,
-                      onExitSelection: widget.onExitSelection,
-                      onToggleSelectAll: widget.onToggleSelectAll,
-                      onDeleteSelected: widget.onDeleteSelected,
-                      onFileManager: widget.onFileManager,
-                      onOpenS3Settings: widget.onOpenS3Settings,
-                      onSessionDeviceSettings: widget.onSessionDeviceSettings,
-                    ),
-                    Expanded(
-                      child: selectedDeviceId != null
-                          ? widget.chatContent
-                          : _buildEmptyState(context),
-                    ),
-                  ],
-                ),
+                child: isWebDavSelection(selectedDeviceId)
+                    ? _buildWebDavPane(
+                        context,
+                        connection: webDavConnection,
+                        embedded: true,
+                      )
+                    : Column(
+                        children: [
+                          ChatHeader(
+                            isSelectionMode: widget.isSelectionMode,
+                            selectedCount: widget.selectedCount,
+                            totalCount: widget.totalCount,
+                            onExitSelection: widget.onExitSelection,
+                            onToggleSelectAll: widget.onToggleSelectAll,
+                            onDeleteSelected: widget.onDeleteSelected,
+                            onFileManager: widget.onFileManager,
+                            onOpenS3Settings: widget.onOpenS3Settings,
+                            onSessionDeviceSettings:
+                                widget.onSessionDeviceSettings,
+                          ),
+                          Expanded(
+                            child: isChatSelection(selectedDeviceId)
+                                ? widget.chatContent
+                                : _buildEmptyState(context),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ],
@@ -252,7 +282,17 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   }
 
   Widget _buildNarrowLayout(BuildContext context, String? selectedDeviceId) {
-    if (selectedDeviceId != null) {
+    if (isWebDavSelection(selectedDeviceId)) {
+      final connection = _resolveWebDavConnection(selectedDeviceId);
+      return _buildWebDavPane(
+        context,
+        connection: connection,
+        embedded: false,
+        onBack: _clearSelection,
+      );
+    }
+
+    if (isChatSelection(selectedDeviceId)) {
       final colors = context.appColors;
       return ColoredBox(
         color: colors.surface,
@@ -260,8 +300,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           children: [
             ChatHeader(
               showBackButton: true,
-              onBack: () =>
-                  ref.read(selectedDeviceIdProvider.notifier).select(null),
+              onBack: _clearSelection,
               isSelectionMode: widget.isSelectionMode,
               selectedCount: widget.selectedCount,
               totalCount: widget.totalCount,
@@ -287,13 +326,58 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       authSessionPhase: widget.authSessionPhase,
       onShowSettings: widget.onShowSettings,
       onSearch: widget.onSearch,
-      onScanQr: widget.onScanQr,
+      onScanTap: widget.onScanTap,
+      onAddWebDavTap: widget.onAddWebDavTap,
       onFileManager: widget.onFileManager,
       onRefresh: widget.onRefresh,
       onLoginTap: widget.onLoginTap,
       showBottomStatusBar: !widget.compactDeviceListChrome,
       showHeaderFileAndSettings: !widget.compactDeviceListChrome,
       showHeaderRefresh: true,
+    );
+  }
+
+  Widget _buildWebDavPane(
+    BuildContext context, {
+    required WebDavConnectionSummary? connection,
+    required bool embedded,
+    VoidCallback? onBack,
+  }) {
+    if (connection == null) {
+      final l10n = AppLocalizations.of(context);
+      final theme = Theme.of(context);
+      final colors = context.appColors;
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              l10n.homeWebDavLoadFailed,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton(
+              onPressed: () async {
+                await ref.read(webDavConnectionsProvider.notifier).refresh();
+                if (!mounted) return;
+                final selected = ref.read(selectedDeviceIdProvider);
+                if (_resolveWebDavConnection(selected) == null) {
+                  _clearSelection();
+                }
+              },
+              child: Text(l10n.homeWebDavRetry),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return WebDavShellScreen(
+      connection: connection,
+      embedded: embedded,
+      onBack: onBack,
     );
   }
 
@@ -324,6 +408,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colors.textSecondary,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

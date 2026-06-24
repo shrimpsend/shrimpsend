@@ -37,6 +37,13 @@ public class S3Controller {
         }
     }
 
+    @GetMapping("/providers")
+    public ResponseEntity<S3ProvidersResponse> getProviders(Authentication auth) {
+        Long userId = Long.parseLong((String) auth.getPrincipal());
+        log.debug("s3 getProviders userId={}", userId);
+        return ResponseEntity.ok(s3Service.getProviders());
+    }
+
     @PostMapping("/config")
     public ResponseEntity<Void> saveConfig(Authentication auth, @Valid @RequestBody S3ConfigRequest req) {
         Long userId = Long.parseLong((String) auth.getPrincipal());

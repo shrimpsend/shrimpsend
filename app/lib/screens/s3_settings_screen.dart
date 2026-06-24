@@ -9,12 +9,13 @@ import '../logger.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
 import '../ui/app_ui.dart';
+import '../services/s3_providers.dart';
 import '../utils/auth_route_guard.dart';
 import '../utils/file_utils.dart';
 import '../utils/toast.dart';
 import '../widgets/app_confirm_dialog.dart';
 
-const _defaultRegion = 'cn-east-1';
+const _defaultRegion = 'us-east-1';
 
 class S3SettingsScreen extends ConsumerStatefulWidget {
   const S3SettingsScreen({super.key});
@@ -47,8 +48,11 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
   bool _clearing = false;
   bool _obscureSecret = true;
   bool _pathStyleAccessEnabled = true;
-  String? _errorMessage;
-  String? _documentationUrl;
+  String? _clientApp;
+  String _providerId = s3ProviderCustom;
+  String? _tencentCosRegionId;
+  S3ProvidersCatalog? _providersCatalog;
+  String? _providerDocsUrl;
 
   void _onSummaryFieldChanged() {
     if (mounted) setState(() {});
@@ -63,6 +67,28 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
   /// - CUSTOM：必须显示（编辑现有配置）。
   /// - HOSTED：仅在用户点击「切换为自建 S3」后显示。
   bool get _showCustomForm => _isCustom || _isDisabled || _customFormRevealed;
+
+  String? _errorMessage;
+  String? _documentationUrl;
+
+  S3ProviderCatalogItem? get _activeProvider =>
+      _providersCatalog?.findProvider(_providerId);
+
+  bool get _requiresClientApp =>
+      _activeProvider?.fields.requiresClientApp ??
+      _providerId == s3ProviderDataCapsule;
+
+  bool get _pathStyleLocked =>
+      _activeProvider?.fields.pathStyleFixed ?? false;
+
+  bool get _endpointReadonly =>
+      _activeProvider?.fields.endpointFixed ?? false;
+
+  bool get _regionReadonly =>
+      _activeProvider?.fields.regionReadonly ?? false;
+
+  bool get _showTencentRegionPicker =>
+      _activeProvider?.fields.tencentRegionPicker ?? false;
 
   @override
   void initState() {
@@ -84,12 +110,14 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
     try {
       final results = await Future.wait([
         getS3Config(),
+        fetchS3Providers(),
         fetchMyMembership()
             .then<MembershipMe?>((v) => v)
             .catchError((_) => null),
       ]);
       final detail = results[0] as S3ConfigDetail;
-      final membership = results[1] as MembershipMe?;
+      final providers = results[1] as S3ProvidersCatalog;
+      final membership = results[2] as MembershipMe?;
       logSettings.info(
         's3_settings load mode=${detail.mode.name} hostedAvailable=${detail.hostedAvailable}',
       );
@@ -100,6 +128,7 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
           _customSaved = detail.customSaved;
           _membership = membership;
           _documentationUrl = detail.documentationUrl;
+          _providersCatalog = providers;
           _customFormRevealed = false;
           if (detail.mode == S3StorageMode.custom) {
             _endpointController.text = detail.endpoint ?? '';
@@ -107,8 +136,21 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
             _bucketController.text = detail.bucket ?? '';
             _accessKeyIdController.text = detail.accessKeyId ?? '';
             _pathStyleAccessEnabled = detail.pathStyleAccessEnabled ?? true;
+            _clientApp = detail.clientApp;
+            _providerId = detail.providerId ??
+                inferProviderIdFromEndpoint(detail.endpoint ?? '');
+            _providerDocsUrl = detail.providerDocsUrl;
+            _tencentCosRegionId = matchTencentCosRegionId(
+              providers.tencentCosRegions,
+              detail.endpoint ?? '',
+              detail.region ?? '',
+            );
           } else {
             _pathStyleAccessEnabled = true;
+            _clientApp = null;
+            _providerId = s3ProviderCustom;
+            _providerDocsUrl = null;
+            _tencentCosRegionId = null;
             _endpointController.clear();
             _regionController.text = _defaultRegion;
             _bucketController.clear();
@@ -123,8 +165,8 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
-  Future<void> _openS3Documentation() async {
-    final url = _documentationUrl?.trim();
+  Future<void> _openProviderDocumentation() async {
+    final url = (_providerDocsUrl ?? _documentationUrl)?.trim();
     final l10n = AppLocalizations.of(context);
     if (url == null || url.isEmpty) {
       if (!mounted) return;
@@ -139,6 +181,50 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
       if (!mounted) return;
       AppToast.show(context, message: l10n.s3SettingsDocsUnavailable);
     }
+  }
+
+  void _onProviderChanged(String? providerId) {
+    if (providerId == null || providerId == _providerId) return;
+    final provider = _providersCatalog?.findProvider(providerId);
+    if (provider == null) {
+      setState(() => _providerId = providerId);
+      return;
+    }
+    applyProviderDefaults(
+      provider: provider,
+      tencentCosRegions: _providersCatalog?.tencentCosRegions,
+      setEndpoint: (v) => _endpointController.text = v,
+      setRegion: (v) => _regionController.text = v,
+      setPathStyle: (v) => _pathStyleAccessEnabled = v,
+      setTencentRegionId: (v) => _tencentCosRegionId = v,
+    );
+    setState(() {
+      _providerId = providerId;
+      _providerDocsUrl = buildProviderDocsUrl(
+        _documentationUrl,
+        provider.docsSection,
+      );
+      if (!provider.fields.requiresClientApp) {
+        _clientApp = null;
+      }
+    });
+  }
+
+  void _onTencentCosRegionChanged(String? regionId) {
+    if (regionId == null) return;
+    final region = _providersCatalog?.tencentCosRegions
+        .where((r) => r.id == regionId)
+        .firstOrNull;
+    if (region == null) return;
+    setState(() {
+      _tencentCosRegionId = regionId;
+      _endpointController.text = region.endpoint;
+      _regionController.text = region.region;
+    });
+  }
+
+  Future<void> _openS3Documentation() async {
+    await _openProviderDocumentation();
   }
 
   Future<void> _save() async {
@@ -157,6 +243,15 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
       final accessKeyId = _accessKeyIdController.text.trim();
       final secretAccessKey = _secretAccessKeyController.text.trim();
 
+      if (_requiresClientApp &&
+          (_clientApp == null || _clientApp!.isEmpty)) {
+        setState(() {
+          _errorMessage = AppLocalizations.of(context).s3SettingsClientAppRequired;
+        });
+        setState(() => _saving = false);
+        return;
+      }
+
       await saveS3Config(
         S3ConfigRequest(
           endpoint: endpoint,
@@ -165,6 +260,8 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
           accessKeyId: accessKeyId,
           secretAccessKey: secretAccessKey,
           pathStyleAccessEnabled: _pathStyleAccessEnabled,
+          clientApp: _clientApp,
+          providerId: _providerId,
         ),
       );
 
@@ -338,6 +435,10 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
     _accessKeyIdController.clear();
     _secretAccessKeyController.clear();
     _pathStyleAccessEnabled = true;
+    _clientApp = null;
+    _providerId = s3ProviderCustom;
+    _providerDocsUrl = null;
+    _tencentCosRegionId = null;
   }
 
   static String _displayEndpointHost(String raw) {
@@ -630,6 +731,22 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
   Widget _buildCustomFormCard(BuildContext context, AppLocalizations l10n) {
     final theme = Theme.of(context);
     final colors = context.appColors;
+    final localeName = Localizations.localeOf(context).toString();
+    final providers = _providersCatalog?.providers ?? const [];
+    final clientAppOptions =
+        _providersCatalog?.clientAppOptions ?? const <S3ClientAppOption>[];
+    final activeProvider = _activeProvider;
+    final docsUrl = _providerDocsUrl ??
+        buildProviderDocsUrl(
+          _documentationUrl,
+          activeProvider?.docsSection ?? 'overview',
+        );
+    final endpointHint = activeProvider?.defaults.endpointPlaceholder ??
+        activeProvider?.defaults.endpoint ??
+        l10n.s3SettingsPlaceholderEndpoint;
+    final regionHint = activeProvider?.defaults.regionPlaceholder ??
+        activeProvider?.defaults.region ??
+        l10n.s3SettingsPlaceholderRegion;
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: AppRadius.medium),
@@ -647,12 +764,86 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              if (providers.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                _buildLabel(
+                  context,
+                  localeName.startsWith('zh') ? '服务提供商' : 'Provider',
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                DropdownButtonFormField<String>(
+                  value: providers.any((p) => p.id == _providerId)
+                      ? _providerId
+                      : s3ProviderCustom,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  items: providers
+                      .map(
+                        (p) => DropdownMenuItem(
+                          value: p.id,
+                          child: Text(p.displayLabel(localeName)),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _onProviderChanged,
+                ),
+                if (docsUrl != null && docsUrl.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () async {
+                        final uri = Uri.parse(docsUrl);
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      },
+                      icon: const Icon(LucideIcons.bookOpen, size: 16),
+                      label: Text(
+                        localeName.startsWith('zh')
+                            ? '查看配置指南'
+                            : 'View setup guide',
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+              if (_showTencentRegionPicker &&
+                  (_providersCatalog?.tencentCosRegions.isNotEmpty ??
+                      false)) ...[
+                const SizedBox(height: AppSpacing.md),
+                _buildLabel(
+                  context,
+                  localeName.startsWith('zh') ? '地域' : 'Region (COS)',
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                DropdownButtonFormField<String>(
+                  value: _tencentCosRegionId ??
+                      _providersCatalog!.tencentCosRegions.first.id,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  items: _providersCatalog!.tencentCosRegions
+                      .map(
+                        (r) => DropdownMenuItem(
+                          value: r.id,
+                          child: Text(r.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _onTencentCosRegionChanged,
+                ),
+              ],
               const SizedBox(height: AppSpacing.md),
               _buildLabel(context, l10n.s3SettingsFieldEndpoint),
               const SizedBox(height: AppSpacing.xs),
               _buildTextField(
                 controller: _endpointController,
-                hint: l10n.s3SettingsPlaceholderEndpoint,
+                hint: endpointHint,
+                readOnly: _endpointReadonly,
                 validator: (v) => (v == null || v.trim().isEmpty)
                     ? l10n.s3SettingsRequired
                     : null,
@@ -662,7 +853,8 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
               const SizedBox(height: AppSpacing.xs),
               _buildTextField(
                 controller: _regionController,
-                hint: l10n.s3SettingsPlaceholderRegion,
+                hint: regionHint,
+                readOnly: _regionReadonly,
               ),
               const SizedBox(height: AppSpacing.md),
               _buildLabel(context, l10n.s3SettingsFieldBucket),
@@ -676,22 +868,57 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
               ),
               const SizedBox(height: AppSpacing.sm),
               SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  l10n.s3SettingsFieldPathStyle,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    l10n.s3SettingsFieldPathStyle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
+                  subtitle: Text(
+                    l10n.s3SettingsPathStyleHint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                  value: _pathStyleAccessEnabled,
+                  onChanged: _pathStyleLocked
+                      ? null
+                      : (v) => setState(() => _pathStyleAccessEnabled = v),
                 ),
-                subtitle: Text(
-                  l10n.s3SettingsPathStyleHint,
+              if (_requiresClientApp) ...[
+                const SizedBox(height: AppSpacing.md),
+                _buildLabel(context, l10n.s3SettingsFieldClientApp),
+                const SizedBox(height: AppSpacing.xs),
+                DropdownButtonFormField<String>(
+                  value: _clientApp,
+                  decoration: InputDecoration(
+                    hintText: l10n.s3SettingsFieldClientApp,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  items: clientAppOptions
+                      .map(
+                        (o) => DropdownMenuItem(
+                          value: o.id,
+                          child: Text(o.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setState(() => _clientApp = v),
+                  validator: (v) => (v == null || v.isEmpty)
+                      ? l10n.s3SettingsClientAppRequired
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  l10n.s3SettingsClientAppHint,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colors.textSecondary,
                   ),
                 ),
-                value: _pathStyleAccessEnabled,
-                onChanged: (v) => setState(() => _pathStyleAccessEnabled = v),
-              ),
+              ],
               const SizedBox(height: AppSpacing.lg),
               Divider(height: 1, color: colors.border),
               const SizedBox(height: AppSpacing.lg),
@@ -815,11 +1042,13 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
     required TextEditingController controller,
     required String hint,
     String? Function(String?)? validator,
+    bool readOnly = false,
   }) {
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(hintText: hint),
       validator: validator,
+      readOnly: readOnly,
     );
   }
 

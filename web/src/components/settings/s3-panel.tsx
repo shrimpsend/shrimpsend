@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   fetchMyMembership,
   getS3Config,
+  getS3Providers,
   saveS3Config,
   testS3Config,
   clearS3Config,
@@ -16,6 +17,18 @@ import {
   type S3ConfigRequest,
   type S3StorageMode,
 } from '@/lib/api';
+import {
+  DEFAULT_S3_REGION,
+  S3_PROVIDER_CUSTOM,
+  applyProviderDefaults,
+  buildProviderDocsUrl,
+  findProvider,
+  inferProviderIdFromEndpoint,
+  matchTencentCosRegionId,
+  providerDisplayLabel,
+  providerRequiresClientApp,
+  type S3ProvidersCatalog,
+} from '@/lib/s3Providers';
 import { analyticsTrack } from '@/lib/analytics';
 import { AnalyticsEvents } from '@/lib/analyticsEvents';
 import { logger } from '@/lib/logger';
@@ -79,14 +92,29 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
   const [switchBackDialogOpen, setSwitchBackDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showSecret, setShowSecret] = useState(false);
+  const [providersCatalog, setProvidersCatalog] = useState<S3ProvidersCatalog | null>(null);
+  const [providerId, setProviderId] = useState(S3_PROVIDER_CUSTOM);
+  const [tencentCosRegionId, setTencentCosRegionId] = useState<string | undefined>();
+  const [providerDocsUrl, setProviderDocsUrl] = useState<string | undefined>();
   const [form, setForm] = useState<S3ConfigRequest>({
     endpoint: '',
-    region: 'cn-east-1',
+    region: DEFAULT_S3_REGION,
     bucket: '',
     accessKeyId: '',
     secretAccessKey: '',
     pathStyleAccessEnabled: true,
+    providerId: S3_PROVIDER_CUSTOM,
   });
+
+  const localePath = localeTagToPath(localeTag);
+  const activeProvider = findProvider(providersCatalog, providerId);
+  const requiresClientApp = providerRequiresClientApp(providersCatalog, providerId);
+  const endpointReadonly = activeProvider?.fields.endpoint === 'fixed';
+  const regionReadonly =
+    activeProvider?.fields.region === 'readonly' ||
+    activeProvider?.fields.region === 'fixed';
+  const pathStyleLocked = activeProvider?.fields.pathStyle === 'fixed';
+  const showTencentRegionPicker = activeProvider?.fields.tencentRegionPicker === true;
 
   const isCustom = mode === 'CUSTOM';
   const isHosted = mode === 'HOSTED';
@@ -94,25 +122,73 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
   const showCustomForm = isCustom || isDisabled || customFormRevealed;
   const showClearAction = isCustom && !hostedAvailable;
 
-  const resetForm = () =>
+  const resetForm = () => {
+    setProviderId(S3_PROVIDER_CUSTOM);
+    setTencentCosRegionId(undefined);
+    setProviderDocsUrl(undefined);
     setForm({
       endpoint: '',
-      region: 'cn-east-1',
+      region: DEFAULT_S3_REGION,
       bucket: '',
       accessKeyId: '',
       secretAccessKey: '',
       pathStyleAccessEnabled: true,
+      providerId: S3_PROVIDER_CUSTOM,
     });
+  };
+
+  const onProviderChange = useCallback(
+    (nextProviderId: string) => {
+      const provider = findProvider(providersCatalog, nextProviderId);
+      if (!provider) {
+        setProviderId(nextProviderId);
+        setForm((f) => ({ ...f, providerId: nextProviderId }));
+        return;
+      }
+      const defaults = applyProviderDefaults(
+        provider,
+        providersCatalog?.tencentCosRegions ?? [],
+      );
+      setProviderId(nextProviderId);
+      setTencentCosRegionId(defaults.tencentCosRegionId);
+      setProviderDocsUrl(buildProviderDocsUrl(undefined, provider.docsSection, localePath));
+      setForm((f) => ({
+        ...f,
+        providerId: nextProviderId,
+        endpoint: defaults.endpoint ?? f.endpoint,
+        region: defaults.region ?? f.region,
+        pathStyleAccessEnabled:
+          defaults.pathStyleAccessEnabled ?? f.pathStyleAccessEnabled,
+        clientApp: provider.fields.clientApp === 'required' ? f.clientApp : undefined,
+      }));
+    },
+    [localePath, providersCatalog],
+  );
+
+  const onTencentCosRegionChange = useCallback(
+    (regionId: string) => {
+      const region = providersCatalog?.tencentCosRegions.find((r) => r.id === regionId);
+      if (!region) return;
+      setTencentCosRegionId(regionId);
+      setForm((f) => ({
+        ...f,
+        endpoint: region.endpoint,
+        region: region.region,
+      }));
+    },
+    [providersCatalog],
+  );
 
   useEffect(() => {
     Promise.all([
       getS3Config(),
+      getS3Providers(),
       fetchMyMembership().catch((e) => {
         logger.warn(TAG, 'fetch membership failed', e);
         return null as MembershipMe | null;
       }),
     ])
-      .then(([data, me]) => {
+      .then(([data, providers, me]) => {
         logger.info(
           TAG,
           'load S3 config mode=', data.mode,
@@ -123,27 +199,52 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
         setHostedAvailable(data.hostedAvailable);
         setCustomSaved(data.customSaved);
         setMembership(me);
+        setProvidersCatalog(providers);
         setCustomFormRevealed(false);
         if (data.mode === 'CUSTOM') {
+          const resolvedProviderId =
+            data.providerId ?? inferProviderIdFromEndpoint(data.endpoint ?? '');
+          setProviderId(resolvedProviderId);
+          setProviderDocsUrl(
+            data.providerDocsUrl ??
+              buildProviderDocsUrl(
+                undefined,
+                findProvider(providers, resolvedProviderId)?.docsSection ?? 'overview',
+                localePath,
+              ),
+          );
+          setTencentCosRegionId(
+            matchTencentCosRegionId(
+              providers.tencentCosRegions,
+              data.endpoint ?? '',
+              data.region ?? '',
+            ),
+          );
           setForm((f) => ({
             ...f,
             endpoint: data.endpoint ?? '',
-            region: data.region ?? 'cn-east-1',
+            region: data.region ?? DEFAULT_S3_REGION,
             bucket: data.bucket ?? '',
             accessKeyId: data.accessKeyId ?? '',
             secretAccessKey: '',
             pathStyleAccessEnabled: data.pathStyleAccessEnabled ?? true,
+            clientApp: data.clientApp,
+            providerId: resolvedProviderId,
           }));
         } else {
           resetForm();
         }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [localePath]);
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (requiresClientApp && !form.clientApp) {
+        setErrorMessage(t('s3.clientAppRequired'));
+        return;
+      }
       setSaving(true);
       setErrorMessage(null);
       logger.info(TAG, 'save S3 config');
@@ -165,7 +266,7 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
         setSaving(false);
       }
     },
-    [form, t],
+    [form, requiresClientApp, t],
   );
 
   const onTest = useCallback(async () => {
@@ -236,14 +337,19 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
       setHostedAvailable(data.hostedAvailable);
       setCustomSaved(data.customSaved);
       if (data.mode === 'CUSTOM') {
+        const resolvedProviderId =
+          data.providerId ?? inferProviderIdFromEndpoint(data.endpoint ?? '');
+        setProviderId(resolvedProviderId);
         setForm((f) => ({
           ...f,
           endpoint: data.endpoint ?? '',
-          region: data.region ?? 'cn-east-1',
+          region: data.region ?? DEFAULT_S3_REGION,
           bucket: data.bucket ?? '',
           accessKeyId: data.accessKeyId ?? '',
           secretAccessKey: '',
           pathStyleAccessEnabled: data.pathStyleAccessEnabled ?? true,
+          clientApp: data.clientApp,
+          providerId: resolvedProviderId,
         }));
       }
       toast.success(t('s3.switchedToCustomOk'));
@@ -399,6 +505,61 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('s3.sectionConnection')}
         </p>
+        {(providersCatalog?.providers.length ?? 0) > 0 && (
+          <div className={wrapInCard ? 'space-y-2' : 'space-y-1.5'}>
+            <Label htmlFor={pid('provider')} className={wrapInCard ? undefined : 'text-xs'}>
+              {t('s3.fieldProvider')}
+            </Label>
+            <select
+              id={pid('provider')}
+              className={cn(
+                'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              )}
+              value={providerId}
+              onChange={(e) => onProviderChange(e.target.value)}
+            >
+              {providersCatalog!.providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {providerDisplayLabel(p, localeTag)}
+                </option>
+              ))}
+            </select>
+            {providerDocsUrl && (
+              <Link
+                href={providerDocsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary underline-offset-4 hover:underline"
+              >
+                <BookOpen className="size-3.5 shrink-0" aria-hidden />
+                {t('s3.providerGuide')}
+              </Link>
+            )}
+          </div>
+        )}
+        {showTencentRegionPicker && (providersCatalog?.tencentCosRegions.length ?? 0) > 0 && (
+          <div className={wrapInCard ? 'space-y-2' : 'space-y-1.5'}>
+            <Label htmlFor={pid('cos-region')} className={wrapInCard ? undefined : 'text-xs'}>
+              {t('s3.fieldTencentCosRegion')}
+            </Label>
+            <select
+              id={pid('cos-region')}
+              className={cn(
+                'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              )}
+              value={tencentCosRegionId ?? providersCatalog!.tencentCosRegions[0].id}
+              onChange={(e) => onTencentCosRegionChange(e.target.value)}
+            >
+              {providersCatalog!.tencentCosRegions.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className={wrapInCard ? 'space-y-2' : 'space-y-1.5'}>
           <Label htmlFor={pid('endpoint')} className={wrapInCard ? undefined : 'text-xs'}>
             {t('s3.fieldEndpoint')}
@@ -406,8 +567,13 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
           <Input
             id={pid('endpoint')}
             type="url"
-            placeholder={t('s3.placeholderEndpoint')}
+            placeholder={
+              activeProvider?.defaults.endpointPlaceholder ??
+              activeProvider?.defaults.endpoint ??
+              t('s3.placeholderEndpoint')
+            }
             value={form.endpoint}
+            readOnly={endpointReadonly}
             onChange={(e) => setForm((f) => ({ ...f, endpoint: e.target.value }))}
             required
           />
@@ -419,8 +585,13 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
           <Input
             id={pid('region')}
             type="text"
-            placeholder={t('s3.placeholderRegion')}
+            placeholder={
+              activeProvider?.defaults.regionPlaceholder ??
+              activeProvider?.defaults.region ??
+              t('s3.placeholderRegion')
+            }
             value={form.region}
+            readOnly={regionReadonly}
             onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
           />
         </div>
@@ -446,6 +617,7 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
           <Checkbox
             id={pid('path-style')}
             checked={form.pathStyleAccessEnabled !== false}
+            disabled={pathStyleLocked}
             onCheckedChange={(checked) =>
               setForm((f) => ({
                 ...f,
@@ -460,6 +632,36 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
             <p className="text-xs text-muted-foreground">{t('s3.pathStyleHint')}</p>
           </div>
         </div>
+        {requiresClientApp && (
+          <div className={wrapInCard ? 'space-y-2' : 'space-y-1.5'}>
+            <Label htmlFor={pid('client-app')} className={wrapInCard ? undefined : 'text-xs'}>
+              {t('s3.fieldClientApp')}
+            </Label>
+            <select
+              id={pid('client-app')}
+              className={cn(
+                'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              )}
+              value={form.clientApp ?? ''}
+              required
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  clientApp: e.target.value || undefined,
+                }))
+              }
+            >
+              <option value="">{t('s3.clientAppRequired')}</option>
+              {(providersCatalog?.clientAppOptions ?? []).map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">{t('s3.clientAppHint')}</p>
+          </div>
+        )}
       </div>
 
       <Separator />

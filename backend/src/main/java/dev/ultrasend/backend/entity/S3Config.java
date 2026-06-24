@@ -41,4 +41,18 @@ public class S3Config {
     @Column(name = "path_style_access_enabled", nullable = false)
     @Builder.Default
     private Boolean pathStyleAccessEnabled = true;
+
+    /**
+     * CSTCloud Data Capsule client-app binding (must match AccessKey creation in console).
+     * Values: s3drive, s3browser, rclone, obsidian, cherry_studio.
+     */
+    @Column(name = "client_app", length = 32)
+    private String clientApp;
+
+    /**
+     * S3 provider preset id: custom, data_capsule, bitiful, tencent_cos, cloudflare_r2.
+     */
+    @Column(name = "provider_id", length = 32, nullable = false)
+    @Builder.Default
+    private String providerId = "custom";
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:saver_gallery/saver_gallery.dart';
@@ -17,7 +18,7 @@ import '../services/desktop_file_clipboard.dart';
 import '../services/file_export_pipeline.dart';
 import '../services/file_export_service.dart';
 import '../services/file_store.dart';
-import '../services/pending_files_store.dart';
+import '../providers/pending_files_provider.dart';
 import '../services/receive_dir_resolver.dart';
 import '../services/received_file_dao.dart';
 import '../services/save_folder_listing_service.dart';
@@ -37,7 +38,7 @@ import '../widgets/received_file_info_dialog.dart';
 import 'settings_screen.dart';
 
 class FileManagerScreen extends StatefulWidget {
-  final ValueChanged<PlatformFile>? onAddToPending;
+  final Future<bool> Function(List<PlatformFile>)? onAddToPending;
 
   /// When true (e.g. mobile home tab), hide back [leading] — no route to pop.
   final bool embedded;
@@ -674,7 +675,7 @@ class _FileManagerScreenState extends State<FileManagerScreen>
           _selectedFiles.add(file.path);
         });
       },
-      onAddToPending: widget.onAddToPending,
+      onAddToPending: _addFilesToPending,
       onDeleted: () => unawaited(_reloadAfterDelete()),
     );
   }
@@ -786,37 +787,63 @@ class _FileManagerScreenState extends State<FileManagerScreen>
 
   String _exportActionLabel(AppLocalizations l10n) => saveAsActionLabel(l10n);
 
-  void _addToPending(ReceivedFileInfo file) {
+  Future<bool> _addFilesToPending(List<PlatformFile> platformFiles) async {
+    if (platformFiles.isEmpty) return false;
+
+    if (widget.onAddToPending != null) {
+      return widget.onAddToPending!(platformFiles);
+    }
+
+    if (!mounted) return false;
+    final result = await ProviderScope.containerOf(context, listen: false)
+        .read(pendingFilesProvider.notifier)
+        .add(platformFiles);
+    return result.added > 0;
+  }
+
+  Future<void> _addToPending(ReceivedFileInfo file) async {
     final l10n = AppLocalizations.of(context);
     final platformFile = PlatformFile(
       name: file.displayName,
       size: file.size,
       path: file.path,
     );
-    widget.onAddToPending?.call(platformFile);
-    AppToast.show(context, message: l10n.fmPendingAddedOne(file.displayName));
+    final ok = await _addFilesToPending([platformFile]);
+    if (!mounted) return;
+    AppToast.show(
+      context,
+      message: ok
+          ? l10n.fmPendingAddedOne(file.displayName)
+          : l10n.fmPendingAddFailed,
+    );
   }
 
-  void _addSelectedToPending() {
-    if (_selectedFiles.isEmpty || widget.onAddToPending == null) return;
+  Future<void> _addSelectedToPending() async {
+    if (_selectedFiles.isEmpty) return;
 
     final selectedFiles = _activeFiles
         .where((f) => _selectedFiles.contains(f.path))
         .toList();
+    if (selectedFiles.isEmpty) return;
 
-    for (final file in selectedFiles) {
-      final platformFile = PlatformFile(
-        name: file.displayName,
-        size: file.size,
-        path: file.path,
-      );
-      widget.onAddToPending?.call(platformFile);
-    }
+    final platformFiles = selectedFiles
+        .map(
+          (file) => PlatformFile(
+            name: file.displayName,
+            size: file.size,
+            path: file.path,
+          ),
+        )
+        .toList();
 
+    final ok = await _addFilesToPending(platformFiles);
+    if (!mounted) return;
     final count = selectedFiles.length;
     AppToast.show(
       context,
-      message: AppLocalizations.of(context).fmPendingAddedMany(count),
+      message: ok
+          ? AppLocalizations.of(context).fmPendingAddedMany(count)
+          : AppLocalizations.of(context).fmPendingAddFailed,
     );
   }
 
@@ -889,38 +916,18 @@ class _FileManagerScreenState extends State<FileManagerScreen>
   Future<void> _handleDesktopPaste(List<PlatformFile> files) async {
     if (!_isDesktop || files.isEmpty || !mounted) return;
 
-    if (widget.onAddToPending != null) {
-      for (final f in files) {
-        widget.onAddToPending!(f);
-      }
-      final l10n = AppLocalizations.of(context);
-      AppToast.show(
-        context,
-        message: files.length == 1
-            ? l10n.fmPendingAddedOne(files.first.name)
-            : l10n.fmPendingAddedMany(files.length),
-      );
-      return;
-    }
-
-    final result = await PendingFilesStore.load();
-    final existingPaths = result.files
-        .map((f) => f.path)
-        .whereType<String>()
-        .toSet();
-    final merged = List<PlatformFile>.from(result.files);
-    for (final f in files) {
-      final path = f.path;
-      if (path != null && path.isNotEmpty && !existingPaths.contains(path)) {
-        merged.add(f);
-        existingPaths.add(path);
-      }
-    }
-    await PendingFilesStore.save(merged);
+    final ok = await _addFilesToPending(files);
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     AppToast.show(
       context,
-      message: AppLocalizations.of(context).fileClipboardPasteAdded,
+      message: ok
+          ? (widget.onAddToPending != null
+              ? (files.length == 1
+                  ? l10n.fmPendingAddedOne(files.first.name)
+                  : l10n.fmPendingAddedMany(files.length))
+              : l10n.fileClipboardPasteAdded)
+          : l10n.fmPendingAddFailed,
     );
   }
 
