@@ -88,6 +88,7 @@ import '../chat/thread_key.dart';
 import '../services/desktop_file_clipboard.dart';
 import '../services/desktop_file_drop_dispatcher.dart';
 import '../services/share/share_pending_cache.dart';
+import '../services/pending_dispatch_bridge.dart';
 import '../providers/pending_files_provider.dart';
 import '../widgets/desktop_paste_shortcuts.dart';
 import '../services/transfer_record.dart';
@@ -701,6 +702,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (files.isEmpty) return false;
     final result = await ref.read(pendingFilesProvider.notifier).add(files);
     return result.added > 0;
+  }
+
+  Future<List<PlatformFile>?> _beginPendingSendDispatch() async {
+    final pending = List<PlatformFile>.from(ref.read(pendingFilesProvider));
+    if (pending.isEmpty) return null;
+    final dispatch =
+        await ref.read(pendingFilesProvider.notifier).beginDispatch(pending);
+    if (!mounted) {
+      return dispatch.queued.isEmpty ? null : dispatch.queued;
+    }
+    if (dispatch.skipped > 0) {
+      AppToast.show(
+        context,
+        message: AppLocalizations.of(context)
+            .fmPendingDispatchPartialSkipped(dispatch.skipped),
+      );
+    }
+    if (dispatch.queued.isEmpty) return null;
+    return dispatch.queued;
+  }
+
+  void _notifyPendingDispatchSettled(String? path, {required bool success}) {
+    if (path == null || path.isEmpty) return;
+    PendingDispatchBridge.notifySettled(path, success: success);
   }
 
   void _removePendingFileRef(PlatformFile file) {
@@ -5630,8 +5655,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
         return;
       }
-      final filesToSend = List<PlatformFile>.from(ref.read(pendingFilesProvider));
-      ref.read(pendingFilesProvider.notifier).clear();
+      final filesToSend = await _beginPendingSendDispatch();
+      if (filesToSend == null || filesToSend.isEmpty) return;
       // S3 virtual device conversation is a broadcast to all own devices (no toDeviceId).
       // A real device conversation uses toDeviceId so only that device gets the notification.
       final s3ToDeviceId =
@@ -5705,8 +5730,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
           return;
         }
-        final nearbyFiles = List<PlatformFile>.from(ref.read(pendingFilesProvider));
-        ref.read(pendingFilesProvider.notifier).clear();
+        final nearbyFiles = await _beginPendingSendDispatch();
+        if (nearbyFiles == null || nearbyFiles.isEmpty) return;
         final nbBytes = nearbyFiles.fold<int>(0, (a, f) => a + f.size);
         Analytics.track(AnalyticsEvents.fileSendIntent, {
           'channel': 'nearby',
@@ -5745,8 +5770,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
           return;
         }
-        final filesToSend = List<PlatformFile>.from(ref.read(pendingFilesProvider));
-        ref.read(pendingFilesProvider.notifier).clear();
+        final filesToSend = await _beginPendingSendDispatch();
+        if (filesToSend == null || filesToSend.isEmpty) return;
         final lanBytes = filesToSend.fold<int>(0, (a, f) => a + f.size);
         Analytics.track(AnalyticsEvents.fileSendIntent, {
           'channel': 'lan',
@@ -5786,8 +5811,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
           return;
         }
-        final rtcFiles = List<PlatformFile>.from(ref.read(pendingFilesProvider));
-        ref.read(pendingFilesProvider.notifier).clear();
+        final rtcFiles = await _beginPendingSendDispatch();
+        if (rtcFiles == null || rtcFiles.isEmpty) return;
         final rtcBytes = rtcFiles.fold<int>(0, (a, f) => a + f.size);
         Analytics.track(AnalyticsEvents.fileSendIntent, {
           'channel': 'webrtc',
@@ -5990,6 +6015,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         final fileName =
             _webrtcFileNameMap[entry.key] ?? _l10n.chatScreenGenericFile;
         final localId = entry.value;
+        final filePath = filesWithMeta
+            .where((f) => f.meta.fileId == entry.key)
+            .map((f) => f.filePath)
+            .firstOrNull;
         _webrtcFileLocalIdMap.remove(entry.key);
         _webrtcLocalIdToFileIdMap.remove(localId);
         _webrtcFileNameMap.remove(entry.key);
@@ -6015,6 +6044,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           });
         }
         TransferKeepAlive.instance.release(_webrtcKeepAliveId(localId));
+        _notifyPendingDispatchSettled(filePath, success: false);
       }
     }
   }
@@ -6482,6 +6512,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         );
         if (cancelToken.isCancelled) {
           await TransferStateManager.instance.markStatus(localId, 'paused');
+          _notifyPendingDispatchSettled(file.path, success: false);
           return;
         }
         if (pulled) {
@@ -6547,6 +6578,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           'size_bucket': Analytics.sizeBucket(file.size),
         });
         unawaited(SharePendingCache.deleteStagingFile(file.path));
+        _notifyPendingDispatchSettled(file.path, success: true);
         transferCompleted = true;
       }
       if (mounted && !didSendFile && !anyPushed) {
@@ -6561,11 +6593,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           'status': 'failed',
           'size_bucket': Analytics.sizeBucket(file.size),
         });
+        _notifyPendingDispatchSettled(file.path, success: false);
       }
     } catch (e) {
       // Distinguish user cancel (paused, resumable) from genuine failure.
       if (cancelToken.isCancelled) {
         await TransferStateManager.instance.markStatus(localId, 'paused');
+        _notifyPendingDispatchSettled(file.path, success: false);
       } else {
         if (mounted) {
           _updateSendingMessage(
@@ -6580,6 +6614,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           'status': 'failed',
           'size_bucket': Analytics.sizeBucket(file.size),
         });
+        _notifyPendingDispatchSettled(file.path, success: false);
       }
     } finally {
       _untrackActiveTransfer(localId, completed: transferCompleted);
@@ -6622,7 +6657,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     logChat.info('chat_screen sendFileViaS3 fileName=${file.name}');
     try {
-      if (!mounted) return;
+      if (!mounted) {
+        _notifyPendingDispatchSettled(file.path, success: false);
+        return;
+      }
       if (!ref.read(s3ConfiguredProvider)) {
         logChat.warning('chat_screen sendFileViaS3 hasS3Config=false');
         if (mounted) {
@@ -6631,6 +6669,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             message: _l10n.chatScreenConfigureS3FirstToast,
           );
         }
+        _notifyPendingDispatchSettled(file.path, success: false);
         return;
       }
       if (!ref.read(s3OnlineProvider)) {
@@ -6638,6 +6677,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         if (mounted) {
           AppToast.show(context, message: _l10n.chatScreenS3UnavailableToast);
         }
+        _notifyPendingDispatchSettled(file.path, success: false);
         return;
       }
       final contentType = file.extension != null
@@ -6805,9 +6845,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'size_bucket': Analytics.sizeBucket(file.size),
       });
       unawaited(SharePendingCache.deleteStagingFile(file.path));
+      _notifyPendingDispatchSettled(file.path, success: true);
       transferCompleted = true;
     } catch (e) {
-      if (cancelToken.isCancelled) return;
+      if (cancelToken.isCancelled) {
+        _notifyPendingDispatchSettled(file.path, success: false);
+        return;
+      }
       logChat.warning('chat_screen sendFileViaS3 failed: $e');
       if (mounted) {
         _updateSendingMessage(
@@ -6828,6 +6872,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'status': 'failed',
         'size_bucket': Analytics.sizeBucket(file.size),
       });
+      _notifyPendingDispatchSettled(file.path, success: false);
     } finally {
       _untrackActiveTransfer(localId, completed: transferCompleted);
       _speedTrackers.remove('local_$localId');
@@ -7194,6 +7239,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final targetDeviceId = retryInfo?.webrtcTargetDeviceId;
     _retryInfoByLocalId.remove(localId);
     unawaited(SharePendingCache.deleteStagingFile(retryInfo?.filePath));
+    _notifyPendingDispatchSettled(retryInfo?.filePath, success: true);
     setState(() {
       _setMessageStatus(localId, 'sent');
       _localMessageProgress.remove(localId);
@@ -7313,6 +7359,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     // Original failure path: tear down per-file bookkeeping and surface the
     // failure to the user.
+    final retry = localId != null ? _retryInfoByLocalId[localId] : null;
+    final failedFilePath = retry?.filePath;
     _webrtcFileLocalIdMap.remove(fileId);
     if (localId != null) _webrtcLocalIdToFileIdMap.remove(localId);
     _webrtcFileNameMap.remove(fileId);
@@ -7345,6 +7393,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
     logChat.warning('WebRTC file failed: $fileName error=$error');
     TransferKeepAlive.instance.release(_webrtcKeepAliveId(localId));
+    if (!wasDownloading) {
+      _notifyPendingDispatchSettled(failedFilePath, success: false);
+    }
   }
 
   void _onWebRTCFileCancelled(String fileId, String fileName) {
