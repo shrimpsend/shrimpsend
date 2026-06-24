@@ -41,6 +41,7 @@ class WebDavFilesTab extends ConsumerStatefulWidget {
   final String? initialPath;
   final ValueChanged<String>? onPathChanged;
   final WebDavSelectionChangedCallback? onSelectionChanged;
+  final ValueChanged<bool>? onSearchVisibilityChanged;
 
   const WebDavFilesTab({
     super.key,
@@ -49,6 +50,7 @@ class WebDavFilesTab extends ConsumerStatefulWidget {
     this.initialPath,
     this.onPathChanged,
     this.onSelectionChanged,
+    this.onSearchVisibilityChanged,
   });
 
   @override
@@ -63,9 +65,11 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
   bool _loading = true;
   String? _error;
   String _searchQuery = '';
+  bool _showSearch = false;
   bool _selectionMode = false;
   final Set<String> _selectedPaths = {};
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   WebDavViewMode _viewMode = WebDavViewMode.list;
   Map<String, String?> _localPathByRemotePath = {};
 
@@ -90,8 +94,30 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
       _onUploadCompleted,
     );
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
+
+  bool get showSearch => _showSearch;
+
+  WebDavViewMode get viewMode => _viewMode;
+
+  void toggleSearch() {
+    final opening = !_showSearch;
+    setState(() => _showSearch = opening);
+    widget.onSearchVisibilityChanged?.call(opening);
+    if (opening) {
+      _searchFocusNode.requestFocus();
+    } else {
+      _searchFocusNode.unfocus();
+      if (_searchQuery.isNotEmpty) {
+        _searchController.clear();
+        setState(() => _searchQuery = '');
+      }
+    }
+  }
+
+  void toggleViewMode() => _toggleViewMode();
 
   void _onUploadCompleted({
     required int connectionId,
@@ -678,167 +704,170 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
       ref.watch(webDavFavoritesProvider(widget.connection.id)),
     );
 
+    final scrollBottom = AppLayout.floatingBottomBarScrollInset(context);
+
+    Widget buildFileBody() {
+      if (_loading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (_error != null) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_error!, textAlign: TextAlign.center),
+                const SizedBox(height: AppSpacing.md),
+                OutlinedButton(
+                  onPressed: () => _loadDirectory(_relativePath),
+                  child: Text(l10n.connectionBarRefreshOnlineStatus),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      if (_visibleEntries.isEmpty) {
+        return Center(child: Text(l10n.webdavBrowserEmpty));
+      }
+      return RefreshIndicator(
+        onRefresh: () => _loadDirectory(_relativePath),
+        child: _viewMode == WebDavViewMode.grid
+            ? GridView.builder(
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 0.85,
+                  crossAxisSpacing: AppSpacing.xs,
+                  mainAxisSpacing: AppSpacing.xs,
+                ),
+                itemCount: _visibleEntries.length,
+                itemBuilder: (context, index) => _buildEntryTile(
+                  context,
+                  _visibleEntries[index],
+                  theme,
+                  colors,
+                  l10n,
+                  favoritePaths,
+                  grid: true,
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                itemCount: _visibleEntries.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: colors.border,
+                ),
+                itemBuilder: (context, index) => _buildEntryTile(
+                  context,
+                  _visibleEntries[index],
+                  theme,
+                  colors,
+                  l10n,
+                  favoritePaths,
+                  grid: false,
+                ),
+              ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.sm,
-            AppSpacing.md,
-            AppSpacing.xs,
-          ),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: l10n.webdavSearchHint,
-              prefixIcon: const Icon(LucideIcons.search, size: 18),
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _viewMode == WebDavViewMode.list
-                          ? LucideIcons.layoutGrid
-                          : LucideIcons.list,
-                      size: 18,
-                    ),
-                    onPressed: _toggleViewMode,
-                    tooltip: _viewMode == WebDavViewMode.list
-                        ? l10n.webdavViewGrid
-                        : l10n.webdavViewList,
-                  ),
-                  if (_searchQuery.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(LucideIcons.x, size: 18),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
-                      },
-                    ),
-                ],
-              ),
+        if (_showSearch)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xs,
+              AppSpacing.xs,
+              AppSpacing.xs,
+              AppSpacing.xs,
             ),
-            onChanged: (v) => setState(() => _searchQuery = v.trim()),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              decoration: InputDecoration(
+                hintText: l10n.webdavSearchHint,
+                prefixIcon: const Icon(LucideIcons.search, size: 18),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(LucideIcons.x, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.sm,
+                ),
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v.trim()),
+            ),
           ),
-        ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.xs,
-          ),
-          child: Row(
-            children: [
-              _BreadcrumbChip(label: '/', onTap: () => _loadDirectory('')),
-              for (var i = 0; i < _breadcrumbSegments.length; i++)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.xs,
+              0,
+              AppSpacing.xs,
+              scrollBottom,
+            ),
+            child: ClipRRect(
+              borderRadius: AppRadius.medium,
+              child: ColoredBox(
+                color: colors.surface,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(
-                      LucideIcons.chevronRight,
-                      size: 14,
-                      color: colors.textTertiary,
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                      ),
+                      child: Row(
+                        children: [
+                          _BreadcrumbChip(
+                            label: '/',
+                            onTap: () => _loadDirectory(''),
+                          ),
+                          for (var i = 0; i < _breadcrumbSegments.length; i++)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  LucideIcons.chevronRight,
+                                  size: 14,
+                                  color: colors.textTertiary,
+                                ),
+                                _BreadcrumbChip(
+                                  label: _breadcrumbSegments[i],
+                                  onTap: () {
+                                    final path = _breadcrumbSegments
+                                        .sublist(0, i + 1)
+                                        .join('/');
+                                    _loadDirectory(path);
+                                  },
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
-                    _BreadcrumbChip(
-                      label: _breadcrumbSegments[i],
-                      onTap: () {
-                        final path =
-                            _breadcrumbSegments.sublist(0, i + 1).join('/');
-                        _loadDirectory(path);
-                      },
-                    ),
+                    Divider(height: 1, thickness: 1, color: colors.border),
+                    Expanded(child: buildFileBody()),
                   ],
                 ),
-            ],
+              ),
+            ),
           ),
-        ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!, textAlign: TextAlign.center),
-                        const SizedBox(height: AppSpacing.md),
-                        OutlinedButton(
-                          onPressed: () => _loadDirectory(_relativePath),
-                          child: Text(l10n.connectionBarRefreshOnlineStatus),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : _visibleEntries.isEmpty
-              ? Center(child: Text(l10n.webdavBrowserEmpty))
-              : RefreshIndicator(
-                  onRefresh: () => _loadDirectory(_relativePath),
-                  child: _viewMode == WebDavViewMode.grid
-                      ? GridView.builder(
-                          padding: EdgeInsets.only(
-                            left: AppSpacing.md,
-                            right: AppSpacing.md,
-                            bottom: AppLayout.floatingBottomBarScrollInset(
-                              context,
-                            ),
-                          ),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: 0.85,
-                            crossAxisSpacing: AppSpacing.sm,
-                            mainAxisSpacing: AppSpacing.sm,
-                          ),
-                          itemCount: _visibleEntries.length,
-                          itemBuilder: (context, index) =>
-                              _buildEntryTile(
-                            context,
-                            _visibleEntries[index],
-                            theme,
-                            colors,
-                            l10n,
-                            favoritePaths,
-                            grid: true,
-                          ),
-                        )
-                      : Padding(
-                          padding: EdgeInsets.only(
-                            left: AppSpacing.md,
-                            right: AppSpacing.md,
-                            bottom: AppLayout.floatingBottomBarScrollInset(
-                              context,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: AppRadius.medium,
-                            child: ColoredBox(
-                              color: colors.surface,
-                              child: ListView.separated(
-                                itemCount: _visibleEntries.length,
-                                separatorBuilder: (_, __) => Divider(
-                                  height: 1,
-                                  thickness: 1,
-                                  color: colors.border,
-                                ),
-                                itemBuilder: (context, index) =>
-                                    _buildEntryTile(
-                                  context,
-                                  _visibleEntries[index],
-                                  theme,
-                                  colors,
-                                  l10n,
-                                  favoritePaths,
-                                  grid: false,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                ),
         ),
       ],
     );
@@ -959,7 +988,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     return Material(
       color: _selectionMode && selected
           ? theme.colorScheme.primary.withValues(alpha: 0.1)
-          : colors.surface,
+          : Colors.transparent,
       child: InkWell(
         onTap: () {
           if (_selectionMode) {

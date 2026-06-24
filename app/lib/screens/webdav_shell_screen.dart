@@ -46,6 +46,8 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
   int _tabIndex = 0;
   bool _filesSelectionMode = false;
   int _filesSelectedCount = 0;
+  bool _filesSearchVisible = false;
+  WebDavViewMode _filesViewMode = WebDavViewMode.list;
   final _filesTabKey = GlobalKey<WebDavFilesTabState>();
   String _currentPath = '';
 
@@ -98,6 +100,24 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
       _filesSelectionMode = selectionMode;
       _filesSelectedCount = selectedCount;
     });
+  }
+
+  void _onFilesSearchVisibilityChanged(bool visible) {
+    if (_filesSearchVisible == visible) return;
+    setState(() => _filesSearchVisible = visible);
+  }
+
+  void _toggleFilesSearch() {
+    _filesTabKey.currentState?.toggleSearch();
+  }
+
+  void _toggleFilesViewMode() {
+    final tab = _filesTabKey.currentState;
+    tab?.toggleViewMode();
+    final mode = tab?.viewMode;
+    if (mode != null && mode != _filesViewMode) {
+      setState(() => _filesViewMode = mode);
+    }
   }
 
   void _exitFilesSelectionMode() {
@@ -402,6 +422,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
               initialPath: _currentPath,
               onPathChanged: (p) => _currentPath = p,
               onSelectionChanged: _onFilesSelectionChanged,
+              onSearchVisibilityChanged: _onFilesSearchVisibilityChanged,
             ),
             WebDavRecentTab(
               connection: widget.connection,
@@ -493,6 +514,28 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
     }
 
     return [
+      if (_tabIndex == 0) ...[
+        IconButton(
+          icon: Icon(
+            _filesSearchVisible ? LucideIcons.searchX : LucideIcons.search,
+          ),
+          onPressed: _toggleFilesSearch,
+          tooltip: _filesSearchVisible
+              ? l10n.fmSearchCloseTooltip
+              : l10n.fmSearchTooltip,
+        ),
+        IconButton(
+          icon: Icon(
+            _filesViewMode == WebDavViewMode.list
+                ? LucideIcons.layoutGrid
+                : LucideIcons.list,
+          ),
+          onPressed: _toggleFilesViewMode,
+          tooltip: _filesViewMode == WebDavViewMode.list
+              ? l10n.webdavViewGrid
+              : l10n.webdavViewList,
+        ),
+      ],
       IconButton(
         icon: activeTransfers > 0
             ? Badge(
