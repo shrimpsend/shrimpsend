@@ -2808,6 +2808,24 @@ abstract class AppLocalizations {
   /// **'Usually required for MinIO and self-hosted gateways. Turn off for AWS regional endpoints to use virtual-hosted URLs.'**
   String get s3SettingsPathStyleHint;
 
+  /// No description provided for @s3SettingsFieldClientApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Client application'**
+  String get s3SettingsFieldClientApp;
+
+  /// No description provided for @s3SettingsClientAppHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Required for CSTCloud Data Capsule — must match the app selected when creating the AccessKey'**
+  String get s3SettingsClientAppHint;
+
+  /// No description provided for @s3SettingsClientAppRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a client application'**
+  String get s3SettingsClientAppRequired;
+
   /// No description provided for @s3SettingsFieldAccessKeyId.
   ///
   /// In en, this message translates to:

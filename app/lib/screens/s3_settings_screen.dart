@@ -9,6 +9,7 @@ import '../logger.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
 import '../ui/app_ui.dart';
+import '../services/s3_client_app.dart';
 import '../utils/auth_route_guard.dart';
 import '../utils/file_utils.dart';
 import '../utils/toast.dart';
@@ -47,6 +48,7 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
   bool _clearing = false;
   bool _obscureSecret = true;
   bool _pathStyleAccessEnabled = true;
+  String? _clientApp;
   String? _errorMessage;
   String? _documentationUrl;
 
@@ -63,6 +65,9 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
   /// - CUSTOM：必须显示（编辑现有配置）。
   /// - HOSTED：仅在用户点击「切换为自建 S3」后显示。
   bool get _showCustomForm => _isCustom || _isDisabled || _customFormRevealed;
+
+  bool get _requiresClientApp =>
+      s3EndpointRequiresClientApp(_endpointController.text.trim());
 
   @override
   void initState() {
@@ -107,8 +112,10 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
             _bucketController.text = detail.bucket ?? '';
             _accessKeyIdController.text = detail.accessKeyId ?? '';
             _pathStyleAccessEnabled = detail.pathStyleAccessEnabled ?? true;
+            _clientApp = detail.clientApp;
           } else {
             _pathStyleAccessEnabled = true;
+            _clientApp = null;
             _endpointController.clear();
             _regionController.text = _defaultRegion;
             _bucketController.clear();
@@ -157,6 +164,15 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
       final accessKeyId = _accessKeyIdController.text.trim();
       final secretAccessKey = _secretAccessKeyController.text.trim();
 
+      if (_requiresClientApp &&
+          (_clientApp == null || _clientApp!.isEmpty)) {
+        setState(() {
+          _errorMessage = AppLocalizations.of(context).s3SettingsClientAppRequired;
+        });
+        setState(() => _saving = false);
+        return;
+      }
+
       await saveS3Config(
         S3ConfigRequest(
           endpoint: endpoint,
@@ -165,6 +181,7 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
           accessKeyId: accessKeyId,
           secretAccessKey: secretAccessKey,
           pathStyleAccessEnabled: _pathStyleAccessEnabled,
+          clientApp: _clientApp,
         ),
       );
 
@@ -338,6 +355,7 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
     _accessKeyIdController.clear();
     _secretAccessKeyController.clear();
     _pathStyleAccessEnabled = true;
+    _clientApp = null;
   }
 
   static String _displayEndpointHost(String raw) {
@@ -692,6 +710,39 @@ class _S3SettingsScreenState extends ConsumerState<S3SettingsScreen> {
                 value: _pathStyleAccessEnabled,
                 onChanged: (v) => setState(() => _pathStyleAccessEnabled = v),
               ),
+              if (_requiresClientApp) ...[
+                const SizedBox(height: AppSpacing.md),
+                _buildLabel(context, l10n.s3SettingsFieldClientApp),
+                const SizedBox(height: AppSpacing.xs),
+                DropdownButtonFormField<String>(
+                  value: _clientApp,
+                  decoration: InputDecoration(
+                    hintText: l10n.s3SettingsFieldClientApp,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  items: s3ClientAppOptions
+                      .map(
+                        (o) => DropdownMenuItem(
+                          value: o.id,
+                          child: Text(o.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setState(() => _clientApp = v),
+                  validator: (v) => (v == null || v.isEmpty)
+                      ? l10n.s3SettingsClientAppRequired
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  l10n.s3SettingsClientAppHint,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
               const SizedBox(height: AppSpacing.lg),
               Divider(height: 1, color: colors.border),
               const SizedBox(height: AppSpacing.lg),

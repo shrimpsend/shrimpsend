@@ -5,6 +5,7 @@ import dev.ultrasend.backend.entity.S3Config;
 import dev.ultrasend.backend.entity.User;
 import dev.ultrasend.backend.repository.S3ConfigRepository;
 import dev.ultrasend.backend.repository.UserRepository;
+import dev.ultrasend.backend.s3.S3ClientAppSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -20,12 +23,18 @@ import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.*;
 
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class S3Service {
+
+    /** User-Agent for BYO S3 requests; some providers (e.g. CSTCloud Data Capsule) validate client binding via UA. */
+    static final String BYO_S3_USER_AGENT = "ShrimpSend/1.0 S3Compat";
 
     /** Legacy BYO object key prefix used by pre-refactor Web direct upload. */
     static final String LEGACY_UPLOAD_PREFIX = "uploads/";
@@ -61,6 +70,7 @@ public class S3Service {
 
     @Transactional
     public void saveConfig(Long userId, S3ConfigRequest req) {
+        S3ClientAppSupport.validateClientAppForEndpoint(req.getEndpoint(), req.getClientApp());
         User user = userRepository.findById(userId).orElseThrow();
         S3Config config = s3ConfigRepository.findByUserId(userId)
                 .orElse(S3Config.builder().user(user).build());
@@ -73,10 +83,19 @@ public class S3Service {
         }
         config.setPathStyleAccessEnabled(
                 req.getPathStyleAccessEnabled() != null ? req.getPathStyleAccessEnabled() : true);
+        config.setClientApp(normalizeClientApp(req.getClientApp()));
         // 用户主动保存 BYO 即视为「使用自建 S3」
         config.setPrefersHosted(false);
         s3ConfigRepository.save(config);
-        log.info("s3 saveConfig saved userId={} bucket={}", userId, config.getBucket());
+        log.info("s3 saveConfig saved userId={} bucket={} clientApp={}", userId, config.getBucket(),
+                config.getClientApp());
+    }
+
+    private static String normalizeClientApp(String clientApp) {
+        if (clientApp == null || clientApp.isBlank()) {
+            return null;
+        }
+        return clientApp.trim().toLowerCase();
     }
 
     public boolean hasConfig(Long userId) {
@@ -108,6 +127,8 @@ public class S3Service {
                             .bucket(c.getBucket())
                             .accessKeyId(c.getAccessKeyId())
                             .pathStyleAccessEnabled(resolvePathStyle(c.getPathStyleAccessEnabled()))
+                            .clientApp(c.getClientApp())
+                            .userAgent(resolveByoUserAgent(c))
                             .build();
                 })
                 .orElseGet(() -> {
@@ -176,8 +197,23 @@ public class S3Service {
             throw new IllegalArgumentException("S3 未配置");
         }
         S3Config config = byo.get();
-        S3Presigner presigner = buildPresigner(userId, config);
-        try {
+        String serverProbe = "ok";
+        String serverError = null;
+        try (S3Client client = buildS3Client(userId, config)) {
+            client.headBucket(HeadBucketRequest.builder().bucket(config.getBucket()).build());
+            log.info("s3 serverProbe ok userId={} bucket={}", userId, config.getBucket());
+        } catch (S3Exception e) {
+            serverProbe = "failed";
+            serverError = formatS3Error(e);
+            log.warn("s3 serverProbe failed userId={} bucket={} httpStatus={} error={}",
+                    userId, config.getBucket(), e.statusCode(), serverError);
+        } catch (Exception e) {
+            serverProbe = "failed";
+            serverError = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            log.warn("s3 serverProbe failed userId={} bucket={} error={}", userId, config.getBucket(), serverError, e);
+        }
+
+        try (PresignerSession session = openPresigner(userId, config)) {
             HeadBucketRequest headReq = HeadBucketRequest.builder()
                     .bucket(config.getBucket())
                     .build();
@@ -185,17 +221,92 @@ public class S3Service {
                     .signatureDuration(Duration.ofSeconds(60))
                     .headBucketRequest(headReq)
                     .build();
-            PresignedHeadBucketRequest presigned = presigner.presignHeadBucket(presignReq);
+            PresignedHeadBucketRequest presigned = session.presigner().presignHeadBucket(presignReq);
             String url = presigned.url().toString();
-            log.info("s3 presignTestUrl ok userId={} bucket={}", userId, config.getBucket());
-            return S3TestUrlResponse.builder().url(url).build();
+            logPresignTestUrlSummary(userId, config, url);
+            return S3TestUrlResponse.builder()
+                    .url(url)
+                    .serverProbe(serverProbe)
+                    .serverError(serverError)
+                    .build();
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("s3 presignTestUrl failed userId={}", userId, e);
             throw new IllegalArgumentException("S3 连接失败: "
                     + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
-        } finally {
-            presigner.close();
         }
+    }
+
+    private static String formatS3Error(S3Exception e) {
+        String detail = null;
+        if (e.awsErrorDetails() != null) {
+            String code = e.awsErrorDetails().errorCode();
+            String message = e.awsErrorDetails().errorMessage();
+            if (code != null && message != null) {
+                detail = code + ": " + message;
+            } else if (code != null) {
+                detail = code;
+            } else if (message != null) {
+                detail = message;
+            }
+        }
+        if (detail == null || detail.isBlank()) {
+            detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        }
+        if (e.statusCode() > 0) {
+            return "HTTP " + e.statusCode() + (detail.isBlank() ? "" : " " + detail);
+        }
+        return detail;
+    }
+
+    private void logPresignTestUrlSummary(Long userId, S3Config config, String presignedUrl) {
+        String signedHeaders = presignQueryParam(presignedUrl, "X-Amz-SignedHeaders");
+        String credentialScope = presignCredentialScope(presignedUrl);
+        log.info("s3 presignTestUrl ok userId={} endpoint={} region={} bucket={} pathStyle={} "
+                        + "signedHeaders={} credentialScope={}",
+                userId,
+                config.getEndpoint(),
+                config.getRegion() != null ? config.getRegion() : "cn-east-1",
+                config.getBucket(),
+                resolvePathStyle(config.getPathStyleAccessEnabled()),
+                signedHeaders,
+                credentialScope);
+    }
+
+    private static String presignQueryParam(String url, String key) {
+        try {
+            URI uri = URI.create(url);
+            String query = uri.getRawQuery();
+            if (query == null || query.isBlank()) {
+                return null;
+            }
+            for (String part : query.split("&")) {
+                int eq = part.indexOf('=');
+                if (eq <= 0) {
+                    continue;
+                }
+                String name = URLDecoder.decode(part.substring(0, eq), StandardCharsets.UTF_8);
+                if (key.equals(name)) {
+                    return URLDecoder.decode(part.substring(eq + 1), StandardCharsets.UTF_8);
+                }
+            }
+        } catch (Exception ignored) {
+            // best-effort logging helper
+        }
+        return null;
+    }
+
+    private static String presignCredentialScope(String url) {
+        String credential = presignQueryParam(url, "X-Amz-Credential");
+        if (credential == null) {
+            return null;
+        }
+        int slash = credential.indexOf('/');
+        if (slash < 0 || slash == credential.length() - 1) {
+            return credential;
+        }
+        return credential.substring(slash + 1);
     }
 
     public PresignUploadResponse presignUpload(Long userId, String fileName, String contentType, Long contentLength) {
@@ -208,26 +319,24 @@ public class S3Service {
         String key = generateByoUploadKey(fileName);
         log.debug("s3 presignUpload userId={} key={}", userId, key);
 
-        S3Presigner presigner = buildPresigner(userId, config);
-
-        // Do not sign Content-Type: legacy Web presign only signed host, and browser may send
-        // a Content-Type that differs from the presign default.
-        PutObjectRequest putRequest = PutObjectRequest.builder()
-                .bucket(config.getBucket())
-                .key(key)
-                .build();
-        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofHours(1))
-                .putObjectRequest(putRequest)
-                .build();
-        PresignedPutObjectRequest presigned = presigner.presignPutObject(presignRequest);
-        presigner.close();
-
-        String uploadUrl = presigned.url().toString();
-        return PresignUploadResponse.builder()
-                .uploadUrl(uploadUrl)
-                .key(key)
-                .build();
+        try (PresignerSession session = openPresigner(userId, config)) {
+            // Do not sign Content-Type: legacy Web presign only signed host, and browser may send
+            // a Content-Type that differs from the presign default.
+            PutObjectRequest putRequest = PutObjectRequest.builder()
+                    .bucket(config.getBucket())
+                    .key(key)
+                    .build();
+            PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofHours(1))
+                    .putObjectRequest(putRequest)
+                    .build();
+            PresignedPutObjectRequest presigned = session.presigner().presignPutObject(presignRequest);
+            String uploadUrl = presigned.url().toString();
+            return PresignUploadResponse.builder()
+                    .uploadUrl(uploadUrl)
+                    .key(key)
+                    .build();
+        }
     }
 
     public String presignDownload(Long userId, String key) {
@@ -238,19 +347,18 @@ public class S3Service {
                 .orElseThrow(() -> new IllegalArgumentException("S3 not configured"));
         validateKeyOwnership(userId, key);
         log.debug("s3 presignDownload userId={} key={}", userId, key);
-        S3Presigner presigner = buildPresigner(userId, config);
-        GetObjectRequest getRequest = GetObjectRequest.builder()
-                .bucket(config.getBucket())
-                .key(key)
-                .build();
-        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofHours(1))
-                .getObjectRequest(getRequest)
-                .build();
-        var presigned = presigner.presignGetObject(presignRequest);
-        String url = presigned.url().toString();
-        presigner.close();
-        return url;
+        try (PresignerSession session = openPresigner(userId, config)) {
+            GetObjectRequest getRequest = GetObjectRequest.builder()
+                    .bucket(config.getBucket())
+                    .key(key)
+                    .build();
+            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofHours(1))
+                    .getObjectRequest(getRequest)
+                    .build();
+            var presigned = session.presigner().presignGetObject(presignRequest);
+            return presigned.url().toString();
+        }
     }
 
     // ── Multipart Upload ───────────────────────────────────────────────
@@ -289,8 +397,7 @@ public class S3Service {
         validateKeyOwnership(userId, key);
         log.debug("s3 presignPart userId={} part={} key={}", userId, partNumber, key);
 
-        S3Presigner presigner = buildPresigner(userId, config);
-        try {
+        try (PresignerSession session = openPresigner(userId, config)) {
             UploadPartRequest partReq = UploadPartRequest.builder()
                     .bucket(config.getBucket())
                     .key(key)
@@ -301,10 +408,8 @@ public class S3Service {
                     .signatureDuration(Duration.ofHours(1))
                     .uploadPartRequest(partReq)
                     .build();
-            PresignedUploadPartRequest presigned = presigner.presignUploadPart(presignReq);
+            PresignedUploadPartRequest presigned = session.presigner().presignUploadPart(presignReq);
             return presigned.url().toString();
-        } finally {
-            presigner.close();
         }
     }
 
@@ -395,36 +500,66 @@ public class S3Service {
         return userDataEncryption.decryptForUser(userId, config.getSecretAccessKey());
     }
 
-    private S3Client buildS3Client(Long userId, S3Config config) {
-        return buildS3Client(userId, config, null);
+    private static String resolveByoUserAgent(S3Config config) {
+        return S3ClientAppSupport.resolveUserAgent(config.getClientApp());
     }
 
-    private S3Client buildS3Client(Long userId, S3Config config, ClientOverrideConfiguration overrideConfiguration) {
+    private S3Client buildS3Client(Long userId, S3Config config) {
         String secretAccessKey = resolveSecretAccessKey(userId, config);
-        var builder = S3Client.builder()
+        String userAgent = resolveByoUserAgent(config);
+        return S3Client.builder()
                 .region(Region.of(config.getRegion() != null ? config.getRegion() : "cn-east-1"))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(config.getAccessKeyId(), secretAccessKey)))
                 .endpointOverride(java.net.URI.create(config.getEndpoint()))
+                .overrideConfiguration(ClientOverrideConfiguration.builder()
+                        .putHeader("User-Agent", userAgent)
+                        .build())
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(resolvePathStyle(config.getPathStyleAccessEnabled()))
-                        .build());
-        if (overrideConfiguration != null) {
-            builder.overrideConfiguration(overrideConfiguration);
-        }
-        return builder.build();
+                        .build())
+                .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
+                .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
+                .build();
     }
 
-    private S3Presigner buildPresigner(Long userId, S3Config config) {
+    /**
+     * S3Presigner does not expose checksum builder options in SDK 2.31; wire a configured client
+     * so presigned URLs omit optional integrity headers that break third-party S3 endpoints.
+     */
+    private PresignerSession openPresigner(Long userId, S3Config config) {
+        S3Client client = buildS3Client(userId, config);
         String secretAccessKey = resolveSecretAccessKey(userId, config);
-        return S3Presigner.builder()
+        S3Presigner presigner = S3Presigner.builder()
                 .region(Region.of(config.getRegion() != null ? config.getRegion() : "cn-east-1"))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(config.getAccessKeyId(), secretAccessKey)))
                 .endpointOverride(java.net.URI.create(config.getEndpoint()))
+                .s3Client(client)
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(resolvePathStyle(config.getPathStyleAccessEnabled()))
                         .build())
                 .build();
+        return new PresignerSession(client, presigner);
+    }
+
+    private static final class PresignerSession implements AutoCloseable {
+        private final S3Client client;
+        private final S3Presigner presigner;
+
+        private PresignerSession(S3Client client, S3Presigner presigner) {
+            this.client = client;
+            this.presigner = presigner;
+        }
+
+        private S3Presigner presigner() {
+            return presigner;
+        }
+
+        @Override
+        public void close() {
+            presigner.close();
+            client.close();
+        }
     }
 }

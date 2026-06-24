@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { S3_CLIENT_APP_OPTIONS, s3EndpointRequiresClientApp } from '@/lib/s3ClientApp';
 
 const TAG = 's3-panel';
 
@@ -93,6 +94,7 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
   const isDisabled = mode === 'DISABLED';
   const showCustomForm = isCustom || isDisabled || customFormRevealed;
   const showClearAction = isCustom && !hostedAvailable;
+  const requiresClientApp = s3EndpointRequiresClientApp(form.endpoint);
 
   const resetForm = () =>
     setForm({
@@ -133,6 +135,7 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
             accessKeyId: data.accessKeyId ?? '',
             secretAccessKey: '',
             pathStyleAccessEnabled: data.pathStyleAccessEnabled ?? true,
+            clientApp: data.clientApp,
           }));
         } else {
           resetForm();
@@ -144,6 +147,10 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (requiresClientApp && !form.clientApp) {
+        setErrorMessage(t('s3.clientAppRequired'));
+        return;
+      }
       setSaving(true);
       setErrorMessage(null);
       logger.info(TAG, 'save S3 config');
@@ -165,7 +172,7 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
         setSaving(false);
       }
     },
-    [form, t],
+    [form, requiresClientApp, t],
   );
 
   const onTest = useCallback(async () => {
@@ -460,6 +467,36 @@ export function S3Panel({ idPrefix, wrapInCard = false }: S3PanelProps) {
             <p className="text-xs text-muted-foreground">{t('s3.pathStyleHint')}</p>
           </div>
         </div>
+        {requiresClientApp && (
+          <div className={wrapInCard ? 'space-y-2' : 'space-y-1.5'}>
+            <Label htmlFor={pid('client-app')} className={wrapInCard ? undefined : 'text-xs'}>
+              {t('s3.fieldClientApp')}
+            </Label>
+            <select
+              id={pid('client-app')}
+              className={cn(
+                'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              )}
+              value={form.clientApp ?? ''}
+              required
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  clientApp: e.target.value || undefined,
+                }))
+              }
+            >
+              <option value="">{t('s3.clientAppRequired')}</option>
+              {S3_CLIENT_APP_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">{t('s3.clientAppHint')}</p>
+          </div>
+        )}
       </div>
 
       <Separator />

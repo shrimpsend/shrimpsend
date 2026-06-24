@@ -5,6 +5,7 @@ export type DocsDocId = 'intro' | 's3' | 'privacy' | 'terms' | 'contact';
 export type S3SectionId =
   | 'overview'
   | 'bitiful'
+  | 'data-capsule'
   | 'built-in'
   | 'tencent-cos'
   | 'cloudflare-r2'
@@ -31,6 +32,7 @@ export type ResolvedDocsSlug =
 export const MAINLAND_S3_SECTION_IDS: S3SectionId[] = [
   'overview',
   'bitiful',
+  'data-capsule',
   'tencent-cos',
   'cloudflare-r2',
   'rustfs',
@@ -47,6 +49,7 @@ export const OVERSEAS_S3_SECTION_IDS: S3SectionId[] = [
 export const S3_SECTION_IDS: S3SectionId[] = [
   'overview',
   'bitiful',
+  'data-capsule',
   'built-in',
   'tencent-cos',
   'cloudflare-r2',
@@ -54,7 +57,7 @@ export const S3_SECTION_IDS: S3SectionId[] = [
 ];
 
 const OVERSEAS_ONLY_S3_SECTIONS = new Set<S3SectionId>(['built-in']);
-const MAINLAND_ONLY_S3_SECTIONS = new Set<S3SectionId>(['bitiful', 'tencent-cos']);
+const MAINLAND_ONLY_S3_SECTIONS = new Set<S3SectionId>(['bitiful', 'data-capsule', 'tencent-cos']);
 
 export function isS3SectionId(value: string): value is S3SectionId {
   return S3_SECTION_IDS.includes(value as S3SectionId);

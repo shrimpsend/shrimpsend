@@ -63,6 +63,7 @@ https://xiachuan.net
 按你使用的对象存储，在左侧选择对应指南（**推荐优先使用缤纷云**）：
 
 - [缤纷云（推荐）](/zh/docs/s3/bitiful)
+- [中国科技云数据胶囊](/zh/docs/s3/data-capsule)
 - [腾讯云 COS](/zh/docs/s3/tencent-cos)
 - [Cloudflare R2](/zh/docs/s3/cloudflare-r2)
 - [RustFS](/zh/docs/s3/rustfs)

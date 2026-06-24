@@ -59,6 +59,7 @@ Add `https://www.xiachuan.net` if needed. No path suffix; no trailing `/`.
 Pick your storage vendor in the sidebar (**Bitiful is recommended first**):
 
 - [Bitiful (Recommended)](/en/docs/s3/bitiful)
+- [CSTCloud Data Capsule](/en/docs/s3/data-capsule)
 - [Tencent COS](/en/docs/s3/tencent-cos)
 - [Cloudflare R2](/en/docs/s3/cloudflare-r2)
 - [RustFS](/en/docs/s3/rustfs)

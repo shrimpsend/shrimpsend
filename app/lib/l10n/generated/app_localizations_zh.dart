@@ -1458,6 +1458,16 @@ class AppLocalizationsZh extends AppLocalizations {
       'MinIO 及多数自建网关通常需开启；AWS S3 等区域 Endpoint 可关闭以使用虚拟托管。';
 
   @override
+  String get s3SettingsFieldClientApp => '客户端应用';
+
+  @override
+  String get s3SettingsClientAppHint =>
+      '中国科技云数据胶囊必填：须与控制台创建 AccessKey 时选择的应用一致';
+
+  @override
+  String get s3SettingsClientAppRequired => '请选择客户端应用';
+
+  @override
   String get s3SettingsFieldAccessKeyId => 'Access Key ID';
 
   @override

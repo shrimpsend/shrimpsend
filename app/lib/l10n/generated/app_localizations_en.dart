@@ -1507,6 +1507,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Usually required for MinIO and self-hosted gateways. Turn off for AWS regional endpoints to use virtual-hosted URLs.';
 
   @override
+  String get s3SettingsFieldClientApp => 'Client application';
+
+  @override
+  String get s3SettingsClientAppHint =>
+      'Required for CSTCloud Data Capsule — must match the app selected when creating the AccessKey';
+
+  @override
+  String get s3SettingsClientAppRequired => 'Select a client application';
+
+  @override
   String get s3SettingsFieldAccessKeyId => 'Access Key ID';
 
   @override

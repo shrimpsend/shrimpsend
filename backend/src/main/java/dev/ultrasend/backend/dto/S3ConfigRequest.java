@@ -22,4 +22,10 @@ public class S3ConfigRequest {
 
     /** null 时按 true（Path-style）保存，与历史客户端行为一致。 */
     private Boolean pathStyleAccessEnabled;
+
+    /**
+     * 数据胶囊等：与控制台创建 AccessKey 时绑定的客户端应用一致。
+     * s3drive | s3browser | rclone | obsidian | cherry_studio
+     */
+    private String clientApp;
 }

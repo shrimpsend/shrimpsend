@@ -16,6 +16,8 @@ import type {
 } from './cloudTransfer';
 import { transferStateManager } from './transferStateManager';
 import type { CompletedPart } from './transferRecord';
+import { S3_COMPATIBLE_USER_AGENT } from './s3LocalTest';
+import { getS3Config } from '../api/s3';
 import {
   inspectXhrLikelyCors,
   isLikelyNetworkOrCorsError,
@@ -25,6 +27,12 @@ import {
 const TAG = 's3Transfer';
 const MULTIPART_THRESHOLD = 5 * 1024 * 1024; // 5 MB
 const PART_SIZE = 10 * 1024 * 1024; // 10 MB
+
+async function resolveS3UserAgent(): Promise<string> {
+  const cfg = await getS3Config();
+  const ua = cfg.userAgent?.trim();
+  return ua || S3_COMPATIBLE_USER_AGENT;
+}
 
 /** 上传/下载统一走后端 presign，客户端直连 S3 URL（密钥不落地）。 */
 export class S3TransferService implements CloudTransferService {
@@ -48,8 +56,9 @@ export class S3TransferService implements CloudTransferService {
     onProgress?: OnTransferProgress,
     abortSignal?: AbortSignal,
   ): Promise<CloudUploadResult> {
+    const userAgent = await resolveS3UserAgent();
     const pres = await apiPresignUpload(file.name, file.type || undefined, file.size);
-    await this._putViaXhr(pres.uploadUrl, file, onProgress, abortSignal);
+    await this._putViaXhr(pres.uploadUrl, file, onProgress, abortSignal, userAgent);
     onProgress?.(file.size, file.size);
     logger.info(TAG, 'simple upload ok', file.name, 'key=', pres.key);
     return { key: pres.key, fileName: file.name };
@@ -60,6 +69,7 @@ export class S3TransferService implements CloudTransferService {
     file: File,
     onProgress?: OnTransferProgress,
     abortSignal?: AbortSignal,
+    userAgent = S3_COMPATIBLE_USER_AGENT,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -90,6 +100,7 @@ export class S3TransferService implements CloudTransferService {
         reject(new Error('errors.s3UploadFailed'));
       };
       xhr.open('PUT', uploadUrl);
+      xhr.setRequestHeader('User-Agent', userAgent);
       xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
       xhr.send(file);
     });
@@ -100,6 +111,7 @@ export class S3TransferService implements CloudTransferService {
     onProgress?: OnTransferProgress,
     abortSignal?: AbortSignal,
   ): Promise<CloudUploadResult> {
+    const userAgent = await resolveS3UserAgent();
     const mgr = transferStateManager;
 
     let record = mgr.findResumable({
@@ -160,6 +172,7 @@ export class S3TransferService implements CloudTransferService {
       }),
       onProgress,
       abortSignal,
+      userAgent,
     });
   }
 
@@ -175,10 +188,11 @@ export class S3TransferService implements CloudTransferService {
     abortRemote?: () => Promise<unknown>;
     onProgress?: OnTransferProgress;
     abortSignal?: AbortSignal;
+    userAgent: string;
   }): Promise<CloudUploadResult> {
     const {
       file, key, completedParts, record, mgr,
-      presignPart, complete, abortRemote, onProgress, abortSignal,
+      presignPart, complete, abortRemote, onProgress, abortSignal, userAgent,
     } = args;
 
     const totalParts = Math.ceil(file.size / PART_SIZE);
@@ -204,7 +218,7 @@ export class S3TransferService implements CloudTransferService {
         const partBlob = file.slice(start, end);
 
         const presignedUrl = await presignPart(partNum);
-        const eTag = await this._uploadPart(presignedUrl, partBlob, abortSignal);
+        const eTag = await this._uploadPart(presignedUrl, partBlob, abortSignal, userAgent);
 
         completedParts.push({ partNumber: partNum, eTag });
         totalSent += end - start;
@@ -237,6 +251,7 @@ export class S3TransferService implements CloudTransferService {
     presignedUrl: string,
     blob: Blob,
     abortSignal?: AbortSignal,
+    userAgent = S3_COMPATIBLE_USER_AGENT,
   ): Promise<string> {
     let resp: Response;
     try {
@@ -244,6 +259,7 @@ export class S3TransferService implements CloudTransferService {
         method: 'PUT',
         body: blob,
         signal: abortSignal,
+        headers: { 'User-Agent': userAgent },
       });
     } catch (e) {
       if (isLikelyNetworkOrCorsError(e)) {
@@ -260,11 +276,14 @@ export class S3TransferService implements CloudTransferService {
     onProgress?: OnTransferProgress,
   ): Promise<CloudDownloadResult> {
     const url = await resolveDownloadUrl(key);
+    const userAgent = await resolveS3UserAgent();
     logger.info(TAG, 'download start key=', key);
 
     let resp: Response;
     try {
-      resp = await fetch(url);
+      resp = await fetch(url, {
+        headers: { 'User-Agent': userAgent },
+      });
     } catch (e) {
       if (isLikelyNetworkOrCorsError(e)) {
         reportCorsLikely({ url, mode: 'download', channel: 's3', cause: e });

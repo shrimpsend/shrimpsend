@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS s3_config (
         COMMENT '1=用户主动切到内置 S3 但保留自建凭证；0=以自建 S3 为活跃模式',
     path_style_access_enabled TINYINT(1) NOT NULL DEFAULT 1
         COMMENT '1=Path-style URL；0=虚拟托管（bucket 作为子域）',
+    client_app VARCHAR(32) DEFAULT NULL
+        COMMENT 'CSTCloud Data Capsule client binding: s3drive|s3browser|rclone|obsidian|cherry_studio',
     PRIMARY KEY (id),
     UNIQUE KEY uk_s3_config_user_id (user_id),
     CONSTRAINT fk_s3_config_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE

@@ -74,6 +74,7 @@ const docItems: Array<{ id: DocsDocId; labelKey: string; icon: ComponentType<{ c
 const s3SectionLabelKeys: Record<S3SectionId, string> = {
   overview: 'docs.nav.s3Overview',
   bitiful: 'docs.nav.s3Bitiful',
+  'data-capsule': 'docs.nav.s3DataCapsule',
   'built-in': 'docs.nav.s3BuiltIn',
   'tencent-cos': 'docs.nav.s3TencentCos',
   'cloudflare-r2': 'docs.nav.s3CloudflareR2',

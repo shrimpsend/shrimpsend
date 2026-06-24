@@ -1,7 +1,7 @@
 package dev.ultrasend.backend.service;
 
 import dev.ultrasend.backend.config.UserDataEncryptionProperties;
-import dev.ultrasend.backend.dto.PresignUploadResponse;
+import dev.ultrasend.backend.dto.S3TestUrlResponse;
 import dev.ultrasend.backend.entity.S3Config;
 import dev.ultrasend.backend.entity.User;
 import dev.ultrasend.backend.repository.S3ConfigRepository;
@@ -19,12 +19,13 @@ import java.util.Base64;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class S3ServicePresignUploadTest {
+class S3ServicePresignTestUrlTest {
 
     private static final byte[] KEK = "01234567890123456789012345678901".getBytes(StandardCharsets.UTF_8);
 
@@ -52,11 +53,10 @@ class S3ServicePresignUploadTest {
     }
 
     @Test
-    void presignUploadByoUsesLegacyKeyAndHostOnlySignedHeaders() {
+    void presignTestUrlUsesHostOnlySignedHeaders() {
         User user = User.builder().id(42L).build();
         when(userRepository.findById(42L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(hostedS3Service.useHostedForUser(42L)).thenReturn(false);
 
         String encryptedSk = userDataEncryption.encryptForUser(42L, "secret-key");
         S3Config config = S3Config.builder()
@@ -67,20 +67,18 @@ class S3ServicePresignUploadTest {
                 .accessKeyId("AKIAEXAMPLE")
                 .secretAccessKey(encryptedSk)
                 .pathStyleAccessEnabled(true)
+                .prefersHosted(false)
                 .build();
         when(s3ConfigRepository.findByUserId(42L)).thenReturn(Optional.of(config));
 
-        PresignUploadResponse resp = s3Service.presignUpload(42L, "IMG_3891.PNG", "image/png", 100L);
+        S3TestUrlResponse resp = s3Service.presignTestUrl(42L);
 
-        assertTrue(resp.getKey().startsWith(S3Service.LEGACY_UPLOAD_PREFIX));
-        assertTrue(resp.getKey().matches("uploads/\\d+-IMG_3891\\.PNG"));
-
-        String uploadUrl = resp.getUploadUrl();
-        assertTrue(uploadUrl.contains("X-Amz-SignedHeaders=host"),
-                "Expected host-only signed headers, got: " + uploadUrl);
-        assertFalse(uploadUrl.toLowerCase().contains("x-amz-content-sha256"),
-                "Checksum header must not be part of presigned signature for S3-compatible endpoints");
-        assertFalse(uploadUrl.toLowerCase().contains("content-type"),
-                "Content-Type must not be part of presigned PUT signature");
+        assertNotNull(resp.getUrl());
+        assertNotNull(resp.getServerProbe());
+        String testUrl = resp.getUrl();
+        assertTrue(testUrl.contains("X-Amz-SignedHeaders=host"),
+                "Expected host-only signed headers, got: " + testUrl);
+        assertFalse(testUrl.toLowerCase().contains("x-amz-content-sha256"),
+                "Checksum header must not be part of presigned HeadBucket signature");
     }
 }
