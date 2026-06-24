@@ -71,6 +71,23 @@ CREATE TABLE IF NOT EXISTS s3_config (
     CONSTRAINT fk_s3_config_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- WebDAV 连接（每用户可有多条）
+CREATE TABLE IF NOT EXISTS webdav_connections (
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id       BIGINT       NOT NULL,
+    name          VARCHAR(128) NOT NULL COMMENT '显示名',
+    base_url      VARCHAR(512) NOT NULL COMMENT 'WebDAV 服务器地址',
+    username_enc  VARCHAR(1024) NOT NULL COMMENT 'enc:u:v1: 密文',
+    password_enc  VARCHAR(1024) NOT NULL COMMENT 'enc:u:v1: 密文',
+    root_path     VARCHAR(512) DEFAULT '/' COMMENT '可选根路径',
+    sort_order    INT          NOT NULL DEFAULT 0,
+    created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    KEY idx_webdav_user (user_id),
+    CONSTRAINT fk_webdav_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 邮箱验证码表
 CREATE TABLE IF NOT EXISTS email_verification_codes (
     id         BIGINT       NOT NULL AUTO_INCREMENT,

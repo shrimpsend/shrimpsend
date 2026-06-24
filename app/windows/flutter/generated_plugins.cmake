@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   bonsoir_windows
   connectivity_plus
   desktop_updater
+  flutter_secure_storage_windows
   flutter_webrtc
   irondash_engine_context
   pasteboard

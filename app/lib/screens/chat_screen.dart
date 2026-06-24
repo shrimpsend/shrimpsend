@@ -28,6 +28,7 @@ import '../providers/app_mode_provider.dart';
 import '../providers/auth_session_provider.dart';
 import '../services/auth_session_controller.dart';
 import '../providers/device_provider.dart';
+import '../providers/webdav_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:saver_gallery/saver_gallery.dart';
 import 'package:share_plus/share_plus.dart';
@@ -65,6 +66,8 @@ import '../widgets/file_card_bubble.dart';
 import 'file_manager_screen.dart';
 import 'message_search_screen.dart';
 import 'settings_screen.dart';
+import 'webdav_connection_screen.dart';
+import '../widgets/webdav/add_connection_sheet.dart';
 import '../services/file_store.dart';
 import '../services/file_transfer.dart';
 import '../services/file_times_apply.dart';
@@ -8924,13 +8927,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           MaterialPageRoute(builder: (_) => const MessageSearchScreen()),
         );
       },
-      onScanQr: !isOffline && RuntimePlatform.isMobile
-          ? () {
+      onAddConnectionTap: !isOffline
+          ? () async {
               _composerKey.currentState?.unfocus();
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const QrScannerScreen()),
-              );
+              final choice = await showAddConnectionSheet(context);
+              if (!mounted || choice == null) return;
+              switch (choice) {
+                case AddConnectionChoice.scanLogin:
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+                  );
+                case AddConnectionChoice.addWebDav:
+                  if (!ref.read(authProvider).isLoggedIn) {
+                    await Navigator.pushNamed(context, '/login');
+                    return;
+                  }
+                  final ok = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const WebDavConnectionScreen(),
+                    ),
+                  );
+                  if (ok == true && mounted) {
+                    await ref.read(webDavConnectionsProvider.notifier).refresh();
+                  }
+              }
             }
           : null,
       onFileManager: () {

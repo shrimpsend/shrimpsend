@@ -1296,5 +1296,102 @@
   "fileClipboardCopyFailed": "复制失败",
   "fileClipboardPasteAdded": "已加入待发文件箱，前往聊天发送",
   "fileClipboardNothingToCopy": "请先选择要复制的文件",
-  "chatMenuCopyFile": "复制文件"
+  "chatMenuCopyFile": "复制文件",
+  "webdavAddMenuTooltip": "添加连接",
+  "webdavScanLogin": "扫码登录",
+  "webdavAddConnection": "添加 WebDAV",
+  "webdavEditConnection": "编辑 WebDAV",
+  "webdavSectionTitle": "WebDAV",
+  "webdavFormName": "名称",
+  "webdavFormNameRequired": "请输入名称",
+  "webdavFormUrl": "服务器地址",
+  "webdavFormUrlRequired": "请输入服务器地址",
+  "webdavFormUrlInvalid": "地址需以 http:// 或 https:// 开头",
+  "webdavFormUsername": "用户名",
+  "webdavFormUsernameRequired": "请输入用户名",
+  "webdavFormPassword": "密码",
+  "webdavFormPasswordHintEdit": "留空则不修改",
+  "webdavFormRootPath": "根路径",
+  "webdavPasswordRequired": "请输入密码",
+  "webdavTestConnection": "测试连接",
+  "webdavTestSuccess": "连接成功",
+  "webdavTestFailed": "连接测试失败：{error}",
+  "@webdavTestFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavSavedToast": "已保存",
+  "webdavSaveFailed": "保存失败：{error}",
+  "@webdavSaveFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavBrowserEmpty": "此文件夹为空",
+  "webdavSearchHint": "搜索当前目录",
+  "webdavEntryFolder": "文件夹",
+  "webdavActionDownload": "下载",
+  "webdavActionRename": "重命名",
+  "webdavActionDelete": "删除",
+  "webdavActionUpload": "上传文件",
+  "webdavActionNewFolder": "新建文件夹",
+  "webdavDeleteConfirmTitle": "删除所选项目？",
+  "webdavDeleteConfirmBody": "将删除 {count} 个项目，此操作不可撤销。",
+  "@webdavDeleteConfirmBody": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavDeleteConnection": "删除连接",
+  "webdavDeleteConnectionTitle": "删除 WebDAV 连接？",
+  "webdavDeleteConnectionBody": "将删除「{name}」及其保存的凭证。",
+  "@webdavDeleteConnectionBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "webdavDeletedToast": "已删除",
+  "webdavDeleteFailed": "删除失败：{error}",
+  "@webdavDeleteFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavRenameTitle": "重命名",
+  "webdavRenameHint": "新名称",
+  "webdavRenameFailed": "重命名失败：{error}",
+  "@webdavRenameFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavNewFolderTitle": "新建文件夹",
+  "webdavNewFolderHint": "文件夹名称",
+  "webdavCreateFolderFailed": "创建失败：{error}",
+  "@webdavCreateFolderFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavUploadDone": "上传完成",
+  "webdavUploadFailed": "上传失败：{error}",
+  "@webdavUploadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavDownloadDone": "已准备好分享/保存",
+  "webdavDownloadFailed": "下载失败：{error}",
+  "@webdavDownloadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavSelectedCount": "已选 {count} 项",
+  "@webdavSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

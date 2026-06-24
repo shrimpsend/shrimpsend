@@ -1749,5 +1749,102 @@
   "fileClipboardCopyFailed": "Copy failed",
   "fileClipboardPasteAdded": "Added to outbox — open chat to send",
   "fileClipboardNothingToCopy": "Select files to copy first",
-  "chatMenuCopyFile": "Copy file"
+  "chatMenuCopyFile": "Copy file",
+  "webdavAddMenuTooltip": "Add connection",
+  "webdavScanLogin": "Scan to sign in",
+  "webdavAddConnection": "Add WebDAV",
+  "webdavEditConnection": "Edit WebDAV",
+  "webdavSectionTitle": "WebDAV",
+  "webdavFormName": "Name",
+  "webdavFormNameRequired": "Enter a name",
+  "webdavFormUrl": "Server URL",
+  "webdavFormUrlRequired": "Enter server URL",
+  "webdavFormUrlInvalid": "URL must start with http:// or https://",
+  "webdavFormUsername": "Username",
+  "webdavFormUsernameRequired": "Enter username",
+  "webdavFormPassword": "Password",
+  "webdavFormPasswordHintEdit": "Leave blank to keep current",
+  "webdavFormRootPath": "Root path",
+  "webdavPasswordRequired": "Enter password",
+  "webdavTestConnection": "Test connection",
+  "webdavTestSuccess": "Connection successful",
+  "webdavTestFailed": "Connection test failed: {error}",
+  "@webdavTestFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavSavedToast": "Saved",
+  "webdavSaveFailed": "Save failed: {error}",
+  "@webdavSaveFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavBrowserEmpty": "This folder is empty",
+  "webdavSearchHint": "Search this folder",
+  "webdavEntryFolder": "Folder",
+  "webdavActionDownload": "Download",
+  "webdavActionRename": "Rename",
+  "webdavActionDelete": "Delete",
+  "webdavActionUpload": "Upload file",
+  "webdavActionNewFolder": "New folder",
+  "webdavDeleteConfirmTitle": "Delete selected items?",
+  "webdavDeleteConfirmBody": "Delete {count} item(s)? This cannot be undone.",
+  "@webdavDeleteConfirmBody": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavDeleteConnection": "Delete connection",
+  "webdavDeleteConnectionTitle": "Delete WebDAV connection?",
+  "webdavDeleteConnectionBody": "Remove \"{name}\" and stored credentials.",
+  "@webdavDeleteConnectionBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "webdavDeletedToast": "Deleted",
+  "webdavDeleteFailed": "Delete failed: {error}",
+  "@webdavDeleteFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavRenameTitle": "Rename",
+  "webdavRenameHint": "New name",
+  "webdavRenameFailed": "Rename failed: {error}",
+  "@webdavRenameFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavNewFolderTitle": "New folder",
+  "webdavNewFolderHint": "Folder name",
+  "webdavCreateFolderFailed": "Create failed: {error}",
+  "@webdavCreateFolderFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavUploadDone": "Upload complete",
+  "webdavUploadFailed": "Upload failed: {error}",
+  "@webdavUploadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavDownloadDone": "Ready to share or save",
+  "webdavDownloadFailed": "Download failed: {error}",
+  "@webdavDownloadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavSelectedCount": "{count} selected",
+  "@webdavSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

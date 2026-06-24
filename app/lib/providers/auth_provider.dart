@@ -9,6 +9,7 @@ import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
 import '../services/openpanel_bootstrap.dart';
 import '../services/revenuecat_service.dart';
+import '../services/webdav_credential_store.dart';
 
 const _keyAccessToken = 'accessToken';
 const _keyRefreshToken = 'refreshToken';
@@ -93,6 +94,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       logAuth.warning('AuthNotifier logout API call failed: $e');
     }
     await RevenueCatService.instance.logOutIfNeeded();
+    await WebDavCredentialStore.instance.wipeAll();
     await _clearStorage();
     OpenpanelBootstrap.onLogout();
     Analytics.track(AnalyticsEvents.logout, {'api_logout_ok': apiOk});
@@ -101,6 +103,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> clearAuth() async {
     await RevenueCatService.instance.logOutIfNeeded();
+    await WebDavCredentialStore.instance.wipeAll();
     await _clearStorage();
     OpenpanelBootstrap.onLogout();
     logAuth.info('AuthNotifier clearAuth');

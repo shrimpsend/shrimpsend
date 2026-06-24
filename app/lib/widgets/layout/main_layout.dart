@@ -25,7 +25,7 @@ class MainLayout extends ConsumerStatefulWidget {
   final AuthSessionPhase authSessionPhase;
   final VoidCallback onShowSettings;
   final VoidCallback? onSearch;
-  final VoidCallback? onScanQr;
+  final VoidCallback? onAddConnectionTap;
   final VoidCallback? onFileManager;
   final VoidCallback? onOpenS3Settings;
   final Future<void> Function()? onRefresh;
@@ -60,7 +60,7 @@ class MainLayout extends ConsumerStatefulWidget {
     this.authSessionPhase = AuthSessionPhase.authenticated,
     required this.onShowSettings,
     this.onSearch,
-    this.onScanQr,
+    this.onAddConnectionTap,
     this.onFileManager,
     this.onOpenS3Settings,
     this.onRefresh,
@@ -158,7 +158,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 authSessionPhase: widget.authSessionPhase,
                 onShowSettings: widget.onShowSettings,
                 onSearch: widget.onSearch,
-                onScanQr: widget.onScanQr,
+                onAddConnectionTap: widget.onAddConnectionTap,
                 onFileManager: widget.onFileManager,
                 onRefresh: widget.onRefresh,
                 onLoginTap: widget.onLoginTap,
@@ -287,7 +287,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       authSessionPhase: widget.authSessionPhase,
       onShowSettings: widget.onShowSettings,
       onSearch: widget.onSearch,
-      onScanQr: widget.onScanQr,
+      onAddConnectionTap: widget.onAddConnectionTap,
       onFileManager: widget.onFileManager,
       onRefresh: widget.onRefresh,
       onLoginTap: widget.onLoginTap,

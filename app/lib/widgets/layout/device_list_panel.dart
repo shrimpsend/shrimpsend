@@ -7,6 +7,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../preferences/locale_region_store.dart';
 import '../../providers/device_provider.dart';
 import '../../providers/app_mode_provider.dart';
+import '../../providers/webdav_provider.dart';
 import '../../services/auth_session_controller.dart';
 import '../../ui/app_ui.dart';
 import '../../ui/platform_performance.dart';
@@ -14,6 +15,12 @@ import '../../utils/runtime_platform.dart';
 import '../busy_status_indicator.dart';
 import '../devices/device_conversation_item.dart';
 import '../devices/device_id_chip.dart';
+import '../../screens/webdav_browser_screen.dart';
+import '../../screens/webdav_connection_screen.dart';
+import '../../services/webdav_credential_store.dart';
+import '../../utils/toast.dart';
+import '../../widgets/app_confirm_dialog.dart';
+import '../webdav/webdav_connection_item.dart';
 
 /// Matches [MainLayout] / [ChatScreen] narrow breakpoint (floating tab bar inset).
 const double _kNarrowLayoutBreakpoint = 768;
@@ -35,7 +42,7 @@ class DeviceListPanel extends ConsumerWidget {
   final AuthSessionPhase authSessionPhase;
   final VoidCallback onShowSettings;
   final VoidCallback? onSearch;
-  final VoidCallback? onScanQr;
+  final VoidCallback? onAddConnectionTap;
   final VoidCallback? onFileManager;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onLoginTap;
@@ -59,7 +66,7 @@ class DeviceListPanel extends ConsumerWidget {
     this.authSessionPhase = AuthSessionPhase.authenticated,
     required this.onShowSettings,
     this.onSearch,
-    this.onScanQr,
+    this.onAddConnectionTap,
     this.onFileManager,
     this.onRefresh,
     this.onLoginTap,
@@ -126,6 +133,10 @@ class DeviceListPanel extends ConsumerWidget {
     final s3Checking = ref.watch(s3CheckingProvider);
     final reachability = ref.watch(deviceReachabilityProvider);
     final probing = ref.watch(devicesProbingProvider);
+    final webDavAsync = ref.watch(webDavConnectionsProvider);
+    final webDavConnections = isLoggedIn && !isOffline
+        ? webDavAsync.valueOrNull ?? []
+        : <WebDavConnectionSummary>[];
 
     final sorted = [...otherDevices]
       ..sort((a, b) {
@@ -300,14 +311,14 @@ class DeviceListPanel extends ConsumerWidget {
                       tooltip: l10n.fmSearchTooltip,
                       visualDensity: VisualDensity.compact,
                     ),
-                  if (onScanQr != null && !isOffline)
+                  if (onAddConnectionTap != null && !isOffline)
                     IconButton(
                       icon: const Icon(
-                        LucideIcons.scanLine,
+                        LucideIcons.plus,
                         size: AppSize.appBarActionIcon,
                       ),
-                      onPressed: onScanQr,
-                      tooltip: l10n.loginQrLogin,
+                      onPressed: onAddConnectionTap,
+                      tooltip: l10n.webdavAddMenuTooltip,
                       visualDensity: VisualDensity.compact,
                     ),
                   if (showHeaderRefresh && onRefresh != null)
@@ -360,6 +371,43 @@ class DeviceListPanel extends ConsumerWidget {
                           .read(selectedDeviceIdProvider.notifier)
                           .select(s3VirtualDeviceId),
                     ),
+                  if (webDavConnections.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                      ),
+                      child: Text(
+                        l10n.webdavSectionTitle,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.textTertiary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    ...webDavConnections.map(
+                      (conn) => WebDavConnectionItem(
+                        key: ValueKey('webdav_${conn.id}'),
+                        connection: conn,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  WebDavBrowserScreen(connection: conn),
+                            ),
+                          );
+                        },
+                        onMore: () => _showWebDavConnectionMenu(
+                          context,
+                          ref,
+                          conn,
+                        ),
+                      ),
+                    ),
+                  ],
                   ...sorted.map(
                     (device) => _DeviceListReachRow(
                       key: ValueKey(device.deviceId),
@@ -372,7 +420,9 @@ class DeviceListPanel extends ConsumerWidget {
                     ),
                   ),
                 ];
-                final isEmpty = sorted.isEmpty && !(s3Configured || s3Checking);
+                final isEmpty = sorted.isEmpty &&
+                    !(s3Configured || s3Checking) &&
+                    webDavConnections.isEmpty;
                 final emptyBody = Padding(
                   padding: EdgeInsets.fromLTRB(
                     AppSpacing.lg,
@@ -640,6 +690,91 @@ class _DeviceListReachRow extends ConsumerWidget {
       onTap: onTap,
     );
   }
+}
+
+Future<void> _showWebDavConnectionMenu(
+  BuildContext context,
+  WidgetRef ref,
+  WebDavConnectionSummary conn,
+) async {
+  final theme = Theme.of(context);
+  final colors = context.appColors;
+  final l10n = AppLocalizations.of(context);
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: colors.surface,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(LucideIcons.pencil, color: theme.colorScheme.primary),
+            title: Text(l10n.webdavEditConnection),
+            onTap: () async {
+              Navigator.pop(ctx);
+              final ok = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => WebDavConnectionScreen(connectionId: conn.id),
+                ),
+              );
+              if (ok == true) {
+                await ref.read(webDavConnectionsProvider.notifier).refresh();
+              }
+            },
+          ),
+          ListTile(
+            leading: Icon(LucideIcons.plugZap, color: colors.success),
+            title: Text(l10n.webdavTestConnection),
+            onTap: () async {
+              Navigator.pop(ctx);
+              try {
+                final result = await testWebDavConnection(conn.id);
+                if (!context.mounted) return;
+                AppToast.show(
+                  context,
+                  message: result.ok ? l10n.webdavTestSuccess : result.message,
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                AppToast.show(context, message: l10n.webdavTestFailed('$e'));
+              }
+            },
+          ),
+          ListTile(
+            leading: Icon(LucideIcons.trash2, color: colors.danger),
+            title: Text(
+              l10n.webdavDeleteConnection,
+              style: TextStyle(color: colors.danger),
+            ),
+            onTap: () async {
+              Navigator.pop(ctx);
+              final ok = await AppConfirmDialog.show(
+                context,
+                title: l10n.webdavDeleteConnectionTitle,
+                content: l10n.webdavDeleteConnectionBody(conn.name),
+                confirmLabel: l10n.confirm,
+                icon: LucideIcons.trash2,
+                isDanger: true,
+              );
+              if (!ok) return;
+              try {
+                await deleteWebDavConnection(conn.id);
+                await WebDavCredentialStore.instance.remove(conn.id);
+                await ref.read(webDavConnectionsProvider.notifier).refresh();
+                if (!context.mounted) return;
+                AppToast.show(context, message: l10n.webdavDeletedToast);
+              } catch (e) {
+                if (!context.mounted) return;
+                AppToast.show(context, message: l10n.webdavDeleteFailed('$e'));
+              }
+            },
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _DevicePanelRefreshButton extends StatelessWidget {
