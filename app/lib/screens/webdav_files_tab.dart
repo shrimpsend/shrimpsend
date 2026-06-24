@@ -346,7 +346,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
     final favoritePaths = _favoritePathsFrom(
       ref.watch(webDavFavoritesProvider(widget.connection.id)),
     );
-    final scrollBottom = AppLayout.floatingBottomBarScrollInset(context);
+    final scrollBottom = AppLayout.webDavBottomBarScrollInset(context);
     final actions = _actions();
 
     return Column(

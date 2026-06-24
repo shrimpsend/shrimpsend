@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/webdav.dart';
@@ -13,28 +11,13 @@ import '../providers/webdav_provider.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
-import '../ui/platform_performance.dart';
 import '../utils/toast.dart';
 import '../widgets/pending_files_bar.dart';
-import '../widgets/pending_outbox_badge_button.dart';
 import 'webdav/webdav_browsable_tab.dart';
 import 'webdav_files_tab.dart';
 import 'webdav_recent_favorites_tab.dart';
 import 'webdav_settings_tab.dart';
 import 'webdav_transfer_list_screen.dart';
-
-const double _kWebDavBarEdge = 14;
-const double _kWebDavBarBottomGap = 12;
-const double _kWebDavBarTabWidth = 76;
-const int _kWebDavBarTabCount = 3;
-const double _kWebDavBarHPadding = 14;
-const double _kWebDavBarExtraSpacing = 8;
-const double _kWebDavBarExtraSize = 64;
-const double _kWebDavBarOuterWidth =
-    _kWebDavBarHPadding * 2 +
-    _kWebDavBarTabWidth * _kWebDavBarTabCount +
-    _kWebDavBarExtraSpacing +
-    _kWebDavBarExtraSize;
 
 class WebDavShellScreen extends ConsumerStatefulWidget {
   final WebDavConnectionSummary connection;
@@ -250,7 +233,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     );
   }
 
-  Widget _buildPlainBottomBar(BuildContext context) {
+  Widget _buildWebDavBottomBar(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
@@ -268,25 +251,33 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
           button: true,
           selected: selected,
           label: label,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
+          child: InkWell(
             onTap: () => _onTabSelected(index),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
+            child: SizedBox(
+              height: AppLayout.webDavBottomBarHeight,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, color: color, size: 22),
-                  const SizedBox(height: 3),
+                  Icon(icon, color: color, size: 20),
+                  const SizedBox(height: 2),
                   Text(
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: color,
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    height: 2,
+                    width: selected ? 28 : 0,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(1),
                     ),
                   ),
                 ],
@@ -297,135 +288,90 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       );
     }
 
-    return Container(
-      height: AppLayout.floatingBottomBarHeight,
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          colors.surface.withValues(alpha: 0.94),
-          colors.background,
-        ),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: colors.border.withValues(alpha: 0.9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
+    return Material(
+      color: colors.surface,
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: 0.12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(width: AppSpacing.xs),
-          tab(
-            index: 0,
-            label: l10n.webdavTabFiles,
-            icon: LucideIcons.folder,
-          ),
-          tab(
-            index: 1,
-            label: l10n.webdavTabRecent,
-            icon: LucideIcons.clock,
-          ),
-          tab(
-            index: 2,
-            label: l10n.webdavTabFavorites,
-            icon: LucideIcons.star,
-          ),
-          const SizedBox(width: _kWebDavBarExtraSpacing),
-          PendingOutboxBadgeButton(
-            count: pendingCount,
-            enabled: _showOutboxButton,
-            onTap: _openOutboxSheet,
-            size: _kWebDavBarExtraSize,
-            iconColor: colors.textSecondary,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGlassBottomBar(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final colors = context.appColors;
-    final theme = Theme.of(context);
-    final pendingCount = ref.watch(pendingFilesProvider).length;
-    final outboxIconColor =
-        _showOutboxButton ? colors.textSecondary : colors.textTertiary;
-
-    return GlassBottomBar(
-      tabs: [
-        GlassBottomBarTab(
-          label: l10n.webdavTabFiles,
-          icon: const Icon(LucideIcons.folder),
-        ),
-        GlassBottomBarTab(
-          label: l10n.webdavTabRecent,
-          icon: const Icon(LucideIcons.clock),
-        ),
-        GlassBottomBarTab(
-          label: l10n.webdavTabFavorites,
-          icon: const Icon(LucideIcons.star),
-        ),
-      ],
-      selectedIndex: _tabIndex,
-      onTabSelected: _onTabSelected,
-      spacing: _kWebDavBarExtraSpacing,
-      extraButton: GlassBottomBarExtraButton(
-        label: l10n.mobileHomePendingOutbox,
-        size: _kWebDavBarExtraSize,
-        iconColor: outboxIconColor,
-        icon: PendingOutboxBadgeIcon(
-          count: pendingCount,
-          iconColor: outboxIconColor,
-        ),
-        onTap: _showOutboxButton ? _openOutboxSheet : () {},
-      ),
-      selectedIconColor: theme.colorScheme.primary,
-      unselectedIconColor: colors.textSecondary,
-      horizontalPadding: _kWebDavBarHPadding,
-      verticalPadding: 0,
-      barHeight: AppLayout.floatingBottomBarHeight,
-      barBorderRadius: 45,
-      tabWidth: _kWebDavBarTabWidth,
-      iconSize: 24,
-      labelFontSize: 12,
-      iconLabelSpacing: 3,
-      tabPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      blendAmount: 6,
-      indicatorExpansion: 14,
-      glowOpacity: 0,
-      glowBlurRadius: 0,
-      glowSpreadRadius: 0,
-      quality: GlassQuality.standard,
-      interactionBehavior: GlassInteractionBehavior.none,
-      interactionGlowColor: theme.colorScheme.primary,
-    );
-  }
-
-  Widget _buildFloatingBottomBar(BuildContext context) {
-    final bottomInset = AppLayout.floatingBottomSystemInset(context);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        _kWebDavBarEdge,
-        0,
-        _kWebDavBarEdge,
-        bottomInset + _kWebDavBarBottomGap,
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final barWidth = math.min(constraints.maxWidth, _kWebDavBarOuterWidth);
-          return Align(
-            alignment: Alignment.bottomCenter,
+          Divider(height: 1, thickness: 1, color: colors.border),
+          SafeArea(
+            top: false,
             child: SizedBox(
-              width: barWidth,
-              child: AppPlatformPerformance.preferPlainNarrowNavigation
-                  ? _buildPlainBottomBar(context)
-                  : _buildGlassBottomBar(context),
+              height: AppLayout.webDavBottomBarHeight,
+              child: Row(
+                children: [
+                  tab(
+                    index: 0,
+                    label: l10n.webdavTabFiles,
+                    icon: LucideIcons.folder,
+                  ),
+                  tab(
+                    index: 1,
+                    label: l10n.webdavTabRecent,
+                    icon: LucideIcons.clock,
+                  ),
+                  tab(
+                    index: 2,
+                    label: l10n.webdavTabFavorites,
+                    icon: LucideIcons.star,
+                  ),
+                  Container(
+                    width: 1,
+                    height: 28,
+                    color: colors.border,
+                  ),
+                  Semantics(
+                    button: true,
+                    enabled: _showOutboxButton,
+                    label: l10n.webdavOutboxUpload,
+                    child: InkWell(
+                      onTap: _showOutboxButton ? _openOutboxSheet : null,
+                      child: Opacity(
+                        opacity: _showOutboxButton ? 1 : 0.35,
+                        child: SizedBox(
+                          width: 72,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Badge(
+                                isLabelVisible: pendingCount > 0,
+                                label: Text(
+                                  pendingCount > 99 ? '99+' : '$pendingCount',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                child: Icon(
+                                  LucideIcons.upload,
+                                  color: theme.colorScheme.primary,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                l10n.webdavOutboxUpload,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -467,45 +413,41 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     final transferUi = ref.watch(webDavTransferUiProvider(widget.connection.id));
     final activeTransfers = transferUi.activeCount;
 
-    final body = Stack(
-      fit: StackFit.expand,
+    final body = Column(
       children: [
-        IndexedStack(
-          index: _tabIndex,
-          children: [
-            WebDavFilesTab(
-              key: _filesTabKey,
-              connection: widget.connection,
-              client: client,
-              initialPath: _currentPath,
-              onPathChanged: (p) => _currentPath = p,
-              onSelectionChanged: _onTabSelectionChanged,
-              onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-            ),
-            WebDavRecentTab(
-              key: _recentTabKey,
-              connection: widget.connection,
-              client: client,
-              onOpenFolder: (path) => _switchToFilesTab(path: path),
-              onSelectionChanged: _onTabSelectionChanged,
-              onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-            ),
-            WebDavFavoritesTab(
-              key: _favoritesTabKey,
-              connection: widget.connection,
-              client: client,
-              onOpenFolder: (path) => _switchToFilesTab(path: path),
-              onSelectionChanged: _onTabSelectionChanged,
-              onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-            ),
-          ],
+        Expanded(
+          child: IndexedStack(
+            index: _tabIndex,
+            children: [
+              WebDavFilesTab(
+                key: _filesTabKey,
+                connection: widget.connection,
+                client: client,
+                initialPath: _currentPath,
+                onPathChanged: (p) => _currentPath = p,
+                onSelectionChanged: _onTabSelectionChanged,
+                onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+              ),
+              WebDavRecentTab(
+                key: _recentTabKey,
+                connection: widget.connection,
+                client: client,
+                onOpenFolder: (path) => _switchToFilesTab(path: path),
+                onSelectionChanged: _onTabSelectionChanged,
+                onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+              ),
+              WebDavFavoritesTab(
+                key: _favoritesTabKey,
+                connection: widget.connection,
+                client: client,
+                onOpenFolder: (path) => _switchToFilesTab(path: path),
+                onSelectionChanged: _onTabSelectionChanged,
+                onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+              ),
+            ],
+          ),
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _buildFloatingBottomBar(context),
-        ),
+        _buildWebDavBottomBar(context),
       ],
     );
 
@@ -517,14 +459,12 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         }
       },
       child: Scaffold(
-        extendBody: true,
+        resizeToAvoidBottomInset: false,
         appBar: AppBar(
           title: Text(_appBarTitle(l10n)),
           actions: _buildAppBarActions(l10n, activeTransfers),
         ),
-        body: AppPlatformPerformance.preferPlainNarrowNavigation
-            ? body
-            : GlassBackdropScope(child: body),
+        body: body,
       ),
     );
   }

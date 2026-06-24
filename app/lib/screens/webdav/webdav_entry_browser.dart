@@ -37,12 +37,14 @@ class WebDavEntryContextMenu {
     final l10n = AppLocalizations.of(context);
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: context.appColors.surface,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             ListTile(
               leading: const Icon(LucideIcons.checkSquare),
               title: Text(l10n.fmMultiSelectMode),
@@ -142,6 +144,7 @@ class WebDavEntryContextMenu {
               },
             ),
           ],
+        ),
         ),
       ),
     );
