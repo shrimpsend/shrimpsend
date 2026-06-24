@@ -67,7 +67,6 @@ import 'file_manager_screen.dart';
 import 'message_search_screen.dart';
 import 'settings_screen.dart';
 import 'webdav_connection_screen.dart';
-import '../widgets/webdav/add_connection_sheet.dart';
 import '../services/file_store.dart';
 import '../services/file_transfer.dart';
 import '../services/file_times_apply.dart';
@@ -8945,20 +8944,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           MaterialPageRoute(builder: (_) => const MessageSearchScreen()),
         );
       },
-      onAddConnectionTap: !isOffline
+      onScanTap: !isOffline
           ? () async {
               _composerKey.currentState?.unfocus();
-              final choice = await showAddConnectionSheet(context);
-              if (!mounted || choice == null) return;
-              switch (choice) {
-                case AddConnectionChoice.scanLogin:
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const QrScannerScreen()),
-                  );
-                case AddConnectionChoice.addWebDav:
-                  await _openAddWebDavConnection();
-              }
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+              );
             }
           : null,
       onAddWebDavTap: !isOffline ? () => _openAddWebDavConnection() : null,

@@ -25,9 +25,11 @@ import '../webdav/webdav_connection_item.dart';
 /// Matches [MainLayout] / [ChatScreen] narrow breakpoint (floating tab bar inset).
 const double _kNarrowLayoutBreakpoint = 768;
 
-/// Sort by device state only: online before offline. [checking] is probe UI, not state.
+/// Sort by device state: online before checking before offline.
 int _reachSortPriority(DeviceReachDetail detail) {
-  return detail.isOnline ? 0 : 1;
+  if (detail.isOnline) return 0;
+  if (detail.checking) return 1;
+  return 2;
 }
 
 class DeviceListPanel extends ConsumerWidget {
@@ -42,7 +44,7 @@ class DeviceListPanel extends ConsumerWidget {
   final AuthSessionPhase authSessionPhase;
   final VoidCallback onShowSettings;
   final VoidCallback? onSearch;
-  final VoidCallback? onAddConnectionTap;
+  final VoidCallback? onScanTap;
   final VoidCallback? onAddWebDavTap;
   final VoidCallback? onFileManager;
   final Future<void> Function()? onRefresh;
@@ -67,7 +69,7 @@ class DeviceListPanel extends ConsumerWidget {
     this.authSessionPhase = AuthSessionPhase.authenticated,
     required this.onShowSettings,
     this.onSearch,
-    this.onAddConnectionTap,
+    this.onScanTap,
     this.onAddWebDavTap,
     this.onFileManager,
     this.onRefresh,
@@ -140,22 +142,21 @@ class DeviceListPanel extends ConsumerWidget {
         ? (webDavAsync.valueOrNull ?? const <WebDavConnectionSummary>[])
         : const <WebDavConnectionSummary>[];
     final webDavCount = webDavConnections.length;
-    final showS3Section = (s3Configured || s3Checking) && !isOffline;
+    final showS3Section = isLoggedIn;
     final showWebDavSection = isLoggedIn;
+    const showDevicesSection = true;
 
     final sorted = [...otherDevices]
       ..sort((a, b) {
-        final aMine = myIds.contains(a.deviceId);
-        final bMine = myIds.contains(b.deviceId);
-        if (aMine != bMine) return aMine ? -1 : 1;
-        final aReach = reachability[a.deviceId] ?? DeviceReachDetail.offlineDetail;
-        final bReach = reachability[b.deviceId] ?? DeviceReachDetail.offlineDetail;
+        final aReach =
+            reachability[a.deviceId] ?? DeviceReachDetail.offlineDetail;
+        final bReach =
+            reachability[b.deviceId] ?? DeviceReachDetail.offlineDetail;
         final byReach =
             _reachSortPriority(aReach) - _reachSortPriority(bReach);
         if (byReach != 0) return byReach;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
-    final showDevicesSection = sorted.isNotEmpty;
 
     final onlineCount = otherDevices
         .where(
@@ -317,14 +318,14 @@ class DeviceListPanel extends ConsumerWidget {
                       tooltip: l10n.fmSearchTooltip,
                       visualDensity: VisualDensity.compact,
                     ),
-                  if (onAddConnectionTap != null && !isOffline)
+                  if (onScanTap != null && !isOffline)
                     IconButton(
                       icon: const Icon(
-                        LucideIcons.plus,
+                        LucideIcons.scanLine,
                         size: AppSize.appBarActionIcon,
                       ),
-                      onPressed: onAddConnectionTap,
-                      tooltip: l10n.webdavAddMenuTooltip,
+                      onPressed: onScanTap,
+                      tooltip: l10n.webdavScanLogin,
                       visualDensity: VisualDensity.compact,
                     ),
                   if (showHeaderRefresh && onRefresh != null)
@@ -371,15 +372,24 @@ class DeviceListPanel extends ConsumerWidget {
                     _HomeListOfflineBanner(message: l10n.homeListOfflineBanner),
                   if (showS3Section) ...[
                     HomeListSectionHeader(title: l10n.homeSectionCloudRelay),
-                    _S3VirtualDeviceItem(
-                      selected: selectedDeviceId == s3VirtualDeviceId,
-                      configured: s3Configured,
-                      online: s3Online,
-                      checking: s3Checking,
-                      onTap: () => ref
-                          .read(selectedDeviceIdProvider.notifier)
-                          .select(s3VirtualDeviceId),
-                    ),
+                    if (!isOffline && (s3Configured || s3Checking))
+                      _S3VirtualDeviceItem(
+                        selected: selectedDeviceId == s3VirtualDeviceId,
+                        configured: s3Configured,
+                        online: s3Online,
+                        checking: s3Checking,
+                        onTap: () => ref
+                            .read(selectedDeviceIdProvider.notifier)
+                            .select(s3VirtualDeviceId),
+                      )
+                    else if (isOffline)
+                      _HomeListSectionEmptyHint(
+                        text: l10n.devicePanelEmptyHintOfflineLan,
+                      )
+                    else
+                      _HomeListSectionEmptyHint(
+                        text: l10n.chatS3StatusNotConfigured,
+                      ),
                   ],
                   if (showWebDavSection) ...[
                     HomeListSectionHeader(
@@ -418,98 +428,47 @@ class DeviceListPanel extends ConsumerWidget {
                   if (showDevicesSection) ...[
                     HomeListSectionHeader(
                       title: l10n.homeSectionDevices,
-                      count: sorted.length,
+                      count: sorted.isEmpty ? null : sorted.length,
                     ),
-                    ...sorted.map(
-                      (device) => _DeviceListReachRow(
-                        key: ValueKey(device.deviceId),
-                        device: device,
-                        isMyDevice: myIds.contains(device.deviceId),
-                        selected: selectedDeviceId == device.deviceId,
-                        onTap: () => ref
-                            .read(selectedDeviceIdProvider.notifier)
-                            .select(device.deviceId),
+                    if (sorted.isEmpty)
+                      _HomeListSectionEmptyHint(
+                        text: isOffline
+                            ? l10n.devicePanelEmptyHintOfflineLan
+                            : l10n.devicePanelEmptyNoOtherDevices,
+                      )
+                    else
+                      ...sorted.map(
+                        (device) => _DeviceListReachRow(
+                          key: ValueKey(device.deviceId),
+                          device: device,
+                          isMyDevice: myIds.contains(device.deviceId),
+                          selected: selectedDeviceId == device.deviceId,
+                          onTap: () => ref
+                              .read(selectedDeviceIdProvider.notifier)
+                              .select(device.deviceId),
+                        ),
                       ),
-                    ),
                   ],
                 ];
-                final isEmpty =
-                    !showS3Section && !showDevicesSection && !isLoggedIn;
-                final emptyBody = Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    AppSpacing.lg,
-                    AppSpacing.lg,
-                    AppSpacing.lg + scrollBottom,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        l10n.homeListEmptyTitle,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        isOffline
-                            ? l10n.devicePanelEmptyHintOfflineLan
-                            : l10n.homeListEmptyHint,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.textTertiary,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      if (!isOffline) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        if (onAddConnectionTap != null)
-                          FilledButton.tonalIcon(
-                            onPressed: onAddConnectionTap,
-                            icon: const Icon(LucideIcons.plus, size: 18),
-                            label: Text(l10n.webdavAddMenuTooltip),
-                          ),
-                      ],
-                    ],
-                  ),
+                Widget body = ListView(
+                  padding: EdgeInsets.fromLTRB(0, 2, 0, 2 + scrollBottom),
+                  children: listChildren,
                 );
-
-                Widget body;
-                if (isEmpty) {
-                  body = Center(child: emptyBody);
-                } else {
-                  body = ListView(
-                    padding: EdgeInsets.fromLTRB(0, 2, 0, 2 + scrollBottom),
-                    children: listChildren,
-                  );
-                }
 
                 if (RuntimePlatform.isMobile && onRefresh != null) {
                   body = RefreshIndicator(
                     onRefresh: onRefresh!,
                     color: theme.colorScheme.primary,
-                    child: isEmpty
-                        ? CustomScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            slivers: [
-                              SliverFillRemaining(
-                                hasScrollBody: false,
-                                child: emptyBody,
-                              ),
-                            ],
-                          )
-                        : ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.fromLTRB(
-                              0,
-                              2,
-                              0,
-                              2 + scrollBottom,
-                            ),
-                            children: listChildren,
-                          ),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(
+                        0,
+                        2,
+                        0,
+                        2 + scrollBottom,
+                      ),
+                      children: listChildren,
+                    ),
                   );
                 }
 
@@ -648,6 +607,33 @@ List<Widget> _buildWebDavSectionBody({
         ),
       )
       .toList();
+}
+
+class _HomeListSectionEmptyHint extends StatelessWidget {
+  final String text;
+
+  const _HomeListSectionEmptyHint({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colors.textTertiary,
+        ),
+      ),
+    );
+  }
 }
 
 class _HomeListOfflineBanner extends StatelessWidget {
