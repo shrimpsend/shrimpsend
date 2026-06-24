@@ -1893,5 +1893,6 @@
       "error": { "type": "String" }
     }
   },
-  "webdavShareNeedDownload": "Download the file first to share"
+  "webdavShareNeedDownload": "Download the file first to share",
+  "webdavLocalDownloaded": "Downloaded"
 }

@@ -12,11 +12,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/webdav_provider.dart';
+import '../services/local_received_file_resolver.dart';
 import '../services/received_file_dao.dart';
 import '../services/webdav_favorite_dao.dart';
 import '../services/webdav_recent_dao.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
+import '../services/file_store.dart';
 import '../ui/app_ui.dart';
 import '../utils/file_utils.dart';
 import '../utils/open_received_file.dart';
@@ -64,6 +66,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
   final Set<String> _selectedPaths = {};
   final _searchController = TextEditingController();
   WebDavViewMode _viewMode = WebDavViewMode.list;
+  Map<String, String?> _localPathByRemotePath = {};
 
   @override
   void initState() {
@@ -71,6 +74,8 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     _relativePath = widget.initialPath ?? '';
     _loadViewModePref();
     _loadDirectory(_relativePath);
+    ReceivedFileDao.addChangedListener(_onReceivedFilesChanged);
+    WebDavTransferService.instance.addListener(_onTransferChanged);
     WebDavTransferService.instance.addUploadCompletedListener(
       _onUploadCompleted,
     );
@@ -78,6 +83,8 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
 
   @override
   void dispose() {
+    ReceivedFileDao.removeChangedListener(_onReceivedFilesChanged);
+    WebDavTransferService.instance.removeListener(_onTransferChanged);
     WebDavTransferService.instance.removeUploadCompletedListener(
       _onUploadCompleted,
     );
@@ -92,6 +99,79 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     if (connectionId != widget.connection.id || !mounted) return;
     if (webDavRemoteParentPath(remotePath) != _relativePath) return;
     unawaited(_loadDirectory(_relativePath));
+  }
+
+  void _onReceivedFilesChanged() {
+    if (!mounted) return;
+    unawaited(_refreshLocalPaths());
+  }
+
+  void _onTransferChanged() {
+    if (!mounted) return;
+    unawaited(_refreshLocalPaths());
+  }
+
+  Future<void> _refreshLocalPaths([List<WebDavEntry>? entries]) async {
+    final targets = entries ?? _entries;
+    if (targets.isEmpty) {
+      if (!mounted) return;
+      setState(() => _localPathByRemotePath = {});
+      return;
+    }
+    final map = await LocalReceivedFileResolver.instance
+        .resolveForWebDavEntries(
+          connectionId: widget.connection.id,
+          entries: targets,
+        );
+    if (!mounted) return;
+    setState(() => _localPathByRemotePath = map);
+  }
+
+  Future<ReceivedFileInfo?> _resolveLocalFileInfo(WebDavEntry entry) async {
+    final messageId = webDavMessageId(widget.connection.id, entry.path);
+    final localPath =
+        _localPathByRemotePath[entry.path] ??
+        await LocalReceivedFileResolver.instance.resolveLocalPath(
+          messageId: messageId,
+          fileName: entry.name,
+          size: entry.size,
+        );
+    if (localPath == null) return null;
+
+    final record = await ReceivedFileDao.instance.getByMessageId(messageId);
+    if (record != null) {
+      final info = record.toInfo();
+      if (info.path == localPath) return info;
+      return ReceivedFileInfo(
+        messageId: info.messageId,
+        path: localPath,
+        displayName: info.displayName,
+        protocol: info.protocol,
+        size: info.size,
+        modified: info.modified,
+        createdAt: info.createdAt,
+        category: info.category,
+        threadKey: info.threadKey,
+        s3Key: info.s3Key,
+        fromDeviceId: info.fromDeviceId,
+        cachePath: info.cachePath,
+        visiblePath: info.visiblePath,
+        exportStatus: info.exportStatus,
+        gallerySaved: info.gallerySaved,
+      );
+    }
+
+    return ReceivedFileInfo(
+      messageId: messageId,
+      path: localPath,
+      displayName: entry.name,
+      protocol: 'webdav',
+      size: entry.size ?? File(localPath).lengthSync(),
+      modified: entry.lastModified ?? DateTime.now(),
+      createdAt: DateTime.now(),
+      category: getFileCategory(entry.name),
+      threadKey: 'webdav:$_connKey',
+    );
   }
 
   void _notifySelectionChanged() {
@@ -153,6 +233,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
         _loading = false;
       });
       widget.onPathChanged?.call(relativePath);
+      unawaited(_refreshLocalPaths(list));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -188,10 +269,9 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
       return;
     }
     await _recordAccess(entry);
-    final messageId = webDavMessageId(widget.connection.id, entry.path);
-    final record = await ReceivedFileDao.instance.getByMessageId(messageId);
-    if (record != null && File(record.readablePath).existsSync() && mounted) {
-      await openReceivedFile(context, record.toInfo());
+    final info = await _resolveLocalFileInfo(entry);
+    if (info != null && mounted) {
+      await openReceivedFile(context, info);
       return;
     }
     await _downloadEntries([entry]);
@@ -214,13 +294,15 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
   }
 
   Future<void> _openLocalCopy(WebDavEntry entry) async {
-    final messageId = webDavMessageId(widget.connection.id, entry.path);
-    final record = await ReceivedFileDao.instance.getByMessageId(messageId);
-    if (record == null || !mounted) {
-      await _downloadEntries([entry]);
+    final l10n = AppLocalizations.of(context);
+    final info = await _resolveLocalFileInfo(entry);
+    if (info == null) {
+      if (!mounted) return;
+      AppToast.show(context, message: l10n.webdavShareNeedDownload);
       return;
     }
-    await openReceivedFile(context, record.toInfo());
+    if (!mounted) return;
+    await openReceivedFile(context, info);
   }
 
   Future<void> _toggleFavorite(WebDavEntry entry) async {
@@ -412,10 +494,9 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     if (files.isEmpty) return;
     final xFiles = <XFile>[];
     for (final entry in files) {
-      final messageId = webDavMessageId(widget.connection.id, entry.path);
-      final record = await ReceivedFileDao.instance.getByMessageId(messageId);
-      if (record != null && File(record.readablePath).existsSync()) {
-        xFiles.add(XFile(record.readablePath, name: entry.name));
+      final info = await _resolveLocalFileInfo(entry);
+      if (info != null) {
+        xFiles.add(XFile(info.path, name: entry.name));
       }
     }
     if (xFiles.isEmpty) {
@@ -706,6 +787,8 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
                         )
                       : ListView.builder(
                           padding: EdgeInsets.only(
+                            left: AppSpacing.md,
+                            right: AppSpacing.md,
                             bottom: AppLayout.floatingBottomBarScrollInset(
                               context,
                             ),
@@ -728,6 +811,52 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     );
   }
 
+  Widget _buildDownloadedBadge(AppLocalizations l10n, AppThemeColors colors) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.success.withValues(alpha: 0.08),
+        border: Border.all(color: colors.success.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        l10n.webdavLocalDownloaded,
+        style: TextStyle(
+          color: colors.success,
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileMetaRow(
+    WebDavEntry entry,
+    AppLocalizations l10n,
+    ThemeData theme,
+    AppThemeColors colors,
+  ) {
+    final isDownloaded =
+        !entry.isDirectory && _localPathByRemotePath[entry.path] != null;
+    return Row(
+      children: [
+        Text(
+          entry.isDirectory
+              ? l10n.webdavEntryFolder
+              : formatFileSize(entry.size ?? 0),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.textTertiary,
+            fontSize: 11,
+          ),
+        ),
+        if (isDownloaded) ...[
+          const SizedBox(width: AppSpacing.xs),
+          _buildDownloadedBadge(l10n, colors),
+        ],
+      ],
+    );
+  }
+
   Widget _buildEntryTile(
     BuildContext context,
     WebDavEntry entry,
@@ -739,6 +868,8 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
   }) {
     final selected = _selectedPaths.contains(entry.path);
     final isFav = favoritePaths.contains(entry.path);
+    final isDownloaded =
+        !entry.isDirectory && _localPathByRemotePath[entry.path] != null;
 
     if (grid) {
       return InkWell(
@@ -783,6 +914,10 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall,
                 ),
+                if (isDownloaded) ...[
+                  const SizedBox(height: AppSpacing.xxs),
+                  _buildDownloadedBadge(l10n, colors),
+                ],
                 if (isFav)
                   Icon(LucideIcons.star, size: 12, color: colors.warning),
               ],
@@ -793,6 +928,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     }
 
     return ListTile(
+      contentPadding: EdgeInsets.zero,
       leading: entry.isDirectory
           ? Icon(LucideIcons.folder, color: colors.warning)
           : FileIconWidget(
@@ -800,15 +936,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
               size: 28,
             ),
       title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        entry.isDirectory
-            ? l10n.webdavEntryFolder
-            : formatFileSize(entry.size ?? 0),
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: colors.textTertiary,
-          fontSize: 11,
-        ),
-      ),
+      subtitle: _buildFileMetaRow(entry, l10n, theme, colors),
       trailing: _selectionMode
           ? Icon(
               selected ? LucideIcons.checkCircle2 : LucideIcons.circle,

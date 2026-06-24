@@ -3215,4 +3215,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webdavShareNeedDownload => '请先下载文件后再分享';
+
+  @override
+  String get webdavLocalDownloaded => '已下载';
 }

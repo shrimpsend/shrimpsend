@@ -3353,4 +3353,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webdavShareNeedDownload => 'Download the file first to share';
+
+  @override
+  String get webdavLocalDownloaded => 'Downloaded';
 }

@@ -5939,6 +5939,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Download the file first to share'**
   String get webdavShareNeedDownload;
+
+  /// No description provided for @webdavLocalDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded'**
+  String get webdavLocalDownloaded;
 }
 
 class _AppLocalizationsDelegate

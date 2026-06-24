@@ -1440,5 +1440,6 @@
       "error": { "type": "String" }
     }
   },
-  "webdavShareNeedDownload": "请先下载文件后再分享"
+  "webdavShareNeedDownload": "请先下载文件后再分享",
+  "webdavLocalDownloaded": "已下载"
 }
