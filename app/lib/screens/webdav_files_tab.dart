@@ -507,6 +507,17 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     await Share.shareXFiles(xFiles);
   }
 
+  void _enterSelectionMode({WebDavEntry? entry}) {
+    setState(() {
+      _selectionMode = true;
+      _selectedPaths.clear();
+      if (entry != null) {
+        _selectedPaths.add(entry.path);
+      }
+    });
+    _notifySelectionChanged();
+  }
+
   void _showEntryMenu(WebDavEntry entry, Set<String> favoritePaths) {
     final l10n = AppLocalizations.of(context);
     final isFav = favoritePaths.contains(entry.path);
@@ -518,6 +529,14 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: const Icon(LucideIcons.checkSquare),
+              title: Text(l10n.fmMultiSelectMode),
+              onTap: () {
+                Navigator.pop(ctx);
+                _enterSelectionMode(entry: entry);
+              },
+            ),
             if (!entry.isDirectory) ...[
               ListTile(
                 leading: const Icon(LucideIcons.download),
@@ -887,13 +906,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
             _openEntry(entry);
           }
         },
-        onLongPress: () {
-          setState(() {
-            _selectionMode = true;
-            _selectedPaths.add(entry.path);
-          });
-          _notifySelectionChanged();
-        },
+        onLongPress: () => _showEntryMenu(entry, favoritePaths),
         child: Card(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.sm),
@@ -942,17 +955,9 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
               selected ? LucideIcons.checkCircle2 : LucideIcons.circle,
               color: selected ? theme.colorScheme.primary : colors.textTertiary,
             )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isFav)
-                  Icon(LucideIcons.star, size: 14, color: colors.warning),
-                IconButton(
-                  icon: const Icon(LucideIcons.ellipsisVertical, size: 18),
-                  onPressed: () => _showEntryMenu(entry, favoritePaths),
-                ),
-              ],
-            ),
+          : isFav
+          ? Icon(LucideIcons.star, size: 14, color: colors.warning)
+          : null,
       onTap: () {
         if (_selectionMode) {
           setState(() {
@@ -967,15 +972,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
           _openEntry(entry);
         }
       },
-      onLongPress: () {
-        if (!_selectionMode) {
-          setState(() {
-            _selectionMode = true;
-            _selectedPaths.add(entry.path);
-          });
-          _notifySelectionChanged();
-        }
-      },
+      onLongPress: () => _showEntryMenu(entry, favoritePaths),
     );
   }
 
