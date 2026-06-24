@@ -276,31 +276,31 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     }
   }
 
-  Future<void> _renameEntry(WebDavEntry entry) async {
+  Future<String?> _showTextInputDialog({
+    required String title,
+    required String hint,
+    String initialText = '',
+  }) {
     final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController(text: entry.name);
-    final newName = await showDialog<String>(
+    return showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.webdavRenameTitle),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l10n.webdavRenameHint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: Text(l10n.confirm),
-          ),
-        ],
+      builder: (ctx) => _WebDavTextInputDialog(
+        title: title,
+        hint: hint,
+        initialText: initialText,
+        cancelLabel: l10n.cancel,
+        confirmLabel: l10n.confirm,
       ),
     );
-    controller.dispose();
+  }
+
+  Future<void> _renameEntry(WebDavEntry entry) async {
+    final l10n = AppLocalizations.of(context);
+    final newName = await _showTextInputDialog(
+      title: l10n.webdavRenameTitle,
+      hint: l10n.webdavRenameHint,
+      initialText: entry.name,
+    );
     if (newName == null || newName.isEmpty || newName == entry.name) return;
     try {
       final parent = p.dirname(entry.path);
@@ -319,29 +319,11 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
 
   Future<void> _copyEntry(WebDavEntry entry) async {
     final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController(text: '${entry.name}_copy');
-    final destName = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.webdavActionCopy),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l10n.webdavRenameHint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: Text(l10n.confirm),
-          ),
-        ],
-      ),
+    final destName = await _showTextInputDialog(
+      title: l10n.webdavActionCopy,
+      hint: l10n.webdavRenameHint,
+      initialText: '${entry.name}_copy',
     );
-    controller.dispose();
     if (destName == null || destName.isEmpty) return;
     try {
       final parent = p.dirname(entry.path);
@@ -362,29 +344,11 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
 
   Future<void> _moveEntry(WebDavEntry entry) async {
     final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController(text: entry.path);
-    final destPath = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.webdavActionMove),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l10n.webdavMoveHint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: Text(l10n.confirm),
-          ),
-        ],
-      ),
+    final destPath = await _showTextInputDialog(
+      title: l10n.webdavActionMove,
+      hint: l10n.webdavMoveHint,
+      initialText: entry.path,
     );
-    controller.dispose();
     if (destPath == null || destPath.isEmpty || destPath == entry.path) return;
     try {
       await widget.client.moveResource(
@@ -401,26 +365,10 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
 
   Future<void> _createFolder() async {
     final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.webdavNewFolderTitle),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l10n.webdavNewFolderHint),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: Text(l10n.confirm),
-          ),
-        ],
-      ),
+    final name = await _showTextInputDialog(
+      title: l10n.webdavNewFolderTitle,
+      hint: l10n.webdavNewFolderHint,
     );
-    controller.dispose();
     if (name == null || name.isEmpty) return;
     try {
       final path = _relativePath.isEmpty ? name : '$_relativePath/$name';
@@ -952,6 +900,63 @@ class _BreadcrumbChip extends StatelessWidget {
       onPressed: onTap,
       visualDensity: VisualDensity.compact,
       labelStyle: theme.textTheme.bodySmall,
+    );
+  }
+}
+
+class _WebDavTextInputDialog extends StatefulWidget {
+  final String title;
+  final String hint;
+  final String initialText;
+  final String cancelLabel;
+  final String confirmLabel;
+
+  const _WebDavTextInputDialog({
+    required this.title,
+    required this.hint,
+    required this.initialText,
+    required this.cancelLabel,
+    required this.confirmLabel,
+  });
+
+  @override
+  State<_WebDavTextInputDialog> createState() => _WebDavTextInputDialogState();
+}
+
+class _WebDavTextInputDialogState extends State<_WebDavTextInputDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(hintText: widget.hint),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(widget.cancelLabel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: Text(widget.confirmLabel),
+        ),
+      ],
     );
   }
 }
