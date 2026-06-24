@@ -1,0 +1,16 @@
+name: webdav_client
+description: A simple WebDAV client (Ultrasend vendored fork of flymzero/webdav_client).
+version: 1.2.1+ultrasend.1
+publish_to: none
+homepage: https://github.com/flymzero/webdav_client
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  dio: ^5.1.0
+  xml: ^6.3.0
+  convert: ^3.1.1
+
+dev_dependencies:
+  test: ^1.25.0

@@ -11,7 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import '../api/api.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/webdav_provider.dart';
-import '../services/webdav_client.dart';
+import '../services/webdav_session.dart';
 import '../ui/app_ui.dart';
 import '../utils/file_utils.dart';
 import '../utils/toast.dart';
@@ -156,7 +156,17 @@ class _WebDavBrowserScreenState extends ConsumerState<WebDavBrowserScreen> {
     if (!ok || !mounted) return;
     try {
       for (final path in _selectedPaths) {
-        await client.deleteResource(path);
+        WebDavEntry? entry;
+        for (final e in _entries) {
+          if (e.path == path) {
+            entry = e;
+            break;
+          }
+        }
+        await client.deleteResource(
+          path,
+          isDirectory: entry?.isDirectory ?? false,
+        );
       }
       await _loadDirectory(_relativePath);
       if (!mounted) return;
@@ -198,7 +208,11 @@ class _WebDavBrowserScreenState extends ConsumerState<WebDavBrowserScreen> {
     try {
       final parent = p.dirname(entry.path);
       final dest = parent == '.' ? newName : '$parent/$newName';
-      await client.moveResource(entry.path, dest);
+      await client.moveResource(
+        entry.path,
+        dest,
+        isDirectory: entry.isDirectory,
+      );
       await _loadDirectory(_relativePath);
     } catch (e) {
       if (!mounted) return;

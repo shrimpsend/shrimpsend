@@ -153,6 +153,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "4.1.0"
+  convert:
+    dependency: transitive
+    description:
+      name: convert
+      sha256: b30acd5944035672bc15c6b7a8b47d773e41e2f17de064350988c5d02adb1c68
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "3.1.2"
   country_picker:
     dependency: "direct main"
     description:
@@ -1662,6 +1670,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.0.3"
+  webdav_client:
+    dependency: "direct main"
+    description:
+      path: "packages/webdav_client"
+      relative: true
+    source: path
+    version: "1.2.1+ultrasend.1"
   webrtc_interface:
     dependency: transitive
     description:
