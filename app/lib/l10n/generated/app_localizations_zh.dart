@@ -695,7 +695,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get chatPickDeviceToStart => '选择一个设备开始对话';
+  String get chatPickDeviceToStart => '选择设备、云端中转或 WebDAV 连接';
 
   @override
   String get chatTooltipBackDeviceList => '返回设备列表';
@@ -2149,6 +2149,38 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String devicePanelFooterSummary(int deviceOnline, int webDavCount) {
+    return '$deviceOnline 台在线 · $webDavCount 个 WebDAV';
+  }
+
+  @override
+  String get homeSectionCloudRelay => '云端中转';
+
+  @override
+  String get homeSectionRemoteStorage => '远程存储';
+
+  @override
+  String get homeSectionDevices => '设备互传';
+
+  @override
+  String get homeListEmptyTitle => '暂无可用的连接';
+
+  @override
+  String get homeListEmptyHint => '扫码添加设备、配置云端中转或添加 WebDAV 连接。';
+
+  @override
+  String get homeWebDavLoadFailed => '加载 WebDAV 连接失败';
+
+  @override
+  String get homeWebDavAddConnection => '添加 WebDAV 连接';
+
+  @override
+  String get homeWebDavRetry => '重试';
+
+  @override
+  String get homeListOfflineBanner => '离线模式，列表可能不是最新';
+
+  @override
   String get connectionBarDefaultTitle => '连接状态';
 
   @override
@@ -3130,6 +3162,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webdavTabFavorites => '收藏';
+
+  @override
+  String get webdavTabUpload => '上传';
 
   @override
   String get webdavTabSettings => '设置';

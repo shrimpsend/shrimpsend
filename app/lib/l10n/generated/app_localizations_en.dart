@@ -725,7 +725,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get chatPickDeviceToStart => 'Choose a device to start chatting';
+  String get chatPickDeviceToStart =>
+      'Choose a device, cloud relay, or WebDAV connection';
 
   @override
   String get chatTooltipBackDeviceList => 'Back to device list';
@@ -2235,6 +2236,39 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String devicePanelFooterSummary(int deviceOnline, int webDavCount) {
+    return '$deviceOnline online · $webDavCount WebDAV';
+  }
+
+  @override
+  String get homeSectionCloudRelay => 'Cloud relay';
+
+  @override
+  String get homeSectionRemoteStorage => 'Remote storage';
+
+  @override
+  String get homeSectionDevices => 'Device transfer';
+
+  @override
+  String get homeListEmptyTitle => 'Nothing here yet';
+
+  @override
+  String get homeListEmptyHint =>
+      'Scan to add a device, set up cloud relay, or connect WebDAV.';
+
+  @override
+  String get homeWebDavLoadFailed => 'Failed to load WebDAV connections';
+
+  @override
+  String get homeWebDavAddConnection => 'Add WebDAV connection';
+
+  @override
+  String get homeWebDavRetry => 'Retry';
+
+  @override
+  String get homeListOfflineBanner => 'Offline — list may be outdated';
+
+  @override
   String get connectionBarDefaultTitle => 'Connection status';
 
   @override
@@ -3268,6 +3302,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webdavTabFavorites => 'Favorites';
+
+  @override
+  String get webdavTabUpload => 'Upload';
 
   @override
   String get webdavTabSettings => 'Settings';

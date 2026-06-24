@@ -13,6 +13,28 @@ import 'auth_session_provider.dart';
 /// Virtual device ID for the S3 cloud relay entry in the device list.
 const s3VirtualDeviceId = '__s3_cloud__';
 
+const webDavSelectionPrefix = '__webdav__';
+
+String webDavSelectionId(int connectionId) =>
+    '$webDavSelectionPrefix$connectionId';
+
+int? parseWebDavConnectionId(String? selection) {
+  if (selection == null || !selection.startsWith(webDavSelectionPrefix)) {
+    return null;
+  }
+  return int.tryParse(selection.substring(webDavSelectionPrefix.length));
+}
+
+bool isWebDavSelection(String? id) =>
+    id != null && id.startsWith(webDavSelectionPrefix);
+
+/// Peer device or S3 cloud relay — not WebDAV remote storage.
+bool isChatSelection(String? id) => id != null && !isWebDavSelection(id);
+
+/// Real peer device (excludes S3 virtual entry and WebDAV).
+bool isPeerSelection(String? id) =>
+    id != null && id != s3VirtualDeviceId && !isWebDavSelection(id);
+
 enum SendMode { nearby, lan, webrtc, s3 }
 
 class DeviceInfo {

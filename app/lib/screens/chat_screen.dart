@@ -605,7 +605,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           // Tear down the always-on foreground service on logout.
           unawaited(TransferKeepAlive.instance.disablePersistent());
           ref.read(selectedSendModeProvider.notifier).resetForLogout();
-          if (ref.read(selectedDeviceIdProvider) == s3VirtualDeviceId) {
+          if (ref.read(selectedDeviceIdProvider) != null) {
             ref.read(selectedDeviceIdProvider.notifier).select(null);
           }
           // AppEntryScreen replaces ChatScreen; do not restart _init().
@@ -625,30 +625,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (prev != next) {
         ref.read(selectedSendModeProvider.notifier).activateDevice(next);
         ref.read(connectionSwitchProbeProvider.notifier).state = null;
-        unawaited(_reloadThreadForSelectionChange());
-        if (next != null && next != s3VirtualDeviceId) {
+        if (!isWebDavSelection(next)) {
+          unawaited(_reloadThreadForSelectionChange());
+        }
+        if (isPeerSelection(next)) {
           ref.read(chatSendModeAutoProvider.notifier).state = true;
           ref.read(connectionManualOverrideProvider.notifier).state = false;
           ref.read(connectionManualModeProvider.notifier).state = null;
           ref
               .read(selectedSendModeProvider.notifier)
               .select(SendMode.lan, persist: false);
-          _seedSelectedPeerReachabilitySnapshot(next);
+          _seedSelectedPeerReachabilitySnapshot(next!);
         } else {
           _clearSelectedPeerReachabilitySnapshot();
         }
         if (next != null) {
           Analytics.track(AnalyticsEvents.chatSessionOpen, {
-            'session_type': next == s3VirtualDeviceId ? 's3' : 'peer',
+            'session_type': next == s3VirtualDeviceId
+                ? 's3'
+                : isWebDavSelection(next)
+                ? 'webdav'
+                : 'peer',
           });
         }
       }
-      if (next != null && next != s3VirtualDeviceId) {
+      if (isPeerSelection(next)) {
+        final peerId = next!;
         // Always override multi-select state with the conversation device,
         // even if the same device is re-selected.
-        ref.read(selectedLanTargetsProvider.notifier).setAll({next});
-        if (next != prev) {
-          _probeSingleDevice(next);
+        ref.read(selectedLanTargetsProvider.notifier).setAll({peerId});
+        if (peerId != prev) {
+          _probeSingleDevice(peerId);
         }
       }
     });
@@ -2746,7 +2753,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<String?> _threadKeyForCurrentSelection() async {
     if (!mounted) return null;
     final peer = ref.read(selectedDeviceIdProvider);
-    if (peer == null) return null;
+    if (peer == null || isWebDavSelection(peer)) return null;
     final ap = await _accountPartForThreadKey();
     return threadKeyForPeerSelection(
       accountPart: ap,
@@ -8881,6 +8888,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     super.dispose();
   }
 
+  Future<void> _openAddWebDavConnection() async {
+    _composerKey.currentState?.unfocus();
+    if (!ref.read(authProvider).isLoggedIn) {
+      await Navigator.pushNamed(context, '/login');
+      return;
+    }
+    final ok = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const WebDavConnectionScreen(),
+      ),
+    );
+    if (ok == true && mounted) {
+      await ref.read(webDavConnectionsProvider.notifier).refresh();
+    }
+  }
+
   Widget _buildMainLayout({
     required bool isOffline,
     required bool isAuthOffline,
@@ -8933,22 +8957,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     MaterialPageRoute(builder: (_) => const QrScannerScreen()),
                   );
                 case AddConnectionChoice.addWebDav:
-                  if (!ref.read(authProvider).isLoggedIn) {
-                    await Navigator.pushNamed(context, '/login');
-                    return;
-                  }
-                  final ok = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const WebDavConnectionScreen(),
-                    ),
-                  );
-                  if (ok == true && mounted) {
-                    await ref.read(webDavConnectionsProvider.notifier).refresh();
-                  }
+                  await _openAddWebDavConnection();
               }
             }
           : null,
+      onAddWebDavTap: !isOffline ? () => _openAddWebDavConnection() : null,
       onFileManager: () {
         _composerKey.currentState?.unfocus();
         if (mobileHomeTabs) {
@@ -9109,7 +9122,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final isDark = theme.brightness == Brightness.dark;
     final selectedDeviceId = ref.watch(selectedDeviceIdProvider);
     final mobileChatSession =
-        !_isDesktopPlatform && selectedDeviceId != null;
+        !_isDesktopPlatform && isChatSelection(selectedDeviceId);
     final mobileHomeFloatingBar =
         !_isDesktopPlatform &&
         selectedDeviceId == null &&

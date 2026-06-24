@@ -15,11 +15,11 @@ import '../../utils/runtime_platform.dart';
 import '../busy_status_indicator.dart';
 import '../devices/device_conversation_item.dart';
 import '../devices/device_id_chip.dart';
-import '../../screens/webdav_shell_screen.dart';
 import '../../screens/webdav_connection_screen.dart';
 import '../../services/webdav_credential_store.dart';
 import '../../utils/toast.dart';
 import '../../widgets/app_confirm_dialog.dart';
+import '../home/home_list_section.dart';
 import '../webdav/webdav_connection_item.dart';
 
 /// Matches [MainLayout] / [ChatScreen] narrow breakpoint (floating tab bar inset).
@@ -43,6 +43,7 @@ class DeviceListPanel extends ConsumerWidget {
   final VoidCallback onShowSettings;
   final VoidCallback? onSearch;
   final VoidCallback? onAddConnectionTap;
+  final VoidCallback? onAddWebDavTap;
   final VoidCallback? onFileManager;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onLoginTap;
@@ -67,6 +68,7 @@ class DeviceListPanel extends ConsumerWidget {
     required this.onShowSettings,
     this.onSearch,
     this.onAddConnectionTap,
+    this.onAddWebDavTap,
     this.onFileManager,
     this.onRefresh,
     this.onLoginTap,
@@ -134,9 +136,12 @@ class DeviceListPanel extends ConsumerWidget {
     final reachability = ref.watch(deviceReachabilityProvider);
     final probing = ref.watch(devicesProbingProvider);
     final webDavAsync = ref.watch(webDavConnectionsProvider);
-    final webDavConnections = isLoggedIn && !isOffline
-        ? webDavAsync.valueOrNull ?? []
-        : <WebDavConnectionSummary>[];
+    final webDavConnections = isLoggedIn
+        ? (webDavAsync.valueOrNull ?? const <WebDavConnectionSummary>[])
+        : const <WebDavConnectionSummary>[];
+    final webDavCount = webDavConnections.length;
+    final showS3Section = (s3Configured || s3Checking) && !isOffline;
+    final showWebDavSection = isLoggedIn;
 
     final sorted = [...otherDevices]
       ..sort((a, b) {
@@ -150,6 +155,7 @@ class DeviceListPanel extends ConsumerWidget {
         if (byReach != 0) return byReach;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
+    final showDevicesSection = sorted.isNotEmpty;
 
     final onlineCount = otherDevices
         .where(
@@ -361,7 +367,10 @@ class DeviceListPanel extends ConsumerWidget {
                     ? AppLayout.floatingBottomBarScrollInset(context)
                     : 0.0;
                 final listChildren = <Widget>[
-                  if ((s3Configured || s3Checking) && !isOffline)
+                  if (isLoggedIn && isOffline && webDavCount > 0)
+                    _HomeListOfflineBanner(message: l10n.homeListOfflineBanner),
+                  if (showS3Section) ...[
+                    HomeListSectionHeader(title: l10n.homeSectionCloudRelay),
                     _S3VirtualDeviceItem(
                       selected: selectedDeviceId == s3VirtualDeviceId,
                       configured: s3Configured,
@@ -371,58 +380,61 @@ class DeviceListPanel extends ConsumerWidget {
                           .read(selectedDeviceIdProvider.notifier)
                           .select(s3VirtualDeviceId),
                     ),
-                  if (webDavConnections.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.sm,
-                        AppSpacing.md,
-                        AppSpacing.xs,
-                      ),
-                      child: Text(
-                        l10n.webdavSectionTitle,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colors.textTertiary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                  ],
+                  if (showWebDavSection) ...[
+                    HomeListSectionHeader(
+                      title: l10n.homeSectionRemoteStorage,
+                      count: webDavCount > 0 ? webDavCount : null,
+                      trailing: onAddWebDavTap != null && !isOffline
+                          ? IconButton(
+                              icon: const Icon(
+                                LucideIcons.plus,
+                                size: 18,
+                              ),
+                              onPressed: onAddWebDavTap,
+                              tooltip: l10n.webdavAddMenuTooltip,
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                            )
+                          : null,
                     ),
-                    ...webDavConnections.map(
-                      (conn) => WebDavConnectionItem(
-                        key: ValueKey('webdav_${conn.id}'),
-                        connection: conn,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  WebDavShellScreen(connection: conn),
-                            ),
-                          );
-                        },
-                        onMore: () => _showWebDavConnectionMenu(
-                          context,
-                          ref,
-                          conn,
-                        ),
+                    ..._buildWebDavSectionBody(
+                      context: context,
+                      ref: ref,
+                      l10n: l10n,
+                      theme: theme,
+                      colors: colors,
+                      webDavAsync: webDavAsync,
+                      webDavConnections: webDavConnections,
+                      selectedDeviceId: selectedDeviceId,
+                      isOffline: isOffline,
+                      onAddWebDavTap: onAddWebDavTap,
+                    ),
+                  ],
+                  if (showDevicesSection) ...[
+                    HomeListSectionHeader(
+                      title: l10n.homeSectionDevices,
+                      count: sorted.length,
+                    ),
+                    ...sorted.map(
+                      (device) => _DeviceListReachRow(
+                        key: ValueKey(device.deviceId),
+                        device: device,
+                        isMyDevice: myIds.contains(device.deviceId),
+                        selected: selectedDeviceId == device.deviceId,
+                        onTap: () => ref
+                            .read(selectedDeviceIdProvider.notifier)
+                            .select(device.deviceId),
                       ),
                     ),
                   ],
-                  ...sorted.map(
-                    (device) => _DeviceListReachRow(
-                      key: ValueKey(device.deviceId),
-                      device: device,
-                      isMyDevice: myIds.contains(device.deviceId),
-                      selected: selectedDeviceId == device.deviceId,
-                      onTap: () => ref
-                          .read(selectedDeviceIdProvider.notifier)
-                          .select(device.deviceId),
-                    ),
-                  ),
                 ];
-                final isEmpty = sorted.isEmpty &&
-                    !(s3Configured || s3Checking) &&
-                    webDavConnections.isEmpty;
+                final isEmpty =
+                    !showS3Section && !showDevicesSection && !isLoggedIn;
                 final emptyBody = Padding(
                   padding: EdgeInsets.fromLTRB(
                     AppSpacing.lg,
@@ -434,21 +446,32 @@ class DeviceListPanel extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        l10n.devicePanelEmptyNoOtherDevices,
+                        l10n.homeListEmptyTitle,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colors.textSecondary,
+                          fontWeight: FontWeight.w600,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
                         isOffline
                             ? l10n.devicePanelEmptyHintOfflineLan
-                            : l10n.devicePanelEmptyHintOnlineAccount,
+                            : l10n.homeListEmptyHint,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.textTertiary,
                         ),
                         textAlign: TextAlign.center,
                       ),
+                      if (!isOffline) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        if (onAddConnectionTap != null)
+                          FilledButton.tonalIcon(
+                            onPressed: onAddConnectionTap,
+                            icon: const Icon(LucideIcons.plus, size: 18),
+                            label: Text(l10n.webdavAddMenuTooltip),
+                          ),
+                      ],
                     ],
                   ),
                 );
@@ -508,6 +531,11 @@ class DeviceListPanel extends ConsumerWidget {
                       child: Text(
                         probing
                             ? l10n.chatS3StatusChecking
+                            : webDavCount > 0
+                            ? l10n.devicePanelFooterSummary(
+                                onlineCount,
+                                webDavCount,
+                              )
                             : l10n.devicePanelDevicesOnlineCount(onlineCount),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.textTertiary,
@@ -528,6 +556,134 @@ class DeviceListPanel extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+List<Widget> _buildWebDavSectionBody({
+  required BuildContext context,
+  required WidgetRef ref,
+  required AppLocalizations l10n,
+  required ThemeData theme,
+  required AppThemeColors colors,
+  required AsyncValue<List<WebDavConnectionSummary>> webDavAsync,
+  required List<WebDavConnectionSummary> webDavConnections,
+  required String? selectedDeviceId,
+  required bool isOffline,
+  required VoidCallback? onAddWebDavTap,
+}) {
+  if (webDavAsync.isLoading && webDavConnections.isEmpty) {
+    return const [
+      HomeListSkeletonRow(),
+      HomeListSkeletonRow(),
+    ];
+  }
+
+  if (webDavAsync.hasError && webDavConnections.isEmpty) {
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.sm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.homeWebDavLoadFailed,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.danger,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            TextButton(
+              onPressed: () =>
+                  ref.read(webDavConnectionsProvider.notifier).refresh(),
+              child: Text(l10n.homeWebDavRetry),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  if (webDavConnections.isEmpty) {
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.sm,
+        ),
+        child: onAddWebDavTap != null && !isOffline
+            ? TextButton.icon(
+                onPressed: onAddWebDavTap,
+                icon: const Icon(LucideIcons.plus, size: 16),
+                label: Text(l10n.homeWebDavAddConnection),
+              )
+            : Text(
+                l10n.homeWebDavAddConnection,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.textTertiary,
+                ),
+              ),
+      ),
+    ];
+  }
+
+  return webDavConnections
+      .map(
+        (conn) => WebDavConnectionItem(
+          key: ValueKey('webdav_${conn.id}'),
+          connection: conn,
+          selected: selectedDeviceId == webDavSelectionId(conn.id),
+          onTap: () => ref
+              .read(selectedDeviceIdProvider.notifier)
+              .select(webDavSelectionId(conn.id)),
+          onMore: () => _showWebDavConnectionMenu(context, ref, conn),
+        ),
+      )
+      .toList();
+}
+
+class _HomeListOfflineBanner extends StatelessWidget {
+  final String message;
+
+  const _HomeListOfflineBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.sm,
+        0,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: colors.warning.withValues(alpha: 0.12),
+          borderRadius: AppRadius.small,
+        ),
+        child: Text(
+          message,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.warning,
+            fontSize: 11,
+          ),
+        ),
       ),
     );
   }

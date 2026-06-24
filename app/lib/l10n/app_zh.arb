@@ -237,7 +237,7 @@
       }
     }
   },
-  "chatPickDeviceToStart": "选择一个设备开始对话",
+  "chatPickDeviceToStart": "选择设备、云端中转或 WebDAV 连接",
   "chatTooltipBackDeviceList": "返回设备列表",
   "chatTooltipS3Settings": "S3 设置",
   "chatTooltipFileManager": "文件管理",
@@ -803,6 +803,26 @@
       }
     }
   },
+  "devicePanelFooterSummary": "{deviceOnline} 台在线 · {webDavCount} 个 WebDAV",
+  "@devicePanelFooterSummary": {
+    "placeholders": {
+      "deviceOnline": {
+        "type": "int"
+      },
+      "webDavCount": {
+        "type": "int"
+      }
+    }
+  },
+  "homeSectionCloudRelay": "云端中转",
+  "homeSectionRemoteStorage": "远程存储",
+  "homeSectionDevices": "设备互传",
+  "homeListEmptyTitle": "暂无可用的连接",
+  "homeListEmptyHint": "扫码添加设备、配置云端中转或添加 WebDAV 连接。",
+  "homeWebDavLoadFailed": "加载 WebDAV 连接失败",
+  "homeWebDavAddConnection": "添加 WebDAV 连接",
+  "homeWebDavRetry": "重试",
+  "homeListOfflineBanner": "离线模式，列表可能不是最新",
   "connectionBarDefaultTitle": "连接状态",
   "connectionBarManualShort": "手动",
   "connectionBarAutoShort": "自动",
@@ -1406,6 +1426,7 @@
   "webdavTabFiles": "文件",
   "webdavTabRecent": "最近",
   "webdavTabFavorites": "收藏",
+  "webdavTabUpload": "上传",
   "webdavTabSettings": "设置",
   "webdavTransferList": "传输列表",
   "webdavTransferUploading": "上传中",

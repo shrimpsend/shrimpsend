@@ -1401,7 +1401,7 @@ abstract class AppLocalizations {
   /// No description provided for @chatPickDeviceToStart.
   ///
   /// In en, this message translates to:
-  /// **'Choose a device to start chatting'**
+  /// **'Choose a device, cloud relay, or WebDAV connection'**
   String get chatPickDeviceToStart;
 
   /// No description provided for @chatTooltipBackDeviceList.
@@ -4008,6 +4008,66 @@ abstract class AppLocalizations {
   /// **'{count} online'**
   String devicePanelDevicesOnlineCount(int count);
 
+  /// No description provided for @devicePanelFooterSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{deviceOnline} online · {webDavCount} WebDAV'**
+  String devicePanelFooterSummary(int deviceOnline, int webDavCount);
+
+  /// No description provided for @homeSectionCloudRelay.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud relay'**
+  String get homeSectionCloudRelay;
+
+  /// No description provided for @homeSectionRemoteStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote storage'**
+  String get homeSectionRemoteStorage;
+
+  /// No description provided for @homeSectionDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Device transfer'**
+  String get homeSectionDevices;
+
+  /// No description provided for @homeListEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet'**
+  String get homeListEmptyTitle;
+
+  /// No description provided for @homeListEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan to add a device, set up cloud relay, or connect WebDAV.'**
+  String get homeListEmptyHint;
+
+  /// No description provided for @homeWebDavLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load WebDAV connections'**
+  String get homeWebDavLoadFailed;
+
+  /// No description provided for @homeWebDavAddConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Add WebDAV connection'**
+  String get homeWebDavAddConnection;
+
+  /// No description provided for @homeWebDavRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get homeWebDavRetry;
+
+  /// No description provided for @homeListOfflineBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline — list may be outdated'**
+  String get homeListOfflineBanner;
+
   /// No description provided for @connectionBarDefaultTitle.
   ///
   /// In en, this message translates to:
@@ -5777,6 +5837,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Favorites'**
   String get webdavTabFavorites;
+
+  /// No description provided for @webdavTabUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload'**
+  String get webdavTabUpload;
 
   /// No description provided for @webdavTabSettings.
   ///

@@ -21,8 +21,15 @@ import 'webdav_transfer_list_screen.dart';
 
 class WebDavShellScreen extends ConsumerStatefulWidget {
   final WebDavConnectionSummary connection;
+  final bool embedded;
+  final VoidCallback? onBack;
 
-  const WebDavShellScreen({super.key, required this.connection});
+  const WebDavShellScreen({
+    super.key,
+    required this.connection,
+    this.embedded = false,
+    this.onBack,
+  });
 
   @override
   ConsumerState<WebDavShellScreen> createState() => _WebDavShellScreenState();
@@ -325,13 +332,13 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
                   Semantics(
                     button: true,
                     enabled: _showOutboxButton,
-                    label: l10n.webdavOutboxUpload,
+                    label: l10n.webdavTabUpload,
                     child: InkWell(
                       onTap: _showOutboxButton ? _openOutboxSheet : null,
                       child: Opacity(
                         opacity: _showOutboxButton ? 1 : 0.35,
                         child: SizedBox(
-                          width: 72,
+                          width: 56,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -352,7 +359,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                l10n.webdavOutboxUpload,
+                                l10n.webdavTabUpload,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.labelSmall?.copyWith(
@@ -381,16 +388,26 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     final l10n = AppLocalizations.of(context);
 
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: Text(widget.connection.name)),
-        body: const Center(child: CircularProgressIndicator()),
+      return _wrapShell(
+        context,
+        AppBar(
+          automaticallyImplyLeading: false,
+          leading: _buildBackButton(context),
+          title: Text(widget.connection.name),
+        ),
+        const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_error != null || _client == null) {
-      return Scaffold(
-        appBar: AppBar(title: Text(widget.connection.name)),
-        body: Center(
+      return _wrapShell(
+        context,
+        AppBar(
+          automaticallyImplyLeading: false,
+          leading: _buildBackButton(context),
+          title: Text(widget.connection.name),
+        ),
+        Center(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
@@ -452,20 +469,44 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     );
 
     return PopScope(
-      canPop: !_selectionMode,
+      canPop: !_selectionMode && widget.onBack == null,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _selectionMode) {
           _exitActiveTabSelectionMode();
+          return;
+        }
+        if (!didPop && widget.onBack != null) {
+          widget.onBack!();
         }
       },
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        appBar: AppBar(
+      child: _wrapShell(
+        context,
+        AppBar(
+          automaticallyImplyLeading: false,
+          leading: _buildBackButton(context),
           title: Text(_appBarTitle(l10n)),
           actions: _buildAppBarActions(l10n, activeTransfers),
         ),
-        body: body,
+        body,
       ),
+    );
+  }
+
+  Widget? _buildBackButton(BuildContext context) {
+    if (widget.embedded || widget.onBack == null) return null;
+    return IconButton(
+      icon: const Icon(LucideIcons.arrowLeft),
+      onPressed: widget.onBack,
+      tooltip: AppLocalizations.of(context).chatTooltipBackDeviceList,
+    );
+  }
+
+  Widget _wrapShell(BuildContext context, PreferredSizeWidget appBar, Widget body) {
+    return Scaffold(
+      primary: !widget.embedded,
+      resizeToAvoidBottomInset: false,
+      appBar: appBar,
+      body: body,
     );
   }
 

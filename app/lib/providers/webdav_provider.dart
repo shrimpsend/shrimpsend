@@ -20,11 +20,7 @@ class WebDavConnectionsNotifier
       }
     });
     if (!ref.watch(authProvider).isLoggedIn) return [];
-    try {
-      return await listWebDavConnections();
-    } catch (_) {
-      return [];
-    }
+    return listWebDavConnections();
   }
 
   Future<void> refresh() async {

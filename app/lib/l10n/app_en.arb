@@ -326,7 +326,7 @@
       }
     }
   },
-  "chatPickDeviceToStart": "Choose a device to start chatting",
+  "chatPickDeviceToStart": "Choose a device, cloud relay, or WebDAV connection",
   "chatTooltipBackDeviceList": "Back to device list",
   "chatTooltipS3Settings": "S3 settings",
   "chatTooltipFileManager": "File manager",
@@ -1256,6 +1256,26 @@
       }
     }
   },
+  "devicePanelFooterSummary": "{deviceOnline} online · {webDavCount} WebDAV",
+  "@devicePanelFooterSummary": {
+    "placeholders": {
+      "deviceOnline": {
+        "type": "int"
+      },
+      "webDavCount": {
+        "type": "int"
+      }
+    }
+  },
+  "homeSectionCloudRelay": "Cloud relay",
+  "homeSectionRemoteStorage": "Remote storage",
+  "homeSectionDevices": "Device transfer",
+  "homeListEmptyTitle": "Nothing here yet",
+  "homeListEmptyHint": "Scan to add a device, set up cloud relay, or connect WebDAV.",
+  "homeWebDavLoadFailed": "Failed to load WebDAV connections",
+  "homeWebDavAddConnection": "Add WebDAV connection",
+  "homeWebDavRetry": "Retry",
+  "homeListOfflineBanner": "Offline — list may be outdated",
   "connectionBarDefaultTitle": "Connection status",
   "connectionBarManualShort": "Manual",
   "connectionBarAutoShort": "Auto",
@@ -1859,6 +1879,7 @@
   "webdavTabFiles": "Files",
   "webdavTabRecent": "Recent",
   "webdavTabFavorites": "Favorites",
+  "webdavTabUpload": "Upload",
   "webdavTabSettings": "Settings",
   "webdavTransferList": "Transfers",
   "webdavTransferUploading": "Uploading",
