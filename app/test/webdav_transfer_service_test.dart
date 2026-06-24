@@ -19,4 +19,11 @@ void main() {
   test('webDavConnectionKey stringifies id', () {
     expect(webDavConnectionKey(7), '7');
   });
+
+  test('webDavRemoteParentPath resolves parent directory', () {
+    expect(webDavRemoteParentPath(''), '');
+    expect(webDavRemoteParentPath('file.txt'), '');
+    expect(webDavRemoteParentPath('Docs/file.txt'), 'Docs');
+    expect(webDavRemoteParentPath('a/b/c.txt'), 'a/b');
+  });
 }

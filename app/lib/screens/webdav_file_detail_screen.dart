@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../providers/webdav_provider.dart';
 import '../services/webdav_favorite_dao.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
@@ -12,12 +14,11 @@ import '../utils/toast.dart';
 import '../widgets/app_confirm_dialog.dart';
 import '../widgets/file_icon_widget.dart';
 
-class WebDavFileDetailScreen extends StatefulWidget {
+class WebDavFileDetailScreen extends ConsumerStatefulWidget {
   final WebDavConnectionSummary connection;
   final WebDavClient client;
   final WebDavEntry entry;
   final bool isFavorite;
-  final VoidCallback onFavoriteChanged;
   final VoidCallback onDeleted;
 
   const WebDavFileDetailScreen({
@@ -26,15 +27,15 @@ class WebDavFileDetailScreen extends StatefulWidget {
     required this.client,
     required this.entry,
     required this.isFavorite,
-    required this.onFavoriteChanged,
     required this.onDeleted,
   });
 
   @override
-  State<WebDavFileDetailScreen> createState() => _WebDavFileDetailScreenState();
+  ConsumerState<WebDavFileDetailScreen> createState() =>
+      _WebDavFileDetailScreenState();
 }
 
-class _WebDavFileDetailScreenState extends State<WebDavFileDetailScreen> {
+class _WebDavFileDetailScreenState extends ConsumerState<WebDavFileDetailScreen> {
   late bool _isFavorite;
 
   @override
@@ -55,8 +56,8 @@ class _WebDavFileDetailScreenState extends State<WebDavFileDetailScreen> {
         entry: widget.entry,
       );
     }
+    ref.invalidate(webDavFavoritesProvider(widget.connection.id));
     setState(() => _isFavorite = !_isFavorite);
-    widget.onFavoriteChanged();
   }
 
   Future<void> _delete() async {

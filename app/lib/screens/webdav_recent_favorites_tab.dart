@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../providers/webdav_provider.dart';
 import '../services/webdav_favorite_dao.dart';
-import '../services/webdav_recent_dao.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
 import '../utils/file_utils.dart';
 import '../widgets/file_icon_widget.dart';
 
-class WebDavRecentTab extends StatefulWidget {
+class WebDavRecentTab extends ConsumerWidget {
   final WebDavConnectionSummary connection;
   final WebDavClient client;
   final void Function(String path) onOpenFolder;
@@ -26,87 +27,71 @@ class WebDavRecentTab extends StatefulWidget {
   });
 
   @override
-  State<WebDavRecentTab> createState() => _WebDavRecentTabState();
-}
-
-class _WebDavRecentTabState extends State<WebDavRecentTab> {
-  List<WebDavRecentRecord> _items = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final list = await WebDavRecentDao.instance.listForConnection(
-      webDavConnectionKey(widget.connection.id),
-    );
-    if (!mounted) return;
-    setState(() {
-      _items = list;
-      _loading = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
+    final recentAsync = ref.watch(webDavRecentProvider(connection.id));
 
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_items.isEmpty) {
-      return Center(child: Text(l10n.webdavRecentEmpty));
-    }
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-        itemCount: _items.length,
-        itemBuilder: (context, index) {
-          final item = _items[index];
-          final entry = item.toEntry();
-          return ListTile(
-            leading: entry.isDirectory
-                ? Icon(LucideIcons.folder, color: colors.warning)
-                : FileIconWidget(
-                    category: getFileCategory(entry.name),
-                    size: 28,
+    return recentAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+      data: (items) {
+        if (items.isEmpty) {
+          return Center(child: Text(l10n.webdavRecentEmpty));
+        }
+        return RefreshIndicator(
+          onRefresh: () =>
+              ref.read(webDavRecentProvider(connection.id).notifier).refresh(),
+          child: ListView.builder(
+            padding: EdgeInsets.only(
+              bottom: AppLayout.floatingBottomBarScrollInset(context),
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final entry = item.toEntry();
+              return ListTile(
+                leading: entry.isDirectory
+                    ? Icon(LucideIcons.folder, color: colors.warning)
+                    : FileIconWidget(
+                        category: getFileCategory(entry.name),
+                        size: 28,
+                      ),
+                title: Text(
+                  entry.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  entry.path.isEmpty ? '/' : entry.path,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.textTertiary,
+                    fontSize: 11,
                   ),
-            title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text(
-              entry.path.isEmpty ? '/' : entry.path,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.textTertiary,
-                fontSize: 11,
-              ),
-            ),
-            trailing: Text(
-              _formatTime(item.accessedAt),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.textTertiary,
-                fontSize: 11,
-              ),
-            ),
-            onTap: () async {
-              if (entry.isDirectory) {
-                widget.onOpenFolder(entry.path);
-              } else {
-                await widget.onOpenFile(entry);
-                await _load();
-              }
+                ),
+                trailing: Text(
+                  _formatTime(item.accessedAt),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.textTertiary,
+                    fontSize: 11,
+                  ),
+                ),
+                onTap: () async {
+                  if (entry.isDirectory) {
+                    onOpenFolder(entry.path);
+                  } else {
+                    await onOpenFile(entry);
+                    ref.invalidate(webDavRecentProvider(connection.id));
+                  }
+                },
+              );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -119,7 +104,7 @@ class _WebDavRecentTabState extends State<WebDavRecentTab> {
   }
 }
 
-class WebDavFavoritesTab extends StatefulWidget {
+class WebDavFavoritesTab extends ConsumerWidget {
   final WebDavConnectionSummary connection;
   final WebDavClient client;
   final void Function(String path) onOpenFolder;
@@ -134,91 +119,78 @@ class WebDavFavoritesTab extends StatefulWidget {
   });
 
   @override
-  State<WebDavFavoritesTab> createState() => _WebDavFavoritesTabState();
-}
-
-class _WebDavFavoritesTabState extends State<WebDavFavoritesTab> {
-  List<WebDavFavoriteRecord> _items = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final list = await WebDavFavoriteDao.instance.listForConnection(
-      webDavConnectionKey(widget.connection.id),
-    );
-    if (!mounted) return;
-    setState(() {
-      _items = list;
-      _loading = false;
-    });
-  }
-
-  Future<void> _remove(WebDavFavoriteRecord item) async {
-    await WebDavFavoriteDao.instance.remove(
-      connectionId: webDavConnectionKey(widget.connection.id),
-      remotePath: item.remotePath,
-    );
-    await _load();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
+    final favoritesAsync = ref.watch(webDavFavoritesProvider(connection.id));
 
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_items.isEmpty) {
-      return Center(child: Text(l10n.webdavFavoritesEmpty));
-    }
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-        itemCount: _items.length,
-        itemBuilder: (context, index) {
-          final item = _items[index];
-          final entry = item.toEntry();
-          return ListTile(
-            leading: entry.isDirectory
-                ? Icon(LucideIcons.folder, color: colors.warning)
-                : FileIconWidget(
-                    category: getFileCategory(entry.name),
-                    size: 28,
+    return favoritesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+      data: (items) {
+        if (items.isEmpty) {
+          return Center(child: Text(l10n.webdavFavoritesEmpty));
+        }
+        return RefreshIndicator(
+          onRefresh: () => ref
+              .read(webDavFavoritesProvider(connection.id).notifier)
+              .refresh(),
+          child: ListView.builder(
+            padding: EdgeInsets.only(
+              bottom: AppLayout.floatingBottomBarScrollInset(context),
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final entry = item.toEntry();
+              return ListTile(
+                leading: entry.isDirectory
+                    ? Icon(LucideIcons.folder, color: colors.warning)
+                    : FileIconWidget(
+                        category: getFileCategory(entry.name),
+                        size: 28,
+                      ),
+                title: Text(
+                  entry.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  entry.isDirectory
+                      ? l10n.webdavEntryFolder
+                      : formatFileSize(entry.size ?? 0),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.textTertiary,
+                    fontSize: 11,
                   ),
-            title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text(
-              entry.isDirectory
-                  ? l10n.webdavEntryFolder
-                  : formatFileSize(entry.size ?? 0),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.textTertiary,
-                fontSize: 11,
-              ),
-            ),
-            trailing: IconButton(
-              icon: Icon(LucideIcons.starOff, color: colors.warning, size: 18),
-              onPressed: () => _remove(item),
-            ),
-            onTap: () async {
-              if (entry.isDirectory) {
-                widget.onOpenFolder(entry.path);
-              } else {
-                await widget.onOpenFile(entry);
-              }
+                ),
+                trailing: IconButton(
+                  icon: Icon(
+                    LucideIcons.starOff,
+                    color: colors.warning,
+                    size: 18,
+                  ),
+                  onPressed: () async {
+                    await WebDavFavoriteDao.instance.remove(
+                      connectionId: webDavConnectionKey(connection.id),
+                      remotePath: item.remotePath,
+                    );
+                    ref.invalidate(webDavFavoritesProvider(connection.id));
+                  },
+                ),
+                onTap: () async {
+                  if (entry.isDirectory) {
+                    onOpenFolder(entry.path);
+                  } else {
+                    await onOpenFile(entry);
+                  }
+                },
+              );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

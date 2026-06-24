@@ -24,6 +24,19 @@ String webDavMessageId(int connectionId, String remotePath) {
 
 String webDavConnectionKey(int connectionId) => connectionId.toString();
 
+/// Parent directory of a WebDAV app-relative path (`''` for root).
+String webDavRemoteParentPath(String remotePath) {
+  if (remotePath.isEmpty) return '';
+  final idx = remotePath.lastIndexOf('/');
+  if (idx < 0) return '';
+  return remotePath.substring(0, idx);
+}
+
+typedef WebDavUploadCompleted = void Function({
+  required int connectionId,
+  required String remotePath,
+});
+
 class WebDavTransferSnapshot {
   final String transferId;
   final String fileName;
@@ -63,6 +76,7 @@ class WebDavTransferService extends ChangeNotifier {
   final Map<String, int> _lastPersistedBytes = {};
   final Map<String, DateTime> _lastProgressPersist = {};
   static const _progressPersistInterval = Duration(milliseconds: 500);
+  final Set<WebDavUploadCompleted> _uploadCompletedListeners = {};
 
   List<WebDavTransferSnapshot> snapshotsFor(String connectionId) {
     return _snapshots.values
@@ -78,6 +92,23 @@ class WebDavTransferService extends ChangeNotifier {
     return _snapshots.values
         .where((s) => s.isActive && s.transferId.startsWith(prefix))
         .length;
+  }
+
+  void addUploadCompletedListener(WebDavUploadCompleted listener) {
+    _uploadCompletedListeners.add(listener);
+  }
+
+  void removeUploadCompletedListener(WebDavUploadCompleted listener) {
+    _uploadCompletedListeners.remove(listener);
+  }
+
+  void _notifyUploadCompleted({
+    required int connectionId,
+    required String remotePath,
+  }) {
+    for (final listener in _uploadCompletedListeners) {
+      listener(connectionId: connectionId, remotePath: remotePath);
+    }
   }
 
   Future<String?> _resolveUserId() async {
@@ -318,6 +349,10 @@ class WebDavTransferService extends ChangeNotifier {
         },
       );
       await _flushProgressPersist(transferId);
+      _notifyUploadCompleted(
+        connectionId: connection.id,
+        remotePath: remotePath,
+      );
       await TransferStateManager.instance.markStatus(
         transferId,
         TransferStatus.completed,

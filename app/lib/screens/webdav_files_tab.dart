@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
@@ -10,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../providers/webdav_provider.dart';
 import '../services/received_file_dao.dart';
 import '../services/webdav_favorite_dao.dart';
 import '../services/webdav_recent_dao.dart';
@@ -25,12 +27,17 @@ import 'webdav_file_detail_screen.dart';
 
 enum WebDavViewMode { list, grid }
 
-class WebDavFilesTab extends StatefulWidget {
+typedef WebDavSelectionChangedCallback = void Function(
+  bool selectionMode,
+  int selectedCount,
+);
+
+class WebDavFilesTab extends ConsumerStatefulWidget {
   final WebDavConnectionSummary connection;
   final WebDavClient client;
   final String? initialPath;
   final ValueChanged<String>? onPathChanged;
-  final VoidCallback? onTransfersChanged;
+  final WebDavSelectionChangedCallback? onSelectionChanged;
 
   const WebDavFilesTab({
     super.key,
@@ -38,14 +45,14 @@ class WebDavFilesTab extends StatefulWidget {
     required this.client,
     this.initialPath,
     this.onPathChanged,
-    this.onTransfersChanged,
+    this.onSelectionChanged,
   });
 
   @override
-  State<WebDavFilesTab> createState() => WebDavFilesTabState();
+  ConsumerState<WebDavFilesTab> createState() => WebDavFilesTabState();
 }
 
-class WebDavFilesTabState extends State<WebDavFilesTab> {
+class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
   static const _prefViewMode = 'webdav_view_mode';
 
   List<WebDavEntry> _entries = [];
@@ -57,7 +64,6 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
   final Set<String> _selectedPaths = {};
   final _searchController = TextEditingController();
   WebDavViewMode _viewMode = WebDavViewMode.list;
-  final Set<String> _favoritePaths = {};
 
   @override
   void initState() {
@@ -65,21 +71,36 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
     _relativePath = widget.initialPath ?? '';
     _loadViewModePref();
     _loadDirectory(_relativePath);
-    _loadFavorites();
-    WebDavTransferService.instance.addListener(_onTransferUpdate);
+    WebDavTransferService.instance.addUploadCompletedListener(
+      _onUploadCompleted,
+    );
   }
 
   @override
   void dispose() {
-    WebDavTransferService.instance.removeListener(_onTransferUpdate);
+    WebDavTransferService.instance.removeUploadCompletedListener(
+      _onUploadCompleted,
+    );
     _searchController.dispose();
     super.dispose();
   }
 
-  void _onTransferUpdate() {
-    widget.onTransfersChanged?.call();
-    if (mounted) setState(() {});
+  void _onUploadCompleted({
+    required int connectionId,
+    required String remotePath,
+  }) {
+    if (connectionId != widget.connection.id || !mounted) return;
+    if (webDavRemoteParentPath(remotePath) != _relativePath) return;
+    unawaited(_loadDirectory(_relativePath));
   }
+
+  void _notifySelectionChanged() {
+    widget.onSelectionChanged?.call(_selectionMode, _selectedPaths.length);
+  }
+
+  List<WebDavEntry> get _selectedEntries => _entries
+      .where((e) => _selectedPaths.contains(e.path))
+      .toList();
 
   Future<void> _loadViewModePref() async {
     final prefs = await SharedPreferences.getInstance();
@@ -104,14 +125,11 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
 
   String get _connKey => webDavConnectionKey(widget.connection.id);
 
-  Future<void> _loadFavorites() async {
-    final list = await WebDavFavoriteDao.instance.listForConnection(_connKey);
-    if (!mounted) return;
-    setState(() {
-      _favoritePaths
-        ..clear()
-        ..addAll(list.map((e) => e.remotePath));
-    });
+  Set<String> _favoritePathsFrom(AsyncValue<List<WebDavFavoriteRecord>> async) {
+    return async.maybeWhen(
+      data: (list) => list.map((e) => e.remotePath).toSet(),
+      orElse: () => <String>{},
+    );
   }
 
   Future<void> navigateToPath(String path) async {
@@ -125,6 +143,7 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
       _selectionMode = false;
       _selectedPaths.clear();
     });
+    _notifySelectionChanged();
     try {
       final list = await widget.client.listDirectory(relativePath);
       if (!mounted) return;
@@ -159,6 +178,7 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
       connectionId: _connKey,
       entry: entry,
     );
+    ref.invalidate(webDavRecentProvider(widget.connection.id));
   }
 
   Future<void> _openEntry(WebDavEntry entry) async {
@@ -191,7 +211,6 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
     );
     if (!mounted) return;
     AppToast.show(context, message: l10n.webdavTransferQueued(files.length));
-    widget.onTransfersChanged?.call();
   }
 
   Future<void> _openLocalCopy(WebDavEntry entry) async {
@@ -205,7 +224,9 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
   }
 
   Future<void> _toggleFavorite(WebDavEntry entry) async {
-    final isFav = _favoritePaths.contains(entry.path);
+    final favoritesAsync = ref.read(webDavFavoritesProvider(widget.connection.id));
+    final favoritePaths = _favoritePathsFrom(favoritesAsync);
+    final isFav = favoritePaths.contains(entry.path);
     if (isFav) {
       await WebDavFavoriteDao.instance.remove(
         connectionId: _connKey,
@@ -217,7 +238,7 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
         entry: entry,
       );
     }
-    await _loadFavorites();
+    ref.invalidate(webDavFavoritesProvider(widget.connection.id));
   }
 
   Future<void> _deleteSelected() async {
@@ -435,7 +456,6 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
     );
     if (!mounted) return;
     AppToast.show(context, message: l10n.webdavTransferQueued(uploads.length));
-    widget.onTransfersChanged?.call();
   }
 
   Future<void> _shareEntries(List<WebDavEntry> entries) async {
@@ -458,9 +478,9 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
     await Share.shareXFiles(xFiles);
   }
 
-  void _showEntryMenu(WebDavEntry entry) {
+  void _showEntryMenu(WebDavEntry entry, Set<String> favoritePaths) {
     final l10n = AppLocalizations.of(context);
-    final isFav = _favoritePaths.contains(entry.path);
+    final isFav = favoritePaths.contains(entry.path);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: context.appColors.surface,
@@ -542,7 +562,6 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
                       client: widget.client,
                       entry: entry,
                       isFavorite: isFav,
-                      onFavoriteChanged: _loadFavorites,
                       onDeleted: () => _loadDirectory(_relativePath),
                     ),
                   ),
@@ -606,6 +625,9 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
+    final favoritePaths = _favoritePathsFrom(
+      ref.watch(webDavFavoritesProvider(widget.connection.id)),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -708,10 +730,12 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
                   onRefresh: () => _loadDirectory(_relativePath),
                   child: _viewMode == WebDavViewMode.grid
                       ? GridView.builder(
-                          padding: const EdgeInsets.only(
+                          padding: EdgeInsets.only(
                             left: AppSpacing.md,
                             right: AppSpacing.md,
-                            bottom: 88,
+                            bottom: AppLayout.floatingBottomBarScrollInset(
+                              context,
+                            ),
                           ),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
@@ -728,11 +752,16 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
                             theme,
                             colors,
                             l10n,
+                            favoritePaths,
                             grid: true,
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 88),
+                          padding: EdgeInsets.only(
+                            bottom: AppLayout.floatingBottomBarScrollInset(
+                              context,
+                            ),
+                          ),
                           itemCount: _visibleEntries.length,
                           itemBuilder: (context, index) =>
                               _buildEntryTile(
@@ -741,64 +770,12 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
                             theme,
                             colors,
                             l10n,
+                            favoritePaths,
                             grid: false,
                           ),
                         ),
                 ),
         ),
-        if (_selectionMode && _selectedPaths.isNotEmpty)
-          SafeArea(
-            top: false,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: colors.surface,
-                border: Border(top: BorderSide(color: colors.border)),
-              ),
-              child: Row(
-                children: [
-                  Text(l10n.webdavSelectedCount(_selectedPaths.length)),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(LucideIcons.download),
-                    onPressed: () {
-                      final items = _entries
-                          .where((e) => _selectedPaths.contains(e.path))
-                          .toList();
-                      _downloadEntries(items);
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(LucideIcons.share2),
-                    onPressed: () {
-                      final items = _entries
-                          .where((e) => _selectedPaths.contains(e.path))
-                          .toList();
-                      _shareEntries(items);
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(LucideIcons.folderInput),
-                    onPressed: () async {
-                      final items = _entries
-                          .where((e) => _selectedPaths.contains(e.path))
-                          .toList();
-                      if (items.length == 1) {
-                        await _moveEntry(items.first);
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(LucideIcons.trash2, color: colors.danger),
-                    onPressed: _deleteSelected,
-                  ),
-                ],
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -808,11 +785,12 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
     WebDavEntry entry,
     ThemeData theme,
     AppThemeColors colors,
-    AppLocalizations l10n, {
+    AppLocalizations l10n,
+    Set<String> favoritePaths, {
     required bool grid,
   }) {
     final selected = _selectedPaths.contains(entry.path);
-    final isFav = _favoritePaths.contains(entry.path);
+    final isFav = favoritePaths.contains(entry.path);
 
     if (grid) {
       return InkWell(
@@ -825,6 +803,7 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
                 _selectedPaths.add(entry.path);
               }
             });
+            _notifySelectionChanged();
           } else {
             _openEntry(entry);
           }
@@ -834,6 +813,7 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
             _selectionMode = true;
             _selectedPaths.add(entry.path);
           });
+          _notifySelectionChanged();
         },
         child: Card(
           child: Padding(
@@ -893,7 +873,7 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
                   Icon(LucideIcons.star, size: 14, color: colors.warning),
                 IconButton(
                   icon: const Icon(LucideIcons.ellipsisVertical, size: 18),
-                  onPressed: () => _showEntryMenu(entry),
+                  onPressed: () => _showEntryMenu(entry, favoritePaths),
                 ),
               ],
             ),
@@ -906,6 +886,7 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
               _selectedPaths.add(entry.path);
             }
           });
+          _notifySelectionChanged();
         } else {
           _openEntry(entry);
         }
@@ -916,19 +897,43 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
             _selectionMode = true;
             _selectedPaths.add(entry.path);
           });
+          _notifySelectionChanged();
         }
       },
     );
   }
 
-  void toggleSelectionMode() {
+  void exitSelectionMode() {
+    if (!_selectionMode) return;
     setState(() {
-      _selectionMode = !_selectionMode;
+      _selectionMode = false;
       _selectedPaths.clear();
     });
+    _notifySelectionChanged();
+  }
+
+  Future<void> downloadSelected() async {
+    await _downloadEntries(_selectedEntries);
+  }
+
+  Future<void> shareSelected() async {
+    await _shareEntries(_selectedEntries);
+  }
+
+  Future<void> moveSelected() async {
+    final items = _selectedEntries;
+    if (items.length == 1) {
+      await _moveEntry(items.first);
+    }
+  }
+
+  Future<void> deleteSelected() async {
+    await _deleteSelected();
   }
 
   bool get isSelectionMode => _selectionMode;
+
+  int get selectedCount => _selectedPaths.length;
 
   void showAddSheet() => _showAddSheet();
 }
