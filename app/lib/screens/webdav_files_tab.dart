@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -161,11 +162,12 @@ class WebDavFilesTabState extends State<WebDavFilesTab> {
   }
 
   Future<void> _openEntry(WebDavEntry entry) async {
-    await _recordAccess(entry);
     if (entry.isDirectory) {
+      unawaited(_recordAccess(entry));
       await _loadDirectory(entry.path);
       return;
     }
+    await _recordAccess(entry);
     final messageId = webDavMessageId(widget.connection.id, entry.path);
     final record = await ReceivedFileDao.instance.getByMessageId(messageId);
     if (record != null && File(record.readablePath).existsSync() && mounted) {

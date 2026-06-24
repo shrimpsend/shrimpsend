@@ -45,13 +45,16 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
   }
 
   void _onTransferUpdate() {
-    _refreshTransferCount();
+    if (!mounted) return;
+    final count = WebDavTransferService.instance.activeCountFor(
+      widget.connection.id,
+    );
+    if (count != _activeTransfers) {
+      setState(() => _activeTransfers = count);
+    }
   }
 
   Future<void> _refreshTransferCount() async {
-    await WebDavTransferService.instance.loadPersistedSnapshots(
-      widget.connection.id,
-    );
     final count = WebDavTransferService.instance.activeCountFor(
       widget.connection.id,
     );
@@ -67,6 +70,9 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
     try {
       final creds = await resolveWebDavCredentials(widget.connection.id);
       _client = WebDavClient(creds);
+      await WebDavTransferService.instance.restorePersistedSnapshots(
+        widget.connection.id,
+      );
       await _refreshTransferCount();
       if (!mounted) return;
       setState(() => _loading = false);

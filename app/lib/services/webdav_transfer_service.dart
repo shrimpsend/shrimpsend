@@ -59,6 +59,10 @@ class WebDavTransferService extends ChangeNotifier {
   final Map<String, CancelToken> _cancelTokens = {};
   final Map<String, SpeedTracker> _speedTrackers = {};
   final Map<String, WebDavTransferSnapshot> _snapshots = {};
+  final Map<String, int> _pendingProgressBytes = {};
+  final Map<String, int> _lastPersistedBytes = {};
+  final Map<String, DateTime> _lastProgressPersist = {};
+  static const _progressPersistInterval = Duration(milliseconds: 500);
 
   List<WebDavTransferSnapshot> snapshotsFor(String connectionId) {
     return _snapshots.values
@@ -167,9 +171,7 @@ class WebDavTransferService extends ChangeNotifier {
         onProgress: (received, total) {
           final totalBytes = total > 0 ? total : fileSize;
           tracker.update(received);
-          unawaited(
-            TransferStateManager.instance.updateProgress(transferId, received),
-          );
+          _scheduleProgressPersist(transferId, received);
           _updateSnapshot(
             transferId: transferId,
             fileName: entry.name,
@@ -182,6 +184,8 @@ class WebDavTransferService extends ChangeNotifier {
           );
         },
       );
+
+      await _flushProgressPersist(transferId);
 
       final uid = await _resolveUserId();
       final exportOk =
@@ -207,9 +211,11 @@ class WebDavTransferService extends ChangeNotifier {
       _snapshots.remove(transferId);
       _cancelTokens.remove(transferId);
       _speedTrackers.remove(transferId);
+      _clearProgressPersist(transferId);
       notifyListeners();
       return exportOk;
     } on DioException catch (e) {
+      await _flushProgressPersist(transferId);
       if (CancelToken.isCancel(e)) {
         await TransferStateManager.instance.markStatus(
           transferId,
@@ -233,10 +239,12 @@ class WebDavTransferService extends ChangeNotifier {
         _snapshots.remove(transferId);
         _cancelTokens.remove(transferId);
         _speedTrackers.remove(transferId);
+        _clearProgressPersist(transferId);
         notifyListeners();
       }
       return false;
     } catch (_) {
+      await _flushProgressPersist(transferId);
       await TransferStateManager.instance.markStatus(
         transferId,
         TransferStatus.failed,
@@ -244,6 +252,7 @@ class WebDavTransferService extends ChangeNotifier {
       _snapshots.remove(transferId);
       _cancelTokens.remove(transferId);
       _speedTrackers.remove(transferId);
+      _clearProgressPersist(transferId);
       notifyListeners();
       return false;
     }
@@ -295,9 +304,7 @@ class WebDavTransferService extends ChangeNotifier {
         onProgress: (sent, total) {
           final totalBytes = total > 0 ? total : fileSize;
           tracker.update(sent);
-          unawaited(
-            TransferStateManager.instance.updateProgress(transferId, sent),
-          );
+          _scheduleProgressPersist(transferId, sent);
           _updateSnapshot(
             transferId: transferId,
             fileName: fileName,
@@ -310,6 +317,7 @@ class WebDavTransferService extends ChangeNotifier {
           );
         },
       );
+      await _flushProgressPersist(transferId);
       await TransferStateManager.instance.markStatus(
         transferId,
         TransferStatus.completed,
@@ -317,8 +325,10 @@ class WebDavTransferService extends ChangeNotifier {
       _snapshots.remove(transferId);
       _cancelTokens.remove(transferId);
       _speedTrackers.remove(transferId);
+      _clearProgressPersist(transferId);
       notifyListeners();
     } on DioException catch (e) {
+      await _flushProgressPersist(transferId);
       if (CancelToken.isCancel(e)) {
         await TransferStateManager.instance.markStatus(
           transferId,
@@ -352,6 +362,7 @@ class WebDavTransferService extends ChangeNotifier {
     } finally {
       _cancelTokens.remove(transferId);
       _speedTrackers.remove(transferId);
+      _clearProgressPersist(transferId);
     }
   }
 
@@ -407,7 +418,8 @@ class WebDavTransferService extends ChangeNotifier {
     );
   }
 
-  Future<void> loadPersistedSnapshots(int connectionId) async {
+  /// Restores in-progress rows from SQLite after cold start. Does not notify.
+  Future<void> restorePersistedSnapshots(int connectionId) async {
     final rows = await TransferStateManager.instance.listWebDavTransfers(
       connectionId: webDavConnectionKey(connectionId),
       activeOnly: true,
@@ -425,7 +437,34 @@ class WebDavTransferService extends ChangeNotifier {
         webdavRemotePath: r.webdavRemotePath,
       );
     }
-    notifyListeners();
+  }
+
+  void _scheduleProgressPersist(String transferId, int bytes) {
+    _pendingProgressBytes[transferId] = bytes;
+    final last = _lastProgressPersist[transferId];
+    final lastBytes = _lastPersistedBytes[transferId] ?? 0;
+    final now = DateTime.now();
+    if (last != null &&
+        now.difference(last) < _progressPersistInterval &&
+        (bytes - lastBytes).abs() < 256 * 1024) {
+      return;
+    }
+    unawaited(_flushProgressPersist(transferId));
+  }
+
+  Future<void> _flushProgressPersist(String transferId) async {
+    final bytes = _pendingProgressBytes[transferId];
+    if (bytes == null) return;
+    if (_lastPersistedBytes[transferId] == bytes) return;
+    _lastPersistedBytes[transferId] = bytes;
+    _lastProgressPersist[transferId] = DateTime.now();
+    await TransferStateManager.instance.updateProgress(transferId, bytes);
+  }
+
+  void _clearProgressPersist(String transferId) {
+    _pendingProgressBytes.remove(transferId);
+    _lastPersistedBytes.remove(transferId);
+    _lastProgressPersist.remove(transferId);
   }
 
   void _updateSnapshot({

@@ -52,51 +52,47 @@ class WebDavRecentDao {
     required WebDavEntry entry,
   }) async {
     final now = DateTime.now().toIso8601String();
-    final existing = await _db.query(
-      _table,
-      where: 'connection_id = ? AND remote_path = ?',
-      whereArgs: [connectionId, entry.path],
-      limit: 1,
-    );
-    if (existing.isNotEmpty) {
-      await _db.update(
+    await _db.transaction((txn) async {
+      final existing = await txn.query(
         _table,
-        {
+        where: 'connection_id = ? AND remote_path = ?',
+        whereArgs: [connectionId, entry.path],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) {
+        await txn.update(
+          _table,
+          {
+            'name': entry.name,
+            'is_directory': entry.isDirectory ? 1 : 0,
+            'accessed_at': now,
+          },
+          where: 'id = ?',
+          whereArgs: [existing.first['id']],
+        );
+      } else {
+        await txn.insert(_table, {
+          'connection_id': connectionId,
+          'remote_path': entry.path,
           'name': entry.name,
           'is_directory': entry.isDirectory ? 1 : 0,
           'accessed_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [existing.first['id']],
+        });
+      }
+      await txn.rawDelete(
+        '''
+DELETE FROM $_table
+WHERE connection_id = ?
+  AND id NOT IN (
+    SELECT id FROM $_table
+    WHERE connection_id = ?
+    ORDER BY accessed_at DESC
+    LIMIT ?
+  )
+''',
+        [connectionId, connectionId, _maxPerConnection],
       );
-    } else {
-      await _db.insert(_table, {
-        'connection_id': connectionId,
-        'remote_path': entry.path,
-        'name': entry.name,
-        'is_directory': entry.isDirectory ? 1 : 0,
-        'accessed_at': now,
-      });
-    }
-    await _trimOld(connectionId);
-  }
-
-  Future<void> _trimOld(String connectionId) async {
-    final rows = await _db.query(
-      _table,
-      columns: ['id'],
-      where: 'connection_id = ?',
-      whereArgs: [connectionId],
-      orderBy: 'accessed_at DESC',
-    );
-    if (rows.length <= _maxPerConnection) return;
-    final dropIds = rows
-        .skip(_maxPerConnection)
-        .map((r) => r['id'] as int)
-        .toList();
-    for (final id in dropIds) {
-      await _db.delete(_table, where: 'id = ?', whereArgs: [id]);
-    }
+    });
   }
 
   Future<List<WebDavRecentRecord>> listForConnection(

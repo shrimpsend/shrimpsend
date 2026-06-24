@@ -55,9 +55,6 @@ class _WebDavTransferListScreenState extends State<WebDavTransferListScreen>
   }
 
   Future<void> _refresh() async {
-    await WebDavTransferService.instance.loadPersistedSnapshots(
-      widget.connection.id,
-    );
     final rows = await TransferStateManager.instance.listWebDavTransfers(
       connectionId: webDavConnectionKey(widget.connection.id),
       activeOnly: true,
