@@ -215,18 +215,15 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         label: l10n.webdavOutboxUpload,
         icon: LucideIcons.upload,
         destinationHint: _uploadTargetLabel(l10n),
-        onExecute: (files) async {
+        onExecute: (queued) async {
           final filesTab = _filesTabKey.currentState;
           if (filesTab == null) return;
-          final count = await filesTab.uploadPlatformFiles(files);
+          filesTab.queuePlatformFileUploads(queued);
           if (!mounted) return;
-          if (count > 0) {
-            ref.read(pendingFilesProvider.notifier).clear();
-            AppToast.show(
-              context,
-              message: l10n.webdavTransferQueued(count),
-            );
-          }
+          AppToast.show(
+            context,
+            message: l10n.webdavTransferQueued(queued.length),
+          );
         },
       ),
     );

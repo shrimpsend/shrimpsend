@@ -471,6 +471,14 @@
   },
   "fmPendingAddedMany": "Added {count} files to outbox",
   "fmPendingAddFailed": "Could not add to outbox",
+  "fmPendingDispatchPartialSkipped": "{count} file(s) could not be queued and remain in the outbox",
+  "@fmPendingDispatchPartialSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "@fmPendingAddedMany": {
     "placeholders": {
       "count": {

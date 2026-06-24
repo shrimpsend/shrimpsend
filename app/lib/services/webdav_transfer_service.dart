@@ -7,6 +7,7 @@ import '../api/webdav.dart';
 import '../providers/auth_provider.dart';
 import 'file_store.dart';
 import 'received_file_dao.dart';
+import 'pending_dispatch_bridge.dart';
 import 'received_file_index_pipeline.dart';
 import 'speed_tracker.dart';
 import 'transfer_record.dart';
@@ -140,12 +141,11 @@ class WebDavTransferService extends ChangeNotifier {
     required String relativeDir,
     required List<({String name, String localPath, int size})> files,
   }) async {
-    final tasks = <Future<void>>[];
     for (final file in files) {
       final remote = relativeDir.isEmpty
           ? file.name
           : '$relativeDir/${file.name}';
-      tasks.add(
+      unawaited(
         _runUpload(
           client: client,
           connection: connection,
@@ -156,7 +156,6 @@ class WebDavTransferService extends ChangeNotifier {
         ),
       );
     }
-    await Future.wait(tasks);
   }
 
   Future<bool> _runDownload({
@@ -364,6 +363,7 @@ class WebDavTransferService extends ChangeNotifier {
       _speedTrackers.remove(transferId);
       _clearProgressPersist(transferId);
       notifyListeners();
+      PendingDispatchBridge.notifySettled(localPath, success: true);
     } on DioException catch (e) {
       await _flushProgressPersist(transferId);
       if (CancelToken.isCancel(e)) {
@@ -381,6 +381,7 @@ class WebDavTransferService extends ChangeNotifier {
           tracker: tracker,
           remotePath: remotePath,
         );
+        PendingDispatchBridge.notifySettled(localPath, success: false);
       } else {
         await TransferStateManager.instance.markStatus(
           transferId,
@@ -388,6 +389,7 @@ class WebDavTransferService extends ChangeNotifier {
         );
         _snapshots.remove(transferId);
         notifyListeners();
+        PendingDispatchBridge.notifySettled(localPath, success: false);
       }
     } catch (_) {
       await TransferStateManager.instance.markStatus(
@@ -396,6 +398,7 @@ class WebDavTransferService extends ChangeNotifier {
       );
       _snapshots.remove(transferId);
       notifyListeners();
+      PendingDispatchBridge.notifySettled(localPath, success: false);
     } finally {
       _cancelTokens.remove(transferId);
       _speedTrackers.remove(transferId);

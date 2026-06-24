@@ -19,7 +19,6 @@ import '../services/webdav_recent_dao.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../services/file_store.dart';
-import '../services/pending_files_path_stabilizer.dart';
 import '../ui/app_ui.dart';
 import '../ui/platform_performance.dart';
 import '../utils/file_utils.dart';
@@ -486,18 +485,14 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     }
   }
 
-  Future<int> uploadPlatformFiles(List<PlatformFile> files) async {
-    final stabilized = await PendingFilesPathStabilizer.stabilizeAll(
-      files,
-      logSource: 'webdav_upload',
-    );
+  void queuePlatformFileUploads(List<PlatformFile> files) {
     final uploads = <({String name, String localPath, int size})>[];
-    for (final file in stabilized) {
+    for (final file in files) {
       final path = file.path;
       if (path == null || path.isEmpty) continue;
       final local = File(path);
-      if (!await local.exists()) continue;
-      final diskSize = await local.length();
+      if (!local.existsSync()) continue;
+      final diskSize = local.lengthSync();
       if (diskSize <= 0) continue;
       uploads.add((
         name: file.name,
@@ -505,14 +500,15 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
         size: diskSize,
       ));
     }
-    if (uploads.isEmpty) return 0;
-    await WebDavTransferService.instance.enqueueUploads(
-      client: widget.client,
-      connection: widget.connection,
-      relativeDir: _relativePath,
-      files: uploads,
+    if (uploads.isEmpty) return;
+    unawaited(
+      WebDavTransferService.instance.enqueueUploads(
+        client: widget.client,
+        connection: widget.connection,
+        relativeDir: _relativePath,
+        files: uploads,
+      ),
     );
-    return uploads.length;
   }
 
   String get currentRelativePath => _relativePath;

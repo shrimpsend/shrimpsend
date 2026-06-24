@@ -1848,6 +1848,12 @@ abstract class AppLocalizations {
   /// **'Could not add to outbox'**
   String get fmPendingAddFailed;
 
+  /// No description provided for @fmPendingDispatchPartialSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} file(s) could not be queued and remain in the outbox'**
+  String fmPendingDispatchPartialSkipped(int count);
+
   /// No description provided for @fmMultiSelectMode.
   ///
   /// In en, this message translates to:

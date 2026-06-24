@@ -943,6 +943,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fmPendingAddFailed => '无法添加到待发文件箱';
 
   @override
+  String fmPendingDispatchPartialSkipped(int count) {
+    return '$count 个文件未能加入队列，仍保留在待发';
+  }
+
+  @override
   String get fmMultiSelectMode => '多选模式';
 
   @override

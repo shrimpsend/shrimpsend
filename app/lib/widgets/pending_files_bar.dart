@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:file_picker/file_picker.dart';
@@ -291,8 +292,6 @@ class _PendingOutboxSheet extends ConsumerStatefulWidget {
 }
 
 class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
-  bool _executingPrimary = false;
-
   Future<void> _addFiles() async {
     final choice = await showModalBottomSheet<AttachmentPickerChoice>(
       context: context,
@@ -315,14 +314,25 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
 
   Future<void> _executePrimary(List<PlatformFile> files) async {
     final action = widget.primaryAction;
-    if (action == null || files.isEmpty || _executingPrimary) return;
-    setState(() => _executingPrimary = true);
-    try {
-      await action.onExecute(files);
-      if (mounted) Navigator.pop(context);
-    } finally {
-      if (mounted) setState(() => _executingPrimary = false);
+    if (action == null || files.isEmpty) return;
+
+    final rootContext = context;
+    Navigator.pop(rootContext);
+
+    final dispatch =
+        await ref.read(pendingFilesProvider.notifier).beginDispatch(files);
+    if (!rootContext.mounted) return;
+
+    final l10n = AppLocalizations.of(rootContext);
+    if (dispatch.skipped > 0) {
+      AppToast.show(
+        rootContext,
+        message: l10n.fmPendingDispatchPartialSkipped(dispatch.skipped),
+      );
     }
+    if (dispatch.queued.isEmpty) return;
+
+    unawaited(action.onExecute(dispatch.queued));
   }
 
   @override
@@ -481,27 +491,17 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
                 children: [
                   if (primaryAction != null)
                     FilledButton.icon(
-                      onPressed: files.isEmpty || _executingPrimary
+                      onPressed: files.isEmpty
                           ? null
                           : () => _executePrimary(List.of(files)),
-                      icon: _executingPrimary
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: theme.colorScheme.onPrimary,
-                              ),
-                            )
-                          : Icon(primaryAction.icon, size: 16),
+                      icon: Icon(primaryAction.icon, size: 16),
                       label: Text(primaryAction.label),
                     ),
                   if (primaryAction != null && widget.showAddFiles)
                     const SizedBox(height: AppSpacing.xs),
                   if (widget.showAddFiles)
                     OutlinedButton.icon(
-                      onPressed:
-                          _executingPrimary ? null : _addFiles,
+                      onPressed: _addFiles,
                       icon: const Icon(LucideIcons.plus, size: 16),
                       label: Text(l10n.webdavOutboxAddFiles),
                     ),

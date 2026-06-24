@@ -326,6 +326,14 @@
   "fmPendingAddedOne": "已添加「{name}」到待发文件箱",
   "fmPendingAddedMany": "已添加 {count} 个文件到待发文件箱",
   "fmPendingAddFailed": "无法添加到待发文件箱",
+  "fmPendingDispatchPartialSkipped": "{count} 个文件未能加入队列，仍保留在待发",
+  "@fmPendingDispatchPartialSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fmMultiSelectMode": "多选模式",
   "fmToolbarTitle": "文件管理",
   "fmHintTitle": "关于文件管理",

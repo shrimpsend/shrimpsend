@@ -976,6 +976,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fmPendingAddFailed => 'Could not add to outbox';
 
   @override
+  String fmPendingDispatchPartialSkipped(int count) {
+    return '$count file(s) could not be queued and remain in the outbox';
+  }
+
+  @override
   String get fmMultiSelectMode => 'Multi-select mode';
 
   @override
