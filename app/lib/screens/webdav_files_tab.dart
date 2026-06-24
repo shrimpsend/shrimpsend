@@ -20,6 +20,7 @@ import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../services/file_store.dart';
 import '../ui/app_ui.dart';
+import '../ui/platform_performance.dart';
 import '../utils/file_utils.dart';
 import '../utils/open_received_file.dart';
 import '../utils/toast.dart';
@@ -804,7 +805,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
                             grid: true,
                           ),
                         )
-                      : ListView.builder(
+                      : Padding(
                           padding: EdgeInsets.only(
                             left: AppSpacing.md,
                             right: AppSpacing.md,
@@ -812,16 +813,29 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
                               context,
                             ),
                           ),
-                          itemCount: _visibleEntries.length,
-                          itemBuilder: (context, index) =>
-                              _buildEntryTile(
-                            context,
-                            _visibleEntries[index],
-                            theme,
-                            colors,
-                            l10n,
-                            favoritePaths,
-                            grid: false,
+                          child: ClipRRect(
+                            borderRadius: AppRadius.medium,
+                            child: ColoredBox(
+                              color: colors.surface,
+                              child: ListView.separated(
+                                itemCount: _visibleEntries.length,
+                                separatorBuilder: (_, __) => Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: colors.border,
+                                ),
+                                itemBuilder: (context, index) =>
+                                    _buildEntryTile(
+                                  context,
+                                  _visibleEntries[index],
+                                  theme,
+                                  colors,
+                                  l10n,
+                                  favoritePaths,
+                                  grid: false,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                 ),
@@ -940,39 +954,87 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
       );
     }
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: entry.isDirectory
-          ? Icon(LucideIcons.folder, color: colors.warning)
-          : FileIconWidget(
-              category: getFileCategory(entry.name),
-              size: 28,
-            ),
-      title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: _buildFileMetaRow(entry, l10n, theme, colors),
-      trailing: _selectionMode
-          ? Icon(
-              selected ? LucideIcons.checkCircle2 : LucideIcons.circle,
-              color: selected ? theme.colorScheme.primary : colors.textTertiary,
-            )
-          : isFav
-          ? Icon(LucideIcons.star, size: 14, color: colors.warning)
-          : null,
-      onTap: () {
-        if (_selectionMode) {
-          setState(() {
-            if (selected) {
-              _selectedPaths.remove(entry.path);
-            } else {
-              _selectedPaths.add(entry.path);
-            }
-          });
-          _notifySelectionChanged();
-        } else {
-          _openEntry(entry);
-        }
-      },
-      onLongPress: () => _showEntryMenu(entry, favoritePaths),
+    final lightweightTap = AppPlatformPerformance.preferLightweightTapFeedback;
+
+    return Material(
+      color: _selectionMode && selected
+          ? theme.colorScheme.primary.withValues(alpha: 0.1)
+          : colors.surface,
+      child: InkWell(
+        onTap: () {
+          if (_selectionMode) {
+            setState(() {
+              if (selected) {
+                _selectedPaths.remove(entry.path);
+              } else {
+                _selectedPaths.add(entry.path);
+              }
+            });
+            _notifySelectionChanged();
+          } else {
+            _openEntry(entry);
+          }
+        },
+        onLongPress: () => _showEntryMenu(entry, favoritePaths),
+        splashFactory: lightweightTap ? NoSplash.splashFactory : null,
+        highlightColor: lightweightTap ? Colors.transparent : null,
+        focusColor: lightweightTap ? Colors.transparent : null,
+        hoverColor: lightweightTap
+            ? colors.surfaceMuted.withValues(alpha: 0.7)
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: entry.isDirectory
+                    ? Icon(LucideIcons.folder, color: colors.warning, size: 22)
+                    : FileIconWidget(
+                        category: getFileCategory(entry.name),
+                        size: 28,
+                      ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      entry.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    _buildFileMetaRow(entry, l10n, theme, colors),
+                  ],
+                ),
+              ),
+              if (_selectionMode)
+                Icon(
+                  selected ? LucideIcons.checkCircle2 : LucideIcons.circle,
+                  color:
+                      selected ? theme.colorScheme.primary : colors.textTertiary,
+                )
+              else if (isFav)
+                Icon(LucideIcons.star, size: 14, color: colors.warning),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
