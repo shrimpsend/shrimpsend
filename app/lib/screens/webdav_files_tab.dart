@@ -485,12 +485,9 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
     }
   }
 
-  Future<void> _uploadFile() async {
-    final l10n = AppLocalizations.of(context);
-    final result = await FilePicker.platform.pickFiles();
-    if (result == null || result.files.isEmpty) return;
+  Future<int> uploadPlatformFiles(List<PlatformFile> files) async {
     final uploads = <({String name, String localPath, int size})>[];
-    for (final file in result.files) {
+    for (final file in files) {
       if (file.path == null) continue;
       final local = File(file.path!);
       if (!local.existsSync()) continue;
@@ -500,16 +497,17 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
         size: file.size > 0 ? file.size : local.lengthSync(),
       ));
     }
-    if (uploads.isEmpty) return;
+    if (uploads.isEmpty) return 0;
     await WebDavTransferService.instance.enqueueUploads(
       client: widget.client,
       connection: widget.connection,
       relativeDir: _relativePath,
       files: uploads,
     );
-    if (!mounted) return;
-    AppToast.show(context, message: l10n.webdavTransferQueued(uploads.length));
+    return uploads.length;
   }
+
+  String get currentRelativePath => _relativePath;
 
   Future<void> _shareEntries(List<WebDavEntry> entries) async {
     final l10n = AppLocalizations.of(context);
@@ -651,38 +649,6 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
                   ..clear()
                   ..add(entry.path);
                 await _deleteSelected();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAddSheet() {
-    final l10n = AppLocalizations.of(context);
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: context.appColors.surface,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(LucideIcons.upload),
-              title: Text(l10n.webdavActionUpload),
-              onTap: () {
-                Navigator.pop(ctx);
-                _uploadFile();
-              },
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.folderPlus),
-              title: Text(l10n.webdavActionNewFolder),
-              onTap: () {
-                Navigator.pop(ctx);
-                _createFolder();
               },
             ),
           ],
@@ -1132,8 +1098,6 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
   bool get isSelectionMode => _selectionMode;
 
   int get selectedCount => _selectedPaths.length;
-
-  void showAddSheet() => _showAddSheet();
 }
 
 class _BreadcrumbChip extends StatelessWidget {

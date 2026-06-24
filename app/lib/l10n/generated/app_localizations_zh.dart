@@ -940,6 +940,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get fmPendingAddFailed => '无法添加到待发文件箱';
+
+  @override
   String get fmMultiSelectMode => '多选模式';
 
   @override
@@ -3145,6 +3148,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String webdavTransferQueued(int count) {
     return '已加入传输队列（$count）';
   }
+
+  @override
+  String get webdavOutboxUpload => '上传到 WebDAV';
+
+  @override
+  String webdavOutboxUploadTarget(String path) {
+    return '上传至 $path';
+  }
+
+  @override
+  String get webdavOutboxAddFiles => '添加文件';
+
+  @override
+  String get webdavOutboxEmpty => '暂无待发文件，可添加文件或从其他应用分享到此';
 
   @override
   String get webdavActionFavorite => '收藏';

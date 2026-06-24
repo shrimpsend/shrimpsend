@@ -1842,6 +1842,12 @@ abstract class AppLocalizations {
   /// **'Added {count} files to outbox'**
   String fmPendingAddedMany(int count);
 
+  /// No description provided for @fmPendingAddFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not add to outbox'**
+  String get fmPendingAddFailed;
+
   /// No description provided for @fmMultiSelectMode.
   ///
   /// In en, this message translates to:
@@ -5807,6 +5813,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Queued {count} transfer(s)'**
   String webdavTransferQueued(int count);
+
+  /// No description provided for @webdavOutboxUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload to WebDAV'**
+  String get webdavOutboxUpload;
+
+  /// No description provided for @webdavOutboxUploadTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload to {path}'**
+  String webdavOutboxUploadTarget(String path);
+
+  /// No description provided for @webdavOutboxAddFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Add files'**
+  String get webdavOutboxAddFiles;
+
+  /// No description provided for @webdavOutboxEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending files. Add files or share from another app.'**
+  String get webdavOutboxEmpty;
 
   /// No description provided for @webdavActionFavorite.
   ///

@@ -325,6 +325,7 @@
   "fmPreviewOpenAsText": "以文本打开",
   "fmPendingAddedOne": "已添加「{name}」到待发文件箱",
   "fmPendingAddedMany": "已添加 {count} 个文件到待发文件箱",
+  "fmPendingAddFailed": "无法添加到待发文件箱",
   "fmMultiSelectMode": "多选模式",
   "fmToolbarTitle": "文件管理",
   "fmHintTitle": "关于文件管理",
@@ -1409,6 +1410,15 @@
       "count": { "type": "int" }
     }
   },
+  "webdavOutboxUpload": "上传到 WebDAV",
+  "webdavOutboxUploadTarget": "上传至 {path}",
+  "@webdavOutboxUploadTarget": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "webdavOutboxAddFiles": "添加文件",
+  "webdavOutboxEmpty": "暂无待发文件，可添加文件或从其他应用分享到此",
   "webdavActionFavorite": "收藏",
   "webdavActionUnfavorite": "取消收藏",
   "webdavActionCopy": "复制",

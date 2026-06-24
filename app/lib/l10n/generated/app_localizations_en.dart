@@ -973,6 +973,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get fmPendingAddFailed => 'Could not add to outbox';
+
+  @override
   String get fmMultiSelectMode => 'Multi-select mode';
 
   @override
@@ -3283,6 +3286,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String webdavTransferQueued(int count) {
     return 'Queued $count transfer(s)';
   }
+
+  @override
+  String get webdavOutboxUpload => 'Upload to WebDAV';
+
+  @override
+  String webdavOutboxUploadTarget(String path) {
+    return 'Upload to $path';
+  }
+
+  @override
+  String get webdavOutboxAddFiles => 'Add files';
+
+  @override
+  String get webdavOutboxEmpty =>
+      'No pending files. Add files or share from another app.';
 
   @override
   String get webdavActionFavorite => 'Favorite';

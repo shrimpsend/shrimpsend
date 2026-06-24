@@ -470,6 +470,7 @@
     }
   },
   "fmPendingAddedMany": "Added {count} files to outbox",
+  "fmPendingAddFailed": "Could not add to outbox",
   "@fmPendingAddedMany": {
     "placeholders": {
       "count": {
@@ -1862,6 +1863,15 @@
       "count": { "type": "int" }
     }
   },
+  "webdavOutboxUpload": "Upload to WebDAV",
+  "webdavOutboxUploadTarget": "Upload to {path}",
+  "@webdavOutboxUploadTarget": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "webdavOutboxAddFiles": "Add files",
+  "webdavOutboxEmpty": "No pending files. Add files or share from another app.",
   "webdavActionFavorite": "Favorite",
   "webdavActionUnfavorite": "Unfavorite",
   "webdavActionCopy": "Copy",

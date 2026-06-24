@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,11 +8,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../providers/pending_files_provider.dart';
 import '../providers/webdav_provider.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
 import '../ui/platform_performance.dart';
+import '../utils/toast.dart';
+import '../widgets/pending_files_bar.dart';
+import '../widgets/pending_outbox_badge_button.dart';
 import 'webdav_files_tab.dart';
 import 'webdav_recent_favorites_tab.dart';
 import 'webdav_settings_tab.dart';
@@ -39,7 +44,8 @@ class WebDavShellScreen extends ConsumerStatefulWidget {
   ConsumerState<WebDavShellScreen> createState() => _WebDavShellScreenState();
 }
 
-class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
+class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
+    with WidgetsBindingObserver {
   WebDavClient? _client;
   bool _loading = true;
   String? _error;
@@ -50,12 +56,52 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
   final _filesTabKey = GlobalKey<WebDavFilesTabState>();
   String _currentPath = '';
 
-  bool get _showAddButton => _tabIndex == 0 && !_filesSelectionMode;
+  bool get _showOutboxButton => !_filesSelectionMode;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_bootstrapPendingFiles());
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_reloadPendingFiles());
+    }
+  }
+
+  Future<void> _bootstrapPendingFiles() async {
+    final dropped = await ref.read(pendingFilesProvider.notifier).bootstrap();
+    if (!mounted) return;
+    if (dropped > 0) {
+      AppToast.show(
+        context,
+        message: AppLocalizations.of(context).chatScreenPendingFilesMissing,
+      );
+    }
+  }
+
+  Future<void> _reloadPendingFiles() async {
+    final dropped =
+        await ref.read(pendingFilesProvider.notifier).reloadFromStore();
+    if (!mounted) return;
+    if (dropped > 0) {
+      AppToast.show(
+        context,
+        message: AppLocalizations.of(context).chatScreenPendingFilesMissing,
+      );
+    }
   }
 
   Future<void> _init() async {
@@ -151,15 +197,46 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
     );
   }
 
-  void _showAddSheet() {
-    if (!_showAddButton) return;
-    _filesTabKey.currentState?.showAddSheet();
+  String _uploadTargetLabel(AppLocalizations l10n) {
+    final relativePath = _filesTabKey.currentState?.currentRelativePath ?? '';
+    if (relativePath.isEmpty) {
+      return l10n.webdavOutboxUploadTarget(widget.connection.name);
+    }
+    return l10n.webdavOutboxUploadTarget('/$relativePath');
+  }
+
+  Future<void> _openOutboxSheet() {
+    if (!_showOutboxButton) return Future.value();
+    final l10n = AppLocalizations.of(context);
+    return showPendingOutboxSheet(
+      context,
+      showAddFiles: true,
+      primaryAction: PendingOutboxPrimaryAction(
+        label: l10n.webdavOutboxUpload,
+        icon: LucideIcons.upload,
+        destinationHint: _uploadTargetLabel(l10n),
+        onExecute: (files) async {
+          final filesTab = _filesTabKey.currentState;
+          if (filesTab == null) return;
+          final count = await filesTab.uploadPlatformFiles(files);
+          if (!mounted) return;
+          if (count > 0) {
+            ref.read(pendingFilesProvider.notifier).clear();
+            AppToast.show(
+              context,
+              message: l10n.webdavTransferQueued(count),
+            );
+          }
+        },
+      ),
+    );
   }
 
   Widget _buildPlainBottomBar(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
+    final pendingCount = ref.watch(pendingFilesProvider).length;
 
     Widget tab({
       required int index,
@@ -238,37 +315,12 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
             icon: LucideIcons.star,
           ),
           const SizedBox(width: _kWebDavBarExtraSpacing),
-          Semantics(
-            button: true,
-            enabled: _showAddButton,
-            label: l10n.webdavActionUpload,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _showAddButton ? _showAddSheet : null,
-              child: Opacity(
-                opacity: _showAddButton ? 1 : 0.35,
-                child: Container(
-                  width: _kWebDavBarExtraSize,
-                  height: _kWebDavBarExtraSize,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.35),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    LucideIcons.plus,
-                    color: theme.colorScheme.onPrimary,
-                    size: 24,
-                  ),
-                ),
-              ),
-            ),
+          PendingOutboxBadgeButton(
+            count: pendingCount,
+            enabled: _showOutboxButton,
+            onTap: _openOutboxSheet,
+            size: _kWebDavBarExtraSize,
+            iconColor: colors.textSecondary,
           ),
           const SizedBox(width: AppSpacing.xs),
         ],
@@ -280,6 +332,9 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
+    final pendingCount = ref.watch(pendingFilesProvider).length;
+    final outboxIconColor =
+        _showOutboxButton ? colors.textSecondary : colors.textTertiary;
 
     return GlassBottomBar(
       tabs: [
@@ -300,19 +355,14 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
       onTabSelected: _onTabSelected,
       spacing: _kWebDavBarExtraSpacing,
       extraButton: GlassBottomBarExtraButton(
-        label: l10n.webdavActionUpload,
+        label: l10n.mobileHomePendingOutbox,
         size: _kWebDavBarExtraSize,
-        iconColor: _showAddButton
-            ? theme.colorScheme.primary
-            : colors.textTertiary,
-        icon: Icon(
-          LucideIcons.plus,
-          color: _showAddButton
-              ? theme.colorScheme.primary
-              : colors.textTertiary,
-          size: 24,
+        iconColor: outboxIconColor,
+        icon: PendingOutboxBadgeIcon(
+          count: pendingCount,
+          iconColor: outboxIconColor,
         ),
-        onTap: _showAddButton ? _showAddSheet : () {},
+        onTap: _showOutboxButton ? _openOutboxSheet : () {},
       ),
       selectedIconColor: theme.colorScheme.primary,
       unselectedIconColor: colors.textSecondary,
