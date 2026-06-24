@@ -731,7 +731,12 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
         onRefresh: () => _loadDirectory(_relativePath),
         child: _viewMode == WebDavViewMode.grid
             ? GridView.builder(
-                padding: const EdgeInsets.all(AppSpacing.xs),
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.xs,
+                  AppSpacing.xs,
+                  AppSpacing.xs,
+                  scrollBottom,
+                ),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
                   childAspectRatio: 0.85,
@@ -750,7 +755,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
                 ),
               )
             : ListView.separated(
-                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                padding: EdgeInsets.only(bottom: scrollBottom),
                 itemCount: _visibleEntries.length,
                 separatorBuilder: (_, __) => Divider(
                   height: 1,
@@ -807,14 +812,16 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
           ),
         Expanded(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
+            padding: const EdgeInsets.fromLTRB(
               AppSpacing.xs,
               0,
               AppSpacing.xs,
-              scrollBottom,
+              0,
             ),
             child: ClipRRect(
-              borderRadius: AppRadius.medium,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppRadius.md),
+              ),
               child: ColoredBox(
                 color: colors.surface,
                 child: Column(
