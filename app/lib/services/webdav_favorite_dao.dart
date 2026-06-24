@@ -75,10 +75,43 @@ class WebDavFavoriteDao {
     required String connectionId,
     required String remotePath,
   }) async {
+    await removeByPath(connectionId: connectionId, remotePath: remotePath);
+  }
+
+  Future<void> removeByPath({
+    required String connectionId,
+    required String remotePath,
+  }) async {
     await _db.delete(
       _table,
       where: 'connection_id = ? AND remote_path = ?',
       whereArgs: [connectionId, remotePath],
+    );
+  }
+
+  Future<void> updatePath({
+    required String connectionId,
+    required String oldPath,
+    required WebDavEntry entry,
+  }) async {
+    final rows = await _db.query(
+      _table,
+      where: 'connection_id = ? AND remote_path = ?',
+      whereArgs: [connectionId, oldPath],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+    await _db.update(
+      _table,
+      {
+        'remote_path': entry.path,
+        'name': entry.name,
+        'is_directory': entry.isDirectory ? 1 : 0,
+        'size': entry.size,
+        'last_modified': entry.lastModified?.toIso8601String(),
+      },
+      where: 'connection_id = ? AND remote_path = ?',
+      whereArgs: [connectionId, oldPath],
     );
   }
 

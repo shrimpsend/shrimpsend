@@ -17,6 +17,7 @@ import '../ui/platform_performance.dart';
 import '../utils/toast.dart';
 import '../widgets/pending_files_bar.dart';
 import '../widgets/pending_outbox_badge_button.dart';
+import 'webdav/webdav_browsable_tab.dart';
 import 'webdav_files_tab.dart';
 import 'webdav_recent_favorites_tab.dart';
 import 'webdav_settings_tab.dart';
@@ -50,13 +51,24 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   bool _loading = true;
   String? _error;
   int _tabIndex = 0;
-  bool _filesSelectionMode = false;
-  int _filesSelectedCount = 0;
-  bool _filesSearchVisible = false;
+  bool _selectionMode = false;
+  int _selectedCount = 0;
+  bool _searchVisible = false;
   final _filesTabKey = GlobalKey<WebDavFilesTabState>();
+  final _recentTabKey = GlobalKey<WebDavVirtualEntryTabState>();
+  final _favoritesTabKey = GlobalKey<WebDavVirtualEntryTabState>();
   String _currentPath = '';
 
-  bool get _showOutboxButton => !_filesSelectionMode;
+  bool get _showOutboxButton => !_selectionMode;
+
+  WebDavBrowsableTabController? _activeTabController() {
+    return switch (_tabIndex) {
+      0 => _filesTabKey.currentState,
+      1 => _recentTabKey.currentState,
+      2 => _favoritesTabKey.currentState,
+      _ => null,
+    };
+  }
 
   @override
   void initState() {
@@ -127,7 +139,26 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   }
 
   void _onTabSelected(int index) {
-    setState(() => _tabIndex = index);
+    if (index != _tabIndex) {
+      _filesTabKey.currentState?.exitSelectionMode();
+      _recentTabKey.currentState?.exitSelectionMode();
+      _favoritesTabKey.currentState?.exitSelectionMode();
+      for (final tab in <WebDavBrowsableTabController?>[
+        _filesTabKey.currentState,
+        _recentTabKey.currentState,
+        _favoritesTabKey.currentState,
+      ]) {
+        if (tab != null && tab.isSearchVisible) {
+          tab.toggleSearch();
+        }
+      }
+    }
+    setState(() {
+      _tabIndex = index;
+      _selectionMode = false;
+      _selectedCount = 0;
+      _searchVisible = false;
+    });
     final connectionId = widget.connection.id;
     if (index == 1) {
       ref.invalidate(webDavRecentProvider(connectionId));
@@ -136,28 +167,27 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     }
   }
 
-  void _onFilesSelectionChanged(bool selectionMode, int selectedCount) {
-    if (_filesSelectionMode == selectionMode &&
-        _filesSelectedCount == selectedCount) {
+  void _onTabSelectionChanged(bool selectionMode, int selectedCount) {
+    if (_selectionMode == selectionMode && _selectedCount == selectedCount) {
       return;
     }
     setState(() {
-      _filesSelectionMode = selectionMode;
-      _filesSelectedCount = selectedCount;
+      _selectionMode = selectionMode;
+      _selectedCount = selectedCount;
     });
   }
 
-  void _onFilesSearchVisibilityChanged(bool visible) {
-    if (_filesSearchVisible == visible) return;
-    setState(() => _filesSearchVisible = visible);
+  void _onTabSearchVisibilityChanged(bool visible) {
+    if (_searchVisible == visible) return;
+    setState(() => _searchVisible = visible);
   }
 
-  void _toggleFilesSearch() {
-    _filesTabKey.currentState?.toggleSearch();
+  void _toggleActiveTabSearch() {
+    _activeTabController()?.toggleSearch();
   }
 
-  void _exitFilesSelectionMode() {
-    _filesTabKey.currentState?.exitSelectionMode();
+  void _exitActiveTabSelectionMode() {
+    _activeTabController()?.exitSelectionMode();
   }
 
   void _switchToFilesTab({String? path}) {
@@ -167,15 +197,6 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         _filesTabKey.currentState?.navigateToPath(path);
       });
     }
-  }
-
-  Future<void> _openFileFromOtherTab(WebDavEntry entry) async {
-    _switchToFilesTab();
-    await WebDavTransferService.instance.enqueueDownloads(
-      client: _client!,
-      connection: widget.connection,
-      entries: [entry],
-    );
   }
 
   void _openTransferList() {
@@ -458,20 +479,24 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
               client: client,
               initialPath: _currentPath,
               onPathChanged: (p) => _currentPath = p,
-              onSelectionChanged: _onFilesSelectionChanged,
-              onSearchVisibilityChanged: _onFilesSearchVisibilityChanged,
+              onSelectionChanged: _onTabSelectionChanged,
+              onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
             ),
             WebDavRecentTab(
+              key: _recentTabKey,
               connection: widget.connection,
               client: client,
               onOpenFolder: (path) => _switchToFilesTab(path: path),
-              onOpenFile: _openFileFromOtherTab,
+              onSelectionChanged: _onTabSelectionChanged,
+              onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
             ),
             WebDavFavoritesTab(
+              key: _favoritesTabKey,
               connection: widget.connection,
               client: client,
               onOpenFolder: (path) => _switchToFilesTab(path: path),
-              onOpenFile: _openFileFromOtherTab,
+              onSelectionChanged: _onTabSelectionChanged,
+              onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
             ),
           ],
         ),
@@ -485,10 +510,10 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     );
 
     return PopScope(
-      canPop: !_filesSelectionMode,
+      canPop: !_selectionMode,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _filesSelectionMode) {
-          _exitFilesSelectionMode();
+        if (!didPop && _selectionMode) {
+          _exitActiveTabSelectionMode();
         }
       },
       child: Scaffold(
@@ -505,8 +530,8 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   }
 
   String _appBarTitle(AppLocalizations l10n) {
-    if (_tabIndex == 0 && _filesSelectionMode) {
-      return l10n.webdavSelectedCount(_filesSelectedCount);
+    if (_selectionMode) {
+      return l10n.webdavSelectedCount(_selectedCount);
     }
     if (_tabIndex == 0) {
       return widget.connection.name;
@@ -515,52 +540,51 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   }
 
   List<Widget> _buildAppBarActions(AppLocalizations l10n, int activeTransfers) {
-    if (_tabIndex == 0 && _filesSelectionMode) {
-      final filesTab = _filesTabKey.currentState;
-      final hasSelection = _filesSelectedCount > 0;
-      final canMove = _filesSelectedCount == 1;
+    if (_selectionMode) {
+      final tab = _activeTabController();
+      final hasSelection = _selectedCount > 0;
+      final canMove = _selectedCount == 1;
       final colors = context.appColors;
 
       return [
         IconButton(
           icon: const Icon(LucideIcons.download),
-          onPressed: hasSelection ? () => filesTab?.downloadSelected() : null,
+          onPressed: hasSelection ? () => tab?.downloadSelected() : null,
           tooltip: l10n.webdavActionDownload,
         ),
         IconButton(
           icon: const Icon(LucideIcons.share2),
-          onPressed: hasSelection ? () => filesTab?.shareSelected() : null,
+          onPressed: hasSelection ? () => tab?.shareSelected() : null,
           tooltip: l10n.webdavActionShare,
         ),
         IconButton(
           icon: const Icon(LucideIcons.folderInput),
-          onPressed: canMove ? () => filesTab?.moveSelected() : null,
+          onPressed: canMove ? () => tab?.moveSelected() : null,
           tooltip: l10n.webdavActionMove,
         ),
         IconButton(
           icon: Icon(LucideIcons.trash2, color: colors.danger),
-          onPressed: hasSelection ? () => filesTab?.deleteSelected() : null,
+          onPressed: hasSelection ? () => tab?.deleteSelected() : null,
           tooltip: l10n.webdavActionDelete,
         ),
         IconButton(
           icon: const Icon(LucideIcons.x),
-          onPressed: _exitFilesSelectionMode,
+          onPressed: _exitActiveTabSelectionMode,
           tooltip: l10n.cancel,
         ),
       ];
     }
 
     return [
-      if (_tabIndex == 0)
-        IconButton(
-          icon: Icon(
-            _filesSearchVisible ? LucideIcons.searchX : LucideIcons.search,
-          ),
-          onPressed: _toggleFilesSearch,
-          tooltip: _filesSearchVisible
-              ? l10n.fmSearchCloseTooltip
-              : l10n.fmSearchTooltip,
+      IconButton(
+        icon: Icon(
+          _searchVisible ? LucideIcons.searchX : LucideIcons.search,
         ),
+        onPressed: _toggleActiveTabSearch,
+        tooltip: _searchVisible
+            ? l10n.fmSearchCloseTooltip
+            : l10n.fmSearchTooltip,
+      ),
       IconButton(
         icon: activeTransfers > 0
             ? Badge(

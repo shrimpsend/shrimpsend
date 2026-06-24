@@ -95,6 +95,34 @@ WHERE connection_id = ?
     });
   }
 
+  Future<void> removeByPath({
+    required String connectionId,
+    required String remotePath,
+  }) async {
+    await _db.delete(
+      _table,
+      where: 'connection_id = ? AND remote_path = ?',
+      whereArgs: [connectionId, remotePath],
+    );
+  }
+
+  Future<void> updatePath({
+    required String connectionId,
+    required String oldPath,
+    required WebDavEntry entry,
+  }) async {
+    await _db.update(
+      _table,
+      {
+        'remote_path': entry.path,
+        'name': entry.name,
+        'is_directory': entry.isDirectory ? 1 : 0,
+      },
+      where: 'connection_id = ? AND remote_path = ?',
+      whereArgs: [connectionId, oldPath],
+    );
+  }
+
   Future<List<WebDavRecentRecord>> listForConnection(
     String connectionId,
   ) async {

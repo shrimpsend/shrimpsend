@@ -6,6 +6,7 @@ import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/webdav_provider.dart';
 import '../services/webdav_favorite_dao.dart';
+import '../services/webdav_recent_dao.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
@@ -76,6 +77,17 @@ class _WebDavFileDetailScreenState extends ConsumerState<WebDavFileDetailScreen>
         widget.entry.path,
         isDirectory: widget.entry.isDirectory,
       );
+      final connKey = webDavConnectionKey(widget.connection.id);
+      await WebDavRecentDao.instance.removeByPath(
+        connectionId: connKey,
+        remotePath: widget.entry.path,
+      );
+      await WebDavFavoriteDao.instance.removeByPath(
+        connectionId: connKey,
+        remotePath: widget.entry.path,
+      );
+      ref.invalidate(webDavRecentProvider(widget.connection.id));
+      ref.invalidate(webDavFavoritesProvider(widget.connection.id));
       if (!mounted) return;
       widget.onDeleted();
       Navigator.pop(context);
