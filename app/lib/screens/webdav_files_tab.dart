@@ -100,8 +100,6 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
 
   bool get showSearch => _showSearch;
 
-  WebDavViewMode get viewMode => _viewMode;
-
   void toggleSearch() {
     final opening = !_showSearch;
     setState(() => _showSearch = opening);
@@ -116,8 +114,6 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
       }
     }
   }
-
-  void toggleViewMode() => _toggleViewMode();
 
   void _onUploadCompleted({
     required int connectionId,
@@ -824,40 +820,71 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+                    Padding(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
                         AppSpacing.sm,
-                        AppSpacing.md,
+                        AppSpacing.xxs,
                         AppSpacing.sm,
                       ),
                       child: Row(
                         children: [
-                          _BreadcrumbChip(
-                            label: '/',
-                            onTap: () => _loadDirectory(''),
-                          ),
-                          for (var i = 0; i < _breadcrumbSegments.length; i++)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  LucideIcons.chevronRight,
-                                  size: 14,
-                                  color: colors.textTertiary,
-                                ),
-                                _BreadcrumbChip(
-                                  label: _breadcrumbSegments[i],
-                                  onTap: () {
-                                    final path = _breadcrumbSegments
-                                        .sublist(0, i + 1)
-                                        .join('/');
-                                    _loadDirectory(path);
-                                  },
-                                ),
-                              ],
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _BreadcrumbChip(
+                                    label: '/',
+                                    onTap: () => _loadDirectory(''),
+                                  ),
+                                  for (var i = 0;
+                                      i < _breadcrumbSegments.length;
+                                      i++)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          LucideIcons.chevronRight,
+                                          size: 14,
+                                          color: colors.textTertiary,
+                                        ),
+                                        _BreadcrumbChip(
+                                          label: _breadcrumbSegments[i],
+                                          onTap: () {
+                                            final path = _breadcrumbSegments
+                                                .sublist(0, i + 1)
+                                                .join('/');
+                                            _loadDirectory(path);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
                             ),
+                          ),
+                          if (!_selectionMode) ...[
+                            IconButton(
+                              icon: Icon(
+                                _viewMode == WebDavViewMode.list
+                                    ? LucideIcons.layoutGrid
+                                    : LucideIcons.list,
+                                size: 18,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              tooltip: _viewMode == WebDavViewMode.list
+                                  ? l10n.webdavViewGrid
+                                  : l10n.webdavViewList,
+                              onPressed: _toggleViewMode,
+                            ),
+                            IconButton(
+                              icon: const Icon(LucideIcons.plus, size: 18),
+                              visualDensity: VisualDensity.compact,
+                              tooltip: l10n.webdavActionNewFolder,
+                              onPressed: _createFolder,
+                            ),
+                          ],
                         ],
                       ),
                     ),

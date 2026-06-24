@@ -47,7 +47,6 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
   bool _filesSelectionMode = false;
   int _filesSelectedCount = 0;
   bool _filesSearchVisible = false;
-  WebDavViewMode _filesViewMode = WebDavViewMode.list;
   final _filesTabKey = GlobalKey<WebDavFilesTabState>();
   String _currentPath = '';
 
@@ -109,15 +108,6 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
 
   void _toggleFilesSearch() {
     _filesTabKey.currentState?.toggleSearch();
-  }
-
-  void _toggleFilesViewMode() {
-    final tab = _filesTabKey.currentState;
-    tab?.toggleViewMode();
-    final mode = tab?.viewMode;
-    if (mode != null && mode != _filesViewMode) {
-      setState(() => _filesViewMode = mode);
-    }
   }
 
   void _exitFilesSelectionMode() {
@@ -514,7 +504,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
     }
 
     return [
-      if (_tabIndex == 0) ...[
+      if (_tabIndex == 0)
         IconButton(
           icon: Icon(
             _filesSearchVisible ? LucideIcons.searchX : LucideIcons.search,
@@ -524,18 +514,6 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen> {
               ? l10n.fmSearchCloseTooltip
               : l10n.fmSearchTooltip,
         ),
-        IconButton(
-          icon: Icon(
-            _filesViewMode == WebDavViewMode.list
-                ? LucideIcons.layoutGrid
-                : LucideIcons.list,
-          ),
-          onPressed: _toggleFilesViewMode,
-          tooltip: _filesViewMode == WebDavViewMode.list
-              ? l10n.webdavViewGrid
-              : l10n.webdavViewList,
-        ),
-      ],
       IconButton(
         icon: activeTransfers > 0
             ? Badge(
