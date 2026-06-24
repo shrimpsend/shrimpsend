@@ -43,6 +43,7 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   webdav_client:
     path: packages/webdav_client
+  dio: ^5.1.0
   sqflite: ^2.3.0
   uuid: ^4.2.2
   path: ^1.9.0

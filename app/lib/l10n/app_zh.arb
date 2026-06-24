@@ -1393,5 +1393,52 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+  "webdavTabFiles": "文件",
+  "webdavTabRecent": "最近",
+  "webdavTabFavorites": "收藏",
+  "webdavTabSettings": "设置",
+  "webdavTransferList": "传输列表",
+  "webdavTransferUploading": "上传中",
+  "webdavTransferDownloading": "下载中",
+  "webdavTransferPauseAll": "全部暂停",
+  "webdavTransferEmpty": "暂无传输任务",
+  "webdavTransferQueued": "已加入传输队列（{count}）",
+  "@webdavTransferQueued": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavActionFavorite": "收藏",
+  "webdavActionUnfavorite": "取消收藏",
+  "webdavActionCopy": "复制",
+  "webdavActionMove": "移动",
+  "webdavActionDetails": "详情",
+  "webdavActionOpenWith": "打开方式",
+  "webdavActionShare": "分享",
+  "webdavRecentEmpty": "暂无最近访问",
+  "webdavFavoritesEmpty": "暂无收藏",
+  "webdavSettingsCurrentConnection": "当前连接",
+  "webdavSettingsSwitchConnection": "切换连接",
+  "webdavViewList": "列表视图",
+  "webdavViewGrid": "网格视图",
+  "webdavDetailType": "类型",
+  "webdavDetailSize": "大小",
+  "webdavDetailLocation": "位置",
+  "webdavDetailModified": "修改时间",
+  "webdavMoveHint": "目标路径（相对根目录）",
+  "webdavCopiedToast": "已复制",
+  "webdavCopyFailed": "复制失败：{error}",
+  "@webdavCopyFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavMoveFailed": "移动失败：{error}",
+  "@webdavMoveFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavShareNeedDownload": "请先下载文件后再分享"
 }

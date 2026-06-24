@@ -1,5 +1,7 @@
+import 'dart:io' as io;
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:webdav_client/webdav_client.dart' as wd;
 
 import '../api/webdav.dart';
@@ -52,20 +54,50 @@ class WebDavClient {
     });
   }
 
-  Future<void> downloadFile(String relativePath, String localFilePath) async {
+  Future<void> downloadFile(
+    String relativePath,
+    String localFilePath, {
+    void Function(int count, int total)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
     return _guard(() async {
       await _client.read2File(
         appRelativeToWebDavResourcePath(relativePath),
         localFilePath,
+        onProgress: onProgress,
+        cancelToken: cancelToken,
       );
     });
   }
 
-  Future<void> uploadFile(String relativePath, List<int> bytes) async {
+  Future<void> uploadFile(
+    String relativePath,
+    List<int> bytes, {
+    void Function(int count, int total)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
     return _guard(() async {
       await _client.write(
         appRelativeToWebDavResourcePath(relativePath),
         Uint8List.fromList(bytes),
+        onProgress: onProgress,
+        cancelToken: cancelToken,
+      );
+    });
+  }
+
+  Future<void> uploadFileFromPath(
+    String relativePath,
+    String localFilePath, {
+    void Function(int count, int total)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    return _guard(() async {
+      await _client.writeFromFile(
+        localFilePath,
+        appRelativeToWebDavResourcePath(relativePath),
+        onProgress: onProgress,
+        cancelToken: cancelToken,
       );
     });
   }
@@ -98,6 +130,38 @@ class WebDavClient {
         true,
       );
     });
+  }
+
+  Future<void> copyResource(
+    String fromPath,
+    String toPath, {
+    bool isDirectory = false,
+  }) async {
+    return _guard(() async {
+      await _client.copy(
+        appRelativeToWebDavResourcePath(fromPath, isDirectory: isDirectory),
+        appRelativeToWebDavResourcePath(toPath, isDirectory: isDirectory),
+        true,
+      );
+    });
+  }
+
+  Future<int?> fileSize(String relativePath) async {
+    return _guard(() async {
+      final file = await _client.readProps(
+        appRelativeToWebDavResourcePath(relativePath),
+      );
+      return file.size;
+    });
+  }
+
+  /// Returns local file size when [localPath] exists.
+  static int localFileSize(String localPath) {
+    try {
+      return io.File(localPath).lengthSync();
+    } catch (_) {
+      return 0;
+    }
   }
 
   WebDavEntry _toEntry(wd.File file) {

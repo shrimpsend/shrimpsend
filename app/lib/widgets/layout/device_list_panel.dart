@@ -15,7 +15,7 @@ import '../../utils/runtime_platform.dart';
 import '../busy_status_indicator.dart';
 import '../devices/device_conversation_item.dart';
 import '../devices/device_id_chip.dart';
-import '../../screens/webdav_browser_screen.dart';
+import '../../screens/webdav_shell_screen.dart';
 import '../../screens/webdav_connection_screen.dart';
 import '../../services/webdav_credential_store.dart';
 import '../../utils/toast.dart';
@@ -396,7 +396,7 @@ class DeviceListPanel extends ConsumerWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) =>
-                                  WebDavBrowserScreen(connection: conn),
+                                  WebDavShellScreen(connection: conn),
                             ),
                           );
                         },

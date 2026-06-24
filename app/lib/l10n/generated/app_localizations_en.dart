@@ -3251,4 +3251,106 @@ class AppLocalizationsEn extends AppLocalizations {
   String webdavSelectedCount(int count) {
     return '$count selected';
   }
+
+  @override
+  String get webdavTabFiles => 'Files';
+
+  @override
+  String get webdavTabRecent => 'Recent';
+
+  @override
+  String get webdavTabFavorites => 'Favorites';
+
+  @override
+  String get webdavTabSettings => 'Settings';
+
+  @override
+  String get webdavTransferList => 'Transfers';
+
+  @override
+  String get webdavTransferUploading => 'Uploading';
+
+  @override
+  String get webdavTransferDownloading => 'Downloading';
+
+  @override
+  String get webdavTransferPauseAll => 'Pause all';
+
+  @override
+  String get webdavTransferEmpty => 'No active transfers';
+
+  @override
+  String webdavTransferQueued(int count) {
+    return 'Queued $count transfer(s)';
+  }
+
+  @override
+  String get webdavActionFavorite => 'Favorite';
+
+  @override
+  String get webdavActionUnfavorite => 'Unfavorite';
+
+  @override
+  String get webdavActionCopy => 'Copy';
+
+  @override
+  String get webdavActionMove => 'Move';
+
+  @override
+  String get webdavActionDetails => 'Details';
+
+  @override
+  String get webdavActionOpenWith => 'Open with';
+
+  @override
+  String get webdavActionShare => 'Share';
+
+  @override
+  String get webdavRecentEmpty => 'No recent items';
+
+  @override
+  String get webdavFavoritesEmpty => 'No favorites yet';
+
+  @override
+  String get webdavSettingsCurrentConnection => 'Current connection';
+
+  @override
+  String get webdavSettingsSwitchConnection => 'Switch connection';
+
+  @override
+  String get webdavViewList => 'List view';
+
+  @override
+  String get webdavViewGrid => 'Grid view';
+
+  @override
+  String get webdavDetailType => 'Type';
+
+  @override
+  String get webdavDetailSize => 'Size';
+
+  @override
+  String get webdavDetailLocation => 'Location';
+
+  @override
+  String get webdavDetailModified => 'Modified';
+
+  @override
+  String get webdavMoveHint => 'Destination path (relative to root)';
+
+  @override
+  String get webdavCopiedToast => 'Copied';
+
+  @override
+  String webdavCopyFailed(String error) {
+    return 'Copy failed: $error';
+  }
+
+  @override
+  String webdavMoveFailed(String error) {
+    return 'Move failed: $error';
+  }
+
+  @override
+  String get webdavShareNeedDownload => 'Download the file first to share';
 }

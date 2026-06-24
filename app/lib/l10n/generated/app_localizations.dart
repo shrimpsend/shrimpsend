@@ -5747,6 +5747,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} selected'**
   String webdavSelectedCount(int count);
+
+  /// No description provided for @webdavTabFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Files'**
+  String get webdavTabFiles;
+
+  /// No description provided for @webdavTabRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get webdavTabRecent;
+
+  /// No description provided for @webdavTabFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get webdavTabFavorites;
+
+  /// No description provided for @webdavTabSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get webdavTabSettings;
+
+  /// No description provided for @webdavTransferList.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfers'**
+  String get webdavTransferList;
+
+  /// No description provided for @webdavTransferUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading'**
+  String get webdavTransferUploading;
+
+  /// No description provided for @webdavTransferDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading'**
+  String get webdavTransferDownloading;
+
+  /// No description provided for @webdavTransferPauseAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause all'**
+  String get webdavTransferPauseAll;
+
+  /// No description provided for @webdavTransferEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No active transfers'**
+  String get webdavTransferEmpty;
+
+  /// No description provided for @webdavTransferQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued {count} transfer(s)'**
+  String webdavTransferQueued(int count);
+
+  /// No description provided for @webdavActionFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite'**
+  String get webdavActionFavorite;
+
+  /// No description provided for @webdavActionUnfavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfavorite'**
+  String get webdavActionUnfavorite;
+
+  /// No description provided for @webdavActionCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get webdavActionCopy;
+
+  /// No description provided for @webdavActionMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get webdavActionMove;
+
+  /// No description provided for @webdavActionDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get webdavActionDetails;
+
+  /// No description provided for @webdavActionOpenWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Open with'**
+  String get webdavActionOpenWith;
+
+  /// No description provided for @webdavActionShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get webdavActionShare;
+
+  /// No description provided for @webdavRecentEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent items'**
+  String get webdavRecentEmpty;
+
+  /// No description provided for @webdavFavoritesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No favorites yet'**
+  String get webdavFavoritesEmpty;
+
+  /// No description provided for @webdavSettingsCurrentConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Current connection'**
+  String get webdavSettingsCurrentConnection;
+
+  /// No description provided for @webdavSettingsSwitchConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch connection'**
+  String get webdavSettingsSwitchConnection;
+
+  /// No description provided for @webdavViewList.
+  ///
+  /// In en, this message translates to:
+  /// **'List view'**
+  String get webdavViewList;
+
+  /// No description provided for @webdavViewGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid view'**
+  String get webdavViewGrid;
+
+  /// No description provided for @webdavDetailType.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get webdavDetailType;
+
+  /// No description provided for @webdavDetailSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get webdavDetailSize;
+
+  /// No description provided for @webdavDetailLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get webdavDetailLocation;
+
+  /// No description provided for @webdavDetailModified.
+  ///
+  /// In en, this message translates to:
+  /// **'Modified'**
+  String get webdavDetailModified;
+
+  /// No description provided for @webdavMoveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Destination path (relative to root)'**
+  String get webdavMoveHint;
+
+  /// No description provided for @webdavCopiedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get webdavCopiedToast;
+
+  /// No description provided for @webdavCopyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy failed: {error}'**
+  String webdavCopyFailed(String error);
+
+  /// No description provided for @webdavMoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Move failed: {error}'**
+  String webdavMoveFailed(String error);
+
+  /// No description provided for @webdavShareNeedDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download the file first to share'**
+  String get webdavShareNeedDownload;
 }
 
 class _AppLocalizationsDelegate

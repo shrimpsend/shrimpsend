@@ -3113,4 +3113,106 @@ class AppLocalizationsZh extends AppLocalizations {
   String webdavSelectedCount(int count) {
     return '已选 $count 项';
   }
+
+  @override
+  String get webdavTabFiles => '文件';
+
+  @override
+  String get webdavTabRecent => '最近';
+
+  @override
+  String get webdavTabFavorites => '收藏';
+
+  @override
+  String get webdavTabSettings => '设置';
+
+  @override
+  String get webdavTransferList => '传输列表';
+
+  @override
+  String get webdavTransferUploading => '上传中';
+
+  @override
+  String get webdavTransferDownloading => '下载中';
+
+  @override
+  String get webdavTransferPauseAll => '全部暂停';
+
+  @override
+  String get webdavTransferEmpty => '暂无传输任务';
+
+  @override
+  String webdavTransferQueued(int count) {
+    return '已加入传输队列（$count）';
+  }
+
+  @override
+  String get webdavActionFavorite => '收藏';
+
+  @override
+  String get webdavActionUnfavorite => '取消收藏';
+
+  @override
+  String get webdavActionCopy => '复制';
+
+  @override
+  String get webdavActionMove => '移动';
+
+  @override
+  String get webdavActionDetails => '详情';
+
+  @override
+  String get webdavActionOpenWith => '打开方式';
+
+  @override
+  String get webdavActionShare => '分享';
+
+  @override
+  String get webdavRecentEmpty => '暂无最近访问';
+
+  @override
+  String get webdavFavoritesEmpty => '暂无收藏';
+
+  @override
+  String get webdavSettingsCurrentConnection => '当前连接';
+
+  @override
+  String get webdavSettingsSwitchConnection => '切换连接';
+
+  @override
+  String get webdavViewList => '列表视图';
+
+  @override
+  String get webdavViewGrid => '网格视图';
+
+  @override
+  String get webdavDetailType => '类型';
+
+  @override
+  String get webdavDetailSize => '大小';
+
+  @override
+  String get webdavDetailLocation => '位置';
+
+  @override
+  String get webdavDetailModified => '修改时间';
+
+  @override
+  String get webdavMoveHint => '目标路径（相对根目录）';
+
+  @override
+  String get webdavCopiedToast => '已复制';
+
+  @override
+  String webdavCopyFailed(String error) {
+    return '复制失败：$error';
+  }
+
+  @override
+  String webdavMoveFailed(String error) {
+    return '移动失败：$error';
+  }
+
+  @override
+  String get webdavShareNeedDownload => '请先下载文件后再分享';
 }

@@ -1846,5 +1846,52 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+  "webdavTabFiles": "Files",
+  "webdavTabRecent": "Recent",
+  "webdavTabFavorites": "Favorites",
+  "webdavTabSettings": "Settings",
+  "webdavTransferList": "Transfers",
+  "webdavTransferUploading": "Uploading",
+  "webdavTransferDownloading": "Downloading",
+  "webdavTransferPauseAll": "Pause all",
+  "webdavTransferEmpty": "No active transfers",
+  "webdavTransferQueued": "Queued {count} transfer(s)",
+  "@webdavTransferQueued": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavActionFavorite": "Favorite",
+  "webdavActionUnfavorite": "Unfavorite",
+  "webdavActionCopy": "Copy",
+  "webdavActionMove": "Move",
+  "webdavActionDetails": "Details",
+  "webdavActionOpenWith": "Open with",
+  "webdavActionShare": "Share",
+  "webdavRecentEmpty": "No recent items",
+  "webdavFavoritesEmpty": "No favorites yet",
+  "webdavSettingsCurrentConnection": "Current connection",
+  "webdavSettingsSwitchConnection": "Switch connection",
+  "webdavViewList": "List view",
+  "webdavViewGrid": "Grid view",
+  "webdavDetailType": "Type",
+  "webdavDetailSize": "Size",
+  "webdavDetailLocation": "Location",
+  "webdavDetailModified": "Modified",
+  "webdavMoveHint": "Destination path (relative to root)",
+  "webdavCopiedToast": "Copied",
+  "webdavCopyFailed": "Copy failed: {error}",
+  "@webdavCopyFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavMoveFailed": "Move failed: {error}",
+  "@webdavMoveFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavShareNeedDownload": "Download the file first to share"
 }
