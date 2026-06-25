@@ -66,16 +66,25 @@ class ShareIngestPipeline {
         );
         if (platformFile == null) continue;
 
-        if (!alreadyInCache) {
+        final resultPath = platformFile.path;
+        final copiedToCache = resultPath != null &&
+            resultPath != pathStr &&
+            FileStore.isPathUnderDirectory(resultPath, cacheRoot);
+
+        if (copiedToCache) {
           anyCopiedToCache = true;
           _logIngest.info(
             '$source: copied to cache name=${platformFile.name} '
-            'nativeStagingPath=$pathStr cachePath=${platformFile.path} skippedExport=true',
+            'nativeStagingPath=$pathStr cachePath=$resultPath skippedExport=true',
           );
-        } else {
+        } else if (alreadyInCache) {
           _logIngest.info(
             '$source: reuse cache path name=${platformFile.name} '
-            'nativeStagingPath=$pathStr cachePath=${platformFile.path} skippedCopy=true skippedExport=true',
+            'nativeStagingPath=$pathStr cachePath=$resultPath skippedCopy=true skippedExport=true',
+          );
+        } else {
+          _logIngest.fine(
+            '$source: reuse external path name=${platformFile.name} path=$resultPath',
           );
         }
         saved.add(platformFile);

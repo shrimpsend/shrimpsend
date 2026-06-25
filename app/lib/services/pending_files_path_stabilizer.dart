@@ -10,7 +10,10 @@ import 'saf_storage_service.dart';
 
 final Logger _logStabilizer = Logger('虾传.pending.stabilizer');
 
-/// Ensures pending outbox entries reference durable local files under [FileStore] cache.
+/// Ensures pending outbox entries reference readable local files.
+///
+/// Copies into [FileStore] cache only when the source is not directly readable
+/// (content URI or in-memory bytes).
 final class PendingFilesPathStabilizer {
   PendingFilesPathStabilizer._();
 
@@ -60,12 +63,7 @@ final class PendingFilesPathStabilizer {
       );
     }
 
-    return _copyExternalPathToCache(
-      file,
-      path,
-      logSource: logSource,
-      cacheIdPrefix: cacheIdPrefix,
-    );
+    return _reuseExternalPath(file, path, logSource: logSource);
   }
 
   static Future<PlatformFile?> _writeBytesToCache(
@@ -138,11 +136,10 @@ final class PendingFilesPathStabilizer {
     }
   }
 
-  static Future<PlatformFile?> _copyExternalPathToCache(
+  static Future<PlatformFile?> _reuseExternalPath(
     PlatformFile file,
     String path, {
     required String logSource,
-    required String cacheIdPrefix,
   }) async {
     try {
       final sourceFile = File(path);
@@ -150,21 +147,16 @@ final class PendingFilesPathStabilizer {
         _logStabilizer.warning('$logSource: file not found: $path');
         return null;
       }
-      final originalName = file.name.isNotEmpty ? file.name : p.basename(path);
-      if (originalName.isEmpty) {
+      final name = file.name.isNotEmpty ? file.name : p.basename(path);
+      if (name.isEmpty) {
         _logStabilizer.warning('$logSource: empty name for $path');
         return null;
       }
-      final messageId = '${cacheIdPrefix}_${const Uuid().v4()}';
-      final destPath = await FileStore.buildCachePath(messageId, originalName);
-      await sourceFile.copy(destPath);
-      final stat = await File(destPath).stat();
-      _logStabilizer.info(
-        '$logSource: copied to cache name=$originalName src=$path dest=$destPath',
-      );
-      return PlatformFile(name: originalName, path: destPath, size: stat.size);
+      final stat = await sourceFile.stat();
+      _logStabilizer.fine('$logSource: reuse external path name=$name path=$path');
+      return PlatformFile(name: name, path: path, size: stat.size);
     } catch (e, st) {
-      _logStabilizer.warning('$logSource: failed to copy $path: $e', e, st);
+      _logStabilizer.warning('$logSource: failed to reuse external path $path: $e', e, st);
       return null;
     }
   }
