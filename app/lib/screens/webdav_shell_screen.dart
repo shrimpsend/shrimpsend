@@ -8,6 +8,7 @@ import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/pending_files_provider.dart';
 import '../providers/webdav_provider.dart';
+import '../services/webdav_credential_store.dart';
 import '../services/webdav_cstcloud.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
@@ -116,15 +117,26 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       _loading = true;
       _error = null;
     });
+
+    final memoryCreds = WebDavCredentialStore.instance.getFromMemory(
+      widget.connection.id,
+    );
+    if (memoryCreds != null && !cstCloudNeedsCredentialRefresh(memoryCreds)) {
+      _client = WebDavClient(memoryCreds);
+      if (mounted && generation == _initGeneration) {
+        setState(() => _loading = false);
+      }
+      unawaited(_restoreTransferSnapshots(generation));
+      return;
+    }
+
     try {
       final creds = await resolveWebDavCredentials(widget.connection.id);
       if (!mounted || generation != _initGeneration) return;
       _client = WebDavClient(creds);
-      await WebDavTransferService.instance.restorePersistedSnapshots(
-        widget.connection.id,
-      );
       if (!mounted || generation != _initGeneration) return;
       setState(() => _loading = false);
+      unawaited(_restoreTransferSnapshots(generation));
       if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || generation != _initGeneration) return;
@@ -141,6 +153,13 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         _loading = false;
       });
     }
+  }
+
+  Future<void> _restoreTransferSnapshots(int generation) async {
+    await WebDavTransferService.instance.restorePersistedSnapshots(
+      widget.connection.id,
+    );
+    if (!mounted || generation != _initGeneration) return;
   }
 
   void _onTabSelected(int index) {

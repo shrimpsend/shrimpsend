@@ -239,6 +239,24 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
+class _CachedChatTimeline {
+  const _CachedChatTimeline({
+    required this.messages,
+    required this.loadedMessageIds,
+    required this.serverIdByMessageId,
+    required this.oldestServerMessageId,
+    required this.hasNoMoreHistory,
+    required this.localMessageStatus,
+  });
+
+  final List<Message> messages;
+  final Set<String> loadedMessageIds;
+  final Map<String, int> serverIdByMessageId;
+  final int? oldestServerMessageId;
+  final bool hasNoMoreHistory;
+  final Map<String, String> localMessageStatus;
+}
+
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with WidgetsBindingObserver {
   bool _connected = false;
@@ -431,6 +449,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   int? _oldestServerMessageId;
   final Map<String, int> _serverIdByMessageId = {};
   final Set<String> _loadedMessageIds = {};
+  final Map<String, _CachedChatTimeline> _chatTimelineCache = {};
 
   /// Current user id for local message cache; set on first _loadHistory.
   String? _userId;
@@ -624,9 +643,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (prev != next) {
         ref.read(selectedSendModeProvider.notifier).activateDevice(next);
         ref.read(connectionSwitchProbeProvider.notifier).state = null;
-        if (!isWebDavSelection(next)) {
-          unawaited(_reloadThreadForSelectionChange());
-        }
         if (isPeerSelection(next)) {
           ref.read(chatSendModeAutoProvider.notifier).state = true;
           ref.read(connectionManualOverrideProvider.notifier).state = false;
@@ -638,25 +654,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         } else {
           _clearSelectedPeerReachabilitySnapshot();
         }
-        if (next != null) {
-          Analytics.track(AnalyticsEvents.chatSessionOpen, {
-            'session_type': next == s3VirtualDeviceId
-                ? 's3'
-                : isWebDavSelection(next)
-                ? 'webdav'
-                : 'peer',
-          });
-        }
       }
       if (isPeerSelection(next)) {
         final peerId = next!;
-        // Always override multi-select state with the conversation device,
-        // even if the same device is re-selected.
         ref.read(selectedLanTargetsProvider.notifier).setAll({peerId});
-        if (peerId != prev) {
-          _probeSingleDevice(peerId);
-        }
       }
+
+      final previous = prev;
+      final selected = next;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _runDeferredSelectionSideEffects(previous, selected);
+      });
     });
     _myDevicesListSub = ref.listenManual<List<DeviceDto>>(
       myDevicesProvider,
@@ -2807,13 +2816,98 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _clearChatTimeline() async {
     final msgs = List<Message>.from(_chatController.messages);
-    for (final m in msgs) {
-      await _chatController.removeMessage(m);
+    if (msgs.isNotEmpty) {
+      await Future.wait(
+        msgs.map((m) => _chatController.removeMessage(m)),
+      );
     }
     _loadedMessageIds.clear();
     _serverIdByMessageId.clear();
     _oldestServerMessageId = null;
     _hasNoMoreHistory = false;
+  }
+
+  void _cacheChatTimeline(String sessionId) {
+    if (_chatController.messages.isEmpty &&
+        _loadedMessageIds.isEmpty &&
+        !_chatTimelineCache.containsKey(sessionId)) {
+      return;
+    }
+    _chatTimelineCache[sessionId] = _CachedChatTimeline(
+      messages: List<Message>.from(_chatController.messages),
+      loadedMessageIds: Set<String>.from(_loadedMessageIds),
+      serverIdByMessageId: Map<String, int>.from(_serverIdByMessageId),
+      oldestServerMessageId: _oldestServerMessageId,
+      hasNoMoreHistory: _hasNoMoreHistory,
+      localMessageStatus: Map<String, String>.from(_localMessageStatus),
+    );
+  }
+
+  Future<bool> _restoreChatTimelineFromCache(String sessionId) async {
+    final cached = _chatTimelineCache[sessionId];
+    if (cached == null) return false;
+    await _clearChatTimeline();
+    if (cached.messages.isNotEmpty) {
+      await _chatController.insertAllMessages(
+        cached.messages,
+        index: 0,
+        animated: false,
+      );
+    }
+    _loadedMessageIds
+      ..clear()
+      ..addAll(cached.loadedMessageIds);
+    _serverIdByMessageId
+      ..clear()
+      ..addAll(cached.serverIdByMessageId);
+    _oldestServerMessageId = cached.oldestServerMessageId;
+    _hasNoMoreHistory = cached.hasNoMoreHistory;
+    _localMessageStatus
+      ..clear()
+      ..addAll(cached.localMessageStatus);
+    return true;
+  }
+
+  void _runDeferredSelectionSideEffects(String? prev, String? next) {
+    if (prev != next) {
+      if (!ref.read(authProvider).isLoggedIn) {
+        _chatTimelineCache.clear();
+      }
+      if (next != null) {
+        Analytics.track(AnalyticsEvents.chatSessionOpen, {
+          'session_type': next == s3VirtualDeviceId
+              ? 's3'
+              : isWebDavSelection(next)
+              ? 'webdav'
+              : 'peer',
+        });
+      }
+      unawaited(_handleChatSelectionDataChange(prev, next));
+    }
+    if (isPeerSelection(next) && next != prev) {
+      unawaited(_probeSingleDevice(next!));
+    }
+  }
+
+  Future<void> _handleChatSelectionDataChange(
+    String? prev,
+    String? next,
+  ) async {
+    if (!mounted) return;
+
+    if (prev != null && isChatSelection(prev)) {
+      _cacheChatTimeline(prev);
+    }
+
+    if (next == null || isWebDavSelection(next)) {
+      return;
+    }
+
+    if (await _restoreChatTimelineFromCache(next)) {
+      return;
+    }
+
+    await _reloadThreadForSelectionChange();
   }
 
   Future<void> _reloadThreadForSelectionChange() async {
@@ -8988,7 +9082,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       onDeleteSelected: _selectedMessages.isEmpty
           ? null
           : _deleteSelectedMessages,
-      chatContent: _buildChatContent(
+      chatContentBuilder: () => _buildChatContent(
         context,
         colors,
         isDark,

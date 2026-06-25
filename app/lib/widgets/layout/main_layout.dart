@@ -6,11 +6,12 @@ import '../../api/api.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../providers/device_provider.dart';
 import '../../providers/webdav_provider.dart';
-import '../../screens/webdav_shell_screen.dart';
 import '../../ui/app_ui.dart';
 import '../../services/auth_session_controller.dart';
+import 'chat_session_pane_host.dart';
 import 'device_list_panel.dart';
 import 'device_list_panel_width.dart';
+import 'webdav_pane_host.dart';
 import '../chat/chat_header.dart';
 
 const double _wideBreakpoint = kDeviceListWideBreakpoint;
@@ -19,7 +20,7 @@ const String _keyPanelWidth = 'main_layout_panel_width';
 const double _kPanelDividerHitWidth = 8;
 
 class MainLayout extends ConsumerStatefulWidget {
-  final Widget chatContent;
+  final Widget Function() chatContentBuilder;
   final Widget? emptyPlaceholder;
   final bool connected;
   final String deviceName;
@@ -54,7 +55,7 @@ class MainLayout extends ConsumerStatefulWidget {
 
   const MainLayout({
     super.key,
-    required this.chatContent,
+    required this.chatContentBuilder,
     this.emptyPlaceholder,
     required this.connected,
     required this.deviceName,
@@ -193,33 +194,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             Expanded(
               child: ColoredBox(
                 color: colors.surface,
-                child: isWebDavSelection(selectedDeviceId)
-                    ? _buildWebDavPane(
-                        context,
-                        connection: webDavConnection,
-                        embedded: true,
-                      )
-                    : Column(
-                        children: [
-                          ChatHeader(
-                            isSelectionMode: widget.isSelectionMode,
-                            selectedCount: widget.selectedCount,
-                            totalCount: widget.totalCount,
-                            onExitSelection: widget.onExitSelection,
-                            onToggleSelectAll: widget.onToggleSelectAll,
-                            onDeleteSelected: widget.onDeleteSelected,
-                            onFileManager: widget.onFileManager,
-                            onOpenS3Settings: widget.onOpenS3Settings,
-                            onSessionDeviceSettings:
-                                widget.onSessionDeviceSettings,
-                          ),
-                          Expanded(
-                            child: isChatSelection(selectedDeviceId)
-                                ? widget.chatContent
-                                : _buildEmptyState(context),
-                          ),
-                        ],
-                      ),
+                child: _buildWideRightPane(context, selectedDeviceId, webDavConnection),
               ),
             ),
           ],
@@ -231,6 +206,54 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           width: _kPanelDividerHitWidth,
           child: _buildDivider(context, colors, maxAllowed),
         ),
+      ],
+    );
+  }
+
+  Widget _buildWideRightPane(
+    BuildContext context,
+    String? selectedDeviceId,
+    WebDavConnectionSummary? webDavConnection,
+  ) {
+    if (isWebDavSelection(selectedDeviceId)) {
+      return _buildWebDavPane(
+        context,
+        connection: webDavConnection,
+        embedded: true,
+      );
+    }
+
+    if (isChatSelection(selectedDeviceId)) {
+      return ChatSessionPaneHost(
+        key: const ValueKey('chat_session_pane_host'),
+        selectedDeviceId: selectedDeviceId!,
+        chatContentBuilder: widget.chatContentBuilder,
+        isSelectionMode: widget.isSelectionMode,
+        selectedCount: widget.selectedCount,
+        totalCount: widget.totalCount,
+        onExitSelection: widget.onExitSelection,
+        onToggleSelectAll: widget.onToggleSelectAll,
+        onDeleteSelected: widget.onDeleteSelected,
+        onFileManager: widget.onFileManager,
+        onOpenS3Settings: widget.onOpenS3Settings,
+        onSessionDeviceSettings: widget.onSessionDeviceSettings,
+      );
+    }
+
+    return Column(
+      children: [
+        ChatHeader(
+          isSelectionMode: widget.isSelectionMode,
+          selectedCount: widget.selectedCount,
+          totalCount: widget.totalCount,
+          onExitSelection: widget.onExitSelection,
+          onToggleSelectAll: widget.onToggleSelectAll,
+          onDeleteSelected: widget.onDeleteSelected,
+          onFileManager: widget.onFileManager,
+          onOpenS3Settings: widget.onOpenS3Settings,
+          onSessionDeviceSettings: widget.onSessionDeviceSettings,
+        ),
+        Expanded(child: _buildEmptyState(context)),
       ],
     );
   }
@@ -311,7 +334,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               onOpenS3Settings: widget.onOpenS3Settings,
               onSessionDeviceSettings: widget.onSessionDeviceSettings,
             ),
-            Expanded(child: widget.chatContent),
+            Expanded(child: widget.chatContentBuilder()),
           ],
         ),
       );
@@ -374,8 +397,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       );
     }
 
-    return WebDavShellScreen(
-      key: ValueKey('webdav_shell_${connection.id}'),
+    return WebDavPaneHost(
       connection: connection,
       embedded: embedded,
       onBack: onBack,
