@@ -1,32 +1,32 @@
-import 'package:file_picker/file_picker.dart';
-
+import '../models/pending_file_entry.dart';
 import '../config/env.dart';
-import 'file_utils.dart';
+import '../utils/file_utils.dart';
 
 /// Merges [incoming] into [existing], deduplicating by path or name+size.
 /// Filters APK installers on Play distribution builds.
-List<PlatformFile> mergePendingFiles(
-  List<PlatformFile> existing,
-  List<PlatformFile> incoming,
+List<PendingFileEntry> mergePendingFileEntries(
+  List<PendingFileEntry> existing,
+  List<PendingFileEntry> incoming,
 ) {
   var toAdd = incoming;
   if (Env.androidPlayDistribution) {
     toAdd = incoming
-        .where((f) => !looksLikeApkInstallerFileName(f.name))
+        .where((e) => !looksLikeApkInstallerFileName(e.file.name))
         .toList();
   }
   if (toAdd.isEmpty) return existing;
 
   final existingPaths = existing
-      .where((f) => f.path != null)
-      .map((f) => f.path!)
+      .where((e) => e.file.path != null)
+      .map((e) => e.file.path!)
       .toSet();
   final existingFiles = existing
-      .where((f) => f.path == null)
-      .map((f) => '${f.name}_${f.size}')
+      .where((e) => e.file.path == null)
+      .map((e) => '${e.file.name}_${e.file.size}')
       .toSet();
 
-  final newFiles = toAdd.where((file) {
+  final newFiles = toAdd.where((entry) {
+    final file = entry.file;
     if (file.path != null) {
       return !existingPaths.contains(file.path);
     }
@@ -36,3 +36,10 @@ List<PlatformFile> mergePendingFiles(
   if (newFiles.isEmpty) return existing;
   return [...newFiles, ...existing];
 }
+
+@Deprecated('Use mergePendingFileEntries')
+List<PendingFileEntry> mergePendingFiles(
+  List<PendingFileEntry> existing,
+  List<PendingFileEntry> incoming,
+) =>
+    mergePendingFileEntries(existing, incoming);

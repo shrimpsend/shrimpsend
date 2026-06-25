@@ -91,12 +91,15 @@ class Client {
     return WebdavXml.toFiles(path, str, skipSelf: false).first;
   }
 
+  static bool _isMkcolSuccess(int? status) =>
+      status == 201 || status == 405 || status == 423;
+
   /// Create a folder
   Future<void> mkdir(String path, [CancelToken? cancelToken]) async {
     path = fixSlashes(path);
     var resp = await this.c.wdMkcol(this, path, cancelToken: cancelToken);
     var status = resp.statusCode;
-    if (status != 201 && status != 405) {
+    if (!_isMkcolSuccess(status)) {
       throw newResponseError(resp);
     }
   }
@@ -106,7 +109,7 @@ class Client {
     path = fixSlashes(path);
     var resp = await this.c.wdMkcol(this, path, cancelToken: cancelToken);
     var status = resp.statusCode;
-    if (status == 201 || status == 405) {
+    if (_isMkcolSuccess(status)) {
       return;
     } else if (status == 409) {
       var paths = path.split('/');
@@ -118,7 +121,7 @@ class Client {
         sub += e + '/';
         resp = await this.c.wdMkcol(this, sub, cancelToken: cancelToken);
         status = resp.statusCode;
-        if (status != 201 && status != 405) {
+        if (!_isMkcolSuccess(status)) {
           throw newResponseError(resp);
         }
       }
@@ -196,6 +199,7 @@ class Client {
       Uint8List data, {
         void Function(int count, int total)? onProgress,
         CancelToken? cancelToken,
+        bool ensureParent = true,
       }) {
     return this.c.wdWriteWithBytes(
       this,
@@ -204,6 +208,7 @@ class Client {
       contentType: contentTypeForFileName(path),
       onProgress: onProgress,
       cancelToken: cancelToken,
+      ensureParent: ensureParent,
     );
   }
 
@@ -213,6 +218,7 @@ class Client {
       String path, {
         void Function(int count, int total)? onProgress,
         CancelToken? cancelToken,
+        bool ensureParent = true,
       }) async {
     var file = io.File(localFilePath);
     return this.c.wdWriteWithStream(
@@ -223,6 +229,7 @@ class Client {
       contentType: contentTypeForFileName(localFilePath),
       onProgress: onProgress,
       cancelToken: cancelToken,
+      ensureParent: ensureParent,
     );
   }
 }

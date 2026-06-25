@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/pending_file_entry.dart';
 import '../services/pending_dispatch_bridge.dart';
 import '../services/pending_files_path_stabilizer.dart';
 import '../services/pending_files_store.dart';
@@ -13,15 +14,15 @@ import 'pending_add_result.dart';
 import 'pending_dispatch_result.dart';
 
 final pendingFilesProvider =
-    NotifierProvider<PendingFilesNotifier, List<PlatformFile>>(
+    NotifierProvider<PendingFilesNotifier, List<PendingFileEntry>>(
   PendingFilesNotifier.new,
 );
 
-final class PendingFilesNotifier extends Notifier<List<PlatformFile>> {
-  final Map<String, PlatformFile> _heldForDispatch = {};
+final class PendingFilesNotifier extends Notifier<List<PendingFileEntry>> {
+  final Map<String, PendingFileEntry> _heldForDispatch = {};
 
   @override
-  List<PlatformFile> build() {
+  List<PendingFileEntry> build() {
     PendingDispatchBridge.register(
       (localPath, {required success}) =>
           onDeliverySettled(localPath, success: success),
@@ -32,30 +33,35 @@ final class PendingFilesNotifier extends Notifier<List<PlatformFile>> {
 
   Future<int> bootstrap({bool consumeSharePending = true}) async {
     final loaded = await PendingFilesStore.load();
-    var files = loaded.files;
-    files = mergePendingFiles(files, state);
+    var entries = loaded.entries;
+    entries = mergePendingFileEntries(entries, state);
 
     if (consumeSharePending) {
       final fromShare = ShareReceiveService.instance.takePendingFromShare();
       if (fromShare != null && fromShare.isNotEmpty) {
-        files = mergePendingFiles(files, fromShare);
+        entries = mergePendingFileEntries(
+          entries,
+          fromShare
+              .map((f) => PendingFileEntry.fromPlatformFile(f))
+              .toList(),
+        );
       }
     }
 
-    state = files;
-    await PendingFilesStore.save(files);
+    state = entries;
+    await PendingFilesStore.save(entries);
     return loaded.droppedMissing;
   }
 
-  Future<PendingAddResult> add(List<PlatformFile> incoming) async {
+  Future<PendingAddResult> add(List<PendingFileEntry> incoming) async {
     if (incoming.isEmpty) return (added: 0, skipped: 0);
 
-    final stabilized = await PendingFilesPathStabilizer.stabilizeAll(incoming);
+    final stabilized = await _stabilizeEntries(incoming);
     final skipped = incoming.length - stabilized.length;
     if (stabilized.isEmpty) return (added: 0, skipped: skipped);
 
     final prevLen = state.length;
-    final merged = mergePendingFiles(state, stabilized);
+    final merged = mergePendingFileEntries(state, stabilized);
     final added = merged.length - prevLen;
     if (added == 0) return (added: 0, skipped: skipped);
 
@@ -64,18 +70,39 @@ final class PendingFilesNotifier extends Notifier<List<PlatformFile>> {
     return (added: added, skipped: skipped);
   }
 
-  Future<PendingDispatchResult> beginDispatch(List<PlatformFile> files) async {
-    if (files.isEmpty) {
-      return (queued: <PlatformFile>[], skipped: 0);
+  Future<List<PendingFileEntry>> _stabilizeEntries(
+    List<PendingFileEntry> incoming,
+  ) async {
+    final result = <PendingFileEntry>[];
+    for (final entry in incoming) {
+      final stabilized = await PendingFilesPathStabilizer.stabilizeOne(
+        entry.file,
+      );
+      if (stabilized == null) continue;
+      result.add(
+        PendingFileEntry.fromPlatformFile(
+          stabilized,
+          relativeSubPath: entry.relativeSubPath,
+        ),
+      );
+    }
+    return result;
+  }
+
+  Future<PendingDispatchResult> beginDispatch(
+    List<PendingFileEntry> entries,
+  ) async {
+    if (entries.isEmpty) {
+      return (queued: <PendingFileEntry>[], skipped: 0);
     }
 
-    final queued = <PlatformFile>[];
+    final queued = <PendingFileEntry>[];
     var skipped = 0;
-    var nextState = List<PlatformFile>.from(state);
+    var nextState = List<PendingFileEntry>.from(state);
 
-    for (final file in files) {
+    for (final entry in entries) {
       final stabilized = await PendingFilesPathStabilizer.stabilizeOne(
-        file,
+        entry.file,
         logSource: 'pending_dispatch',
       );
       if (stabilized == null) {
@@ -98,12 +125,15 @@ final class PendingFilesNotifier extends Notifier<List<PlatformFile>> {
         continue;
       }
 
-      final ready = PlatformFile(
-        name: stabilized.name,
-        path: path,
-        size: diskSize,
+      final ready = PendingFileEntry.fromPlatformFile(
+        PlatformFile(
+          name: stabilized.name,
+          path: path,
+          size: diskSize,
+        ),
+        relativeSubPath: entry.relativeSubPath,
       );
-      final removed = _removeFirstMatching(nextState, file, readyPath: path);
+      final removed = _removeFirstMatching(nextState, entry, readyPath: path);
       if (!removed) {
         skipped++;
         continue;
@@ -129,26 +159,30 @@ final class PendingFilesNotifier extends Notifier<List<PlatformFile>> {
       return;
     }
 
-    state = mergePendingFiles(state, [held]);
+    state = mergePendingFileEntries(state, [held]);
     unawaited(PendingFilesStore.save(state));
   }
 
-  void remove(PlatformFile file) {
-    unawaited(PendingFilesPathStabilizer.deletePendingCacheFile(file.path));
-    state = List<PlatformFile>.from(state)..remove(file);
+  void remove(PendingFileEntry entry) {
+    unawaited(PendingFilesPathStabilizer.deletePendingCacheFile(entry.file.path));
+    state = List<PendingFileEntry>.from(state)..remove(entry);
     unawaited(PendingFilesStore.save(state));
   }
 
   void clear() {
-    final files = List<PlatformFile>.from(state);
-    unawaited(PendingFilesPathStabilizer.deletePendingCacheFiles(files));
+    final entries = List<PendingFileEntry>.from(state);
+    unawaited(
+      PendingFilesPathStabilizer.deletePendingCacheFiles(
+        entries.map((e) => e.file),
+      ),
+    );
     state = [];
     unawaited(PendingFilesStore.save(state));
   }
 
   Future<int> reloadFromStore() async {
     final loaded = await PendingFilesStore.load();
-    state = loaded.files;
+    state = loaded.entries;
     if (loaded.droppedMissing > 0) {
       await PendingFilesStore.save(state);
     }
@@ -156,15 +190,16 @@ final class PendingFilesNotifier extends Notifier<List<PlatformFile>> {
   }
 
   bool _removeFirstMatching(
-    List<PlatformFile> files,
-    PlatformFile target, {
+    List<PendingFileEntry> entries,
+    PendingFileEntry target, {
     required String readyPath,
   }) {
-    final targetPath = target.path;
-    for (var i = 0; i < files.length; i++) {
-      final candidate = files[i];
-      if (candidate.path == targetPath || candidate.path == readyPath) {
-        files.removeAt(i);
+    final targetPath = target.file.path;
+    for (var i = 0; i < entries.length; i++) {
+      final candidate = entries[i];
+      if (candidate.file.path == targetPath ||
+          candidate.file.path == readyPath) {
+        entries.removeAt(i);
         return true;
       }
     }

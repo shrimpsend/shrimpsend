@@ -6018,6 +6018,24 @@ abstract class AppLocalizations {
   /// **'No pending files. Add files or share from another app.'**
   String get webdavOutboxEmpty;
 
+  /// No description provided for @webdavUploadLayoutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload layout'**
+  String get webdavUploadLayoutTitle;
+
+  /// No description provided for @webdavUploadLayoutFlat.
+  ///
+  /// In en, this message translates to:
+  /// **'Flat in current folder'**
+  String get webdavUploadLayoutFlat;
+
+  /// No description provided for @webdavUploadLayoutPreserve.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep folder structure'**
+  String get webdavUploadLayoutPreserve;
+
   /// No description provided for @webdavActionFavorite.
   ///
   /// In en, this message translates to:

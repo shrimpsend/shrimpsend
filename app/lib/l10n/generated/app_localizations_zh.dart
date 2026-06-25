@@ -3265,6 +3265,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webdavOutboxEmpty => '暂无待发文件，可添加文件或从其他应用分享到此';
 
   @override
+  String get webdavUploadLayoutTitle => '上传方式';
+
+  @override
+  String get webdavUploadLayoutFlat => '平铺到当前目录';
+
+  @override
+  String get webdavUploadLayoutPreserve => '保留文件夹结构';
+
+  @override
   String get webdavActionFavorite => '收藏';
 
   @override

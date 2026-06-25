@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../color_theme.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../models/pending_file_entry.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
 import '../services/desktop_file_clipboard.dart';
@@ -797,7 +798,11 @@ class _FileManagerScreenState extends State<FileManagerScreen>
     if (!mounted) return false;
     final result = await ProviderScope.containerOf(context, listen: false)
         .read(pendingFilesProvider.notifier)
-        .add(platformFiles);
+        .add(
+          platformFiles
+              .map((f) => PendingFileEntry.fromPlatformFile(f))
+              .toList(),
+        );
     return result.added > 0;
   }
 

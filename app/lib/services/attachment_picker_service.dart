@@ -4,10 +4,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import '../models/pending_file_entry.dart';
 import '../screens/apk_picker_screen.dart';
 import '../utils/gallery_permission.dart';
 import '../utils/runtime_platform.dart';
@@ -20,20 +22,26 @@ final Logger _log = Logger('虾传.attachment_picker');
 final class AttachmentPickerService {
   AttachmentPickerService._();
 
-  static Future<List<PlatformFile>> pick(
+  static Future<List<PendingFileEntry>> pick(
     AttachmentPickerChoice choice,
     BuildContext context,
   ) async {
     switch (choice) {
       case AttachmentPickerChoice.imageVideo:
-        return _pickImageVideo(context);
+        return _entriesFromPlatformFiles(await _pickImageVideo(context));
       case AttachmentPickerChoice.file:
-        return _pickFiles();
+        return _entriesFromPlatformFiles(await _pickFiles());
       case AttachmentPickerChoice.folder:
         return _pickFolder(context);
       case AttachmentPickerChoice.apk:
-        return _pickApk(context);
+        return _entriesFromPlatformFiles(await _pickApk(context));
     }
+  }
+
+  static List<PendingFileEntry> _entriesFromPlatformFiles(
+    List<PlatformFile> files,
+  ) {
+    return files.map((f) => PendingFileEntry.fromPlatformFile(f)).toList();
   }
 
   static Future<List<PlatformFile>> _pickFiles() async {
@@ -175,14 +183,15 @@ final class AttachmentPickerService {
     }
   }
 
-  static Future<List<PlatformFile>> _pickFolder(BuildContext context) async {
+  static Future<List<PendingFileEntry>> _pickFolder(BuildContext context) async {
     final dirPath = await FilePicker.platform.getDirectoryPath();
     if (dirPath == null) return [];
 
     final dir = Directory(dirPath);
     if (!await dir.exists()) return [];
 
-    final result = <PlatformFile>[];
+    final normalizedRoot = p.normalize(dirPath);
+    final result = <PendingFileEntry>[];
     var listFailed = false;
     try {
       await for (final entity in dir.list(
@@ -193,11 +202,17 @@ final class AttachmentPickerService {
           try {
             final stat = await entity.stat();
             if (stat.size <= 0) continue;
+            final relativeSubPath = p
+                .relative(p.normalize(entity.path), from: normalizedRoot)
+                .replaceAll('\\', '/');
             result.add(
-              PlatformFile(
-                name: entity.path.split(Platform.pathSeparator).last,
-                path: entity.path,
-                size: stat.size,
+              PendingFileEntry.fromPlatformFile(
+                PlatformFile(
+                  name: p.basename(entity.path),
+                  path: entity.path,
+                  size: stat.size,
+                ),
+                relativeSubPath: relativeSubPath,
               ),
             );
           } catch (_) {}

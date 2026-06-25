@@ -86,6 +86,7 @@ import '../services/desktop_file_clipboard.dart';
 import '../services/desktop_file_drop_dispatcher.dart';
 import '../services/share/share_pending_cache.dart';
 import '../services/pending_dispatch_bridge.dart';
+import '../models/pending_file_entry.dart';
 import '../providers/pending_files_provider.dart';
 import '../widgets/desktop_paste_shortcuts.dart';
 import '../services/transfer_record.dart';
@@ -710,19 +711,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  Future<bool> _addPendingFiles(List<PlatformFile> files) async {
-    if (files.isEmpty) return false;
-    final result = await ref.read(pendingFilesProvider.notifier).add(files);
+  Future<bool> _addPendingFiles(List<PendingFileEntry> entries) async {
+    if (entries.isEmpty) return false;
+    final result = await ref.read(pendingFilesProvider.notifier).add(entries);
     return result.added > 0;
   }
 
+  Future<bool> _addPendingPlatformFiles(List<PlatformFile> files) async {
+    return _addPendingFiles(
+      files.map((f) => PendingFileEntry.fromPlatformFile(f)).toList(),
+    );
+  }
+
   Future<List<PlatformFile>?> _beginPendingSendDispatch() async {
-    final pending = List<PlatformFile>.from(ref.read(pendingFilesProvider));
+    final pending = List<PendingFileEntry>.from(ref.read(pendingFilesProvider));
     if (pending.isEmpty) return null;
     final dispatch =
         await ref.read(pendingFilesProvider.notifier).beginDispatch(pending);
     if (!mounted) {
-      return dispatch.queued.isEmpty ? null : dispatch.queued;
+      return dispatch.queued.isEmpty
+          ? null
+          : dispatch.queued.map((e) => e.file).toList();
     }
     if (dispatch.skipped > 0) {
       AppToast.show(
@@ -732,7 +741,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
     if (dispatch.queued.isEmpty) return null;
-    return dispatch.queued;
+    return dispatch.queued.map((e) => e.file).toList();
   }
 
   void _notifyPendingDispatchSettled(String? path, {required bool success}) {
@@ -741,7 +750,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _removePendingFileRef(PlatformFile file) {
-    ref.read(pendingFilesProvider.notifier).remove(file);
+    final entries = ref.read(pendingFilesProvider);
+    for (final entry in entries) {
+      if (entry.file.path == file.path) {
+        ref.read(pendingFilesProvider.notifier).remove(entry);
+        return;
+      }
+    }
   }
 
   void _clearPendingFiles() {
@@ -4803,7 +4818,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _handleDesktopDropFiles(List<PlatformFile> files) async {
     if (!_isDesktopPlatform || files.isEmpty || !mounted) return;
-    final ok = await _addPendingFiles(files);
+    final ok = await _addPendingPlatformFiles(files);
     if (!ok && mounted) {
       AppToast.show(
         context,
@@ -4828,7 +4843,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     List<PlatformFile> files,
   ) async {
     if (!_isDesktopPlatform || files.isEmpty) return;
-    final ok = await _addPendingFiles(files);
+    final ok = await _addPendingPlatformFiles(files);
     if (!ok && mounted) {
       AppToast.show(
         context,
@@ -4849,10 +4864,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _addFileMessageToPending(_FileMeta fileMeta, String localPath) async {
     final ok = await _addPendingFiles([
-      PlatformFile(
-        name: fileMeta.fileName,
-        size: fileMeta.size ?? 0,
-        path: localPath,
+      PendingFileEntry.fromPlatformFile(
+        PlatformFile(
+          name: fileMeta.fileName,
+          size: fileMeta.size ?? 0,
+          path: localPath,
+        ),
       ),
     ]);
     if (!mounted) return;
@@ -5700,7 +5717,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         );
       case SendMode.webrtc:
         final unsupportedFiles = ref.read(pendingFilesProvider)
-            .where((f) => f.path == null || f.path!.isEmpty)
+            .where((e) => e.file.path == null || e.file.path!.isEmpty)
             .toList();
         if (unsupportedFiles.isNotEmpty) {
           if (mounted) {
@@ -7992,7 +8009,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _selectedMessages.add(messageId);
         });
       },
-      onAddToPending: (files) => _addPendingFiles(files),
+      onAddToPending: (files) => _addPendingPlatformFiles(files),
     );
   }
 
@@ -8877,7 +8894,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               builder: (_) => FileManagerScreen(
                 onAddToPending: (files) async {
                   if (!mounted) return false;
-                  return _addPendingFiles(files);
+                  return _addPendingPlatformFiles(files);
                 },
               ),
             ),
@@ -9154,7 +9171,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                       _embeddedFileTabActivation,
                                   onAddToPending: (files) async {
                                     if (!mounted) return false;
-                                    return _addPendingFiles(files);
+                                    return _addPendingPlatformFiles(files);
                                   },
                                 ),
                                 const SettingsScreen(embedded: true),
@@ -9360,13 +9377,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       key: _composerKey,
       onSend: _sendText,
       onAttachmentChoice: _handleAttachmentChoice,
-      pendingFiles: ref.watch(pendingFilesProvider),
+      pendingFiles: ref
+          .watch(pendingFilesProvider)
+          .map((entry) => entry.file)
+          .toList(),
       onSendPendingFiles: _showFileSendModal,
       onRemovePendingFile: _removePendingFileRef,
       onClearPendingFiles: _clearPendingFiles,
       onPasteFiles: _isDesktopPlatform
           ? (files) async {
-              await _addPendingFiles(files);
+              await _addPendingPlatformFiles(files);
             }
           : null,
       onToggleDesktopSidebar: _isDesktopPlatform

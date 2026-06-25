@@ -14,8 +14,11 @@ import 'transfer_record.dart';
 import 'transfer_state_manager.dart';
 import 'transfer_status.dart';
 import 'webdav_cstcloud.dart';
+import 'webdav_path_preparer.dart';
 import 'webdav_session.dart';
 import 'visible_export_target.dart';
+
+export 'webdav_upload_layout.dart' show webDavRemoteParentPath, collectSortedParentDirs;
 
 /// Stable received_files key for a WebDAV remote file.
 String webDavMessageId(int connectionId, String remotePath) {
@@ -25,14 +28,6 @@ String webDavMessageId(int connectionId, String remotePath) {
 }
 
 String webDavConnectionKey(int connectionId) => connectionId.toString();
-
-/// Parent directory of a WebDAV app-relative path (`''` for root).
-String webDavRemoteParentPath(String remotePath) {
-  if (remotePath.isEmpty) return '';
-  final idx = remotePath.lastIndexOf('/');
-  if (idx < 0) return '';
-  return remotePath.substring(0, idx);
-}
 
 typedef WebDavUploadCompleted = void Function({
   required int connectionId,
@@ -169,23 +164,34 @@ class WebDavTransferService extends ChangeNotifier {
     required WebDavClient client,
     required WebDavConnectionSummary connection,
     required String relativeDir,
-    required List<({String name, String localPath, int size})> files,
+    required List<({
+      String name,
+      String localPath,
+      int size,
+      String remotePath,
+    })> files,
   }) async {
     if (cstCloudWebDavBlocksGeneralUpload(connection.baseUrl)) {
       return;
     }
+    if (files.isEmpty) return;
+
+    final preparer = WebDavPathPreparer(
+      connectionId: connection.id,
+      client: client,
+    );
+    await preparer.prepareRemoteDirs(files.map((f) => f.remotePath));
+
     for (final file in files) {
-      final remote = relativeDir.isEmpty
-          ? file.name
-          : '$relativeDir/${file.name}';
       unawaited(
         _runUpload(
           client: client,
           connection: connection,
-          remotePath: remote,
+          remotePath: file.remotePath,
           localPath: file.localPath,
           fileName: file.name,
           fileSize: file.size,
+          ensureParent: false,
         ),
       );
     }
@@ -335,6 +341,7 @@ class WebDavTransferService extends ChangeNotifier {
     required String localPath,
     required String fileName,
     required int fileSize,
+    bool ensureParent = true,
   }) async {
     final connKey = webDavConnectionKey(connection.id);
     final transferId =
@@ -371,6 +378,7 @@ class WebDavTransferService extends ChangeNotifier {
         remotePath,
         localPath,
         cancelToken: cancelToken,
+        ensureParent: ensureParent,
         onProgress: (sent, total) {
           final totalBytes = total > 0 ? total : fileSize;
           tracker.update(sent);

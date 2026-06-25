@@ -512,6 +512,7 @@ class WdDio with DioMixin implements Dio {
         required String contentType,
         void Function(int count, int total)? onProgress,
         CancelToken? cancelToken,
+        bool ensureParent = true,
       }) async {
     // fix auth error
     var pResp = await this.wdOptions(self, path, cancelToken: cancelToken);
@@ -519,8 +520,9 @@ class WdDio with DioMixin implements Dio {
       throw newResponseError(pResp);
     }
 
-    // mkdir
-    await this._createParent(self, path, cancelToken: cancelToken);
+    if (ensureParent) {
+      await this._createParent(self, path, cancelToken: cancelToken);
+    }
 
     var resp = await this.req(
       self,
@@ -550,6 +552,7 @@ class WdDio with DioMixin implements Dio {
         required String contentType,
         void Function(int count, int total)? onProgress,
         CancelToken? cancelToken,
+        bool ensureParent = true,
       }) async {
     // fix auth error
     var pResp = await this.wdOptions(self, path, cancelToken: cancelToken);
@@ -557,8 +560,9 @@ class WdDio with DioMixin implements Dio {
       throw newResponseError(pResp);
     }
 
-    // mkdir
-    await this._createParent(self, path, cancelToken: cancelToken);
+    if (ensureParent) {
+      await this._createParent(self, path, cancelToken: cancelToken);
+    }
 
     var resp = await this.req(
       self,

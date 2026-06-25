@@ -5,6 +5,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../l10n/generated/app_localizations.dart';
 import '../logger.dart';
+import '../models/pending_file_entry.dart';
 import '../providers/pending_files_provider.dart';
 import '../services/pending_files_path_stabilizer.dart';
 import '../services/pending_files_store.dart';
@@ -66,15 +67,20 @@ final class DesktopFileDropDispatcher {
     if (ctx != null && ctx.mounted) {
       final result = await ProviderScope.containerOf(ctx, listen: false)
           .read(pendingFilesProvider.notifier)
-          .add(files);
+          .add(
+            files.map((f) => PendingFileEntry.fromPlatformFile(f)).toList(),
+          );
       return result.added > 0;
     }
     final existing = await PendingFilesStore.load();
     final stabilized = await PendingFilesPathStabilizer.stabilizeAll(files);
     if (stabilized.isEmpty) return false;
-    final merged = mergePendingFiles(existing.files, stabilized);
+    final incoming = stabilized
+        .map((f) => PendingFileEntry.fromPlatformFile(f))
+        .toList();
+    final merged = mergePendingFileEntries(existing.entries, incoming);
     await PendingFilesStore.save(merged);
-    return merged.length > existing.files.length;
+    return merged.length > existing.entries.length;
   }
 
   void _showFallbackToast(

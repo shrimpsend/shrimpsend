@@ -27,6 +27,7 @@ import 'providers/app_locale.dart';
 import 'providers/auth_provider.dart';
 import 'providers/auth_session_provider.dart';
 import 'providers/pending_files_provider.dart';
+import 'models/pending_file_entry.dart';
 import 'theme_store.dart';
 import 'ui/app_ui.dart';
 import 'l10n/app_brand.dart';
@@ -481,7 +482,11 @@ class _UpdateCheckWrapperState extends State<_UpdateCheckWrapper> {
     if (platformFiles.isNotEmpty) {
       await ProviderScope.containerOf(ctx, listen: false)
           .read(pendingFilesProvider.notifier)
-          .add(platformFiles);
+          .add(
+            platformFiles
+                .map((f) => PendingFileEntry.fromPlatformFile(f))
+                .toList(),
+          );
     }
     if (!mounted) return;
     final msg = count == 1 ? '已添加 1 个文件到待发文件箱' : '已添加 $count 个文件到待发文件箱';

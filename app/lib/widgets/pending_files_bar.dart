@@ -7,8 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import '../models/pending_file_entry.dart';
 import '../providers/pending_files_provider.dart';
 import '../services/attachment_picker_service.dart';
+import '../services/webdav_upload_layout.dart';
 import '../ui/app_ui.dart';
 import '../utils/file_utils.dart';
 import '../utils/toast.dart';
@@ -25,7 +27,10 @@ class PendingOutboxPrimaryAction {
   final String label;
   final IconData icon;
   final String? destinationHint;
-  final Future<void> Function(List<PlatformFile> files) onExecute;
+  final Future<void> Function(
+    List<PendingFileEntry> files,
+    WebDavUploadLayout layout,
+  ) onExecute;
 
   const PendingOutboxPrimaryAction({
     required this.label,
@@ -292,6 +297,27 @@ class _PendingOutboxSheet extends ConsumerStatefulWidget {
 }
 
 class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
+  WebDavUploadLayout? _uploadLayout;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadUploadLayoutPref());
+  }
+
+  Future<void> _loadUploadLayoutPref() async {
+    final layout = await loadWebDavUploadLayoutPref();
+    if (mounted) setState(() => _uploadLayout = layout);
+  }
+
+  bool _hasFolderStructure(List<PendingFileEntry> entries) {
+    return entries.any(
+      (e) =>
+          e.relativeSubPath != null &&
+          e.relativeSubPath!.contains('/'),
+    );
+  }
+
   Future<void> _addFiles() async {
     final choice = await showModalBottomSheet<AttachmentPickerChoice>(
       context: context,
@@ -312,15 +338,18 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
     }
   }
 
-  Future<void> _executePrimary(List<PlatformFile> files) async {
+  Future<void> _executePrimary(List<PendingFileEntry> entries) async {
     final action = widget.primaryAction;
-    if (action == null || files.isEmpty) return;
+    if (action == null || entries.isEmpty) return;
+
+    final layout = _uploadLayout ?? WebDavUploadLayout.flat;
+    await saveWebDavUploadLayoutPref(layout);
 
     final rootContext = context;
     Navigator.pop(rootContext);
 
     final dispatch =
-        await ref.read(pendingFilesProvider.notifier).beginDispatch(files);
+        await ref.read(pendingFilesProvider.notifier).beginDispatch(entries);
     if (!rootContext.mounted) return;
 
     final l10n = AppLocalizations.of(rootContext);
@@ -332,7 +361,7 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
     }
     if (dispatch.queued.isEmpty) return;
 
-    unawaited(action.onExecute(dispatch.queued));
+    unawaited(action.onExecute(dispatch.queued, layout));
   }
 
   @override
@@ -340,13 +369,15 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
     final colors = _pendingBarColors(context);
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    final files = ref.watch(pendingFilesProvider);
+    final entries = ref.watch(pendingFilesProvider);
     final notifier = ref.read(pendingFilesProvider.notifier);
     final primaryAction = widget.primaryAction;
+    final showUploadLayout = primaryAction != null && _hasFolderStructure(entries);
+    final uploadLayout = _uploadLayout ?? WebDavUploadLayout.flat;
 
     void removeAt(int index) {
-      final file = files[index];
-      notifier.remove(file);
+      final entry = entries[index];
+      notifier.remove(entry);
       if (ref.read(pendingFilesProvider).isEmpty && context.mounted) {
         Navigator.pop(context);
       }
@@ -385,7 +416,7 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
                   style: theme.textTheme.titleMedium,
                 ),
                 const Spacer(),
-                if (files.isNotEmpty)
+                if (entries.isNotEmpty)
                   TextButton(
                     onPressed: clearAll,
                     child: Text(
@@ -397,7 +428,7 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
             ),
           ),
           Divider(height: 1, color: colors.chipBorder),
-          if (files.isEmpty)
+          if (entries.isEmpty)
             Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Text(
@@ -412,10 +443,15 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
-                itemCount: files.length,
+                itemCount: entries.length,
                 itemBuilder: (context, index) {
-                  final file = files[index];
+                  final entry = entries[index];
+                  final file = entry.file;
                   final category = getFileCategory(file.name);
+                  final subtitle = entry.relativeSubPath != null &&
+                          entry.relativeSubPath!.contains('/')
+                      ? '${formatFileSize(file.size)} · ${entry.relativeSubPath}'
+                      : formatFileSize(file.size);
                   return ListTile(
                     dense: true,
                     leading: FileIconWidget(category: category, size: 32),
@@ -428,7 +464,7 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      formatFileSize(file.size),
+                      subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.muted,
                       ),
@@ -489,11 +525,37 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (showUploadLayout) ...[
+                    Text(
+                      l10n.webdavUploadLayoutTitle,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: colors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    SegmentedButton<WebDavUploadLayout>(
+                      segments: [
+                        ButtonSegment(
+                          value: WebDavUploadLayout.flat,
+                          label: Text(l10n.webdavUploadLayoutFlat),
+                        ),
+                        ButtonSegment(
+                          value: WebDavUploadLayout.preserveStructure,
+                          label: Text(l10n.webdavUploadLayoutPreserve),
+                        ),
+                      ],
+                      selected: {uploadLayout},
+                      onSelectionChanged: (selected) {
+                        setState(() => _uploadLayout = selected.first);
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
                   if (primaryAction != null)
                     FilledButton.icon(
-                      onPressed: files.isEmpty
+                      onPressed: entries.isEmpty
                           ? null
-                          : () => _executePrimary(List.of(files)),
+                          : () => _executePrimary(List.of(entries)),
                       icon: Icon(primaryAction.icon, size: 16),
                       label: Text(primaryAction.label),
                     ),

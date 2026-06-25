@@ -3413,6 +3413,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'No pending files. Add files or share from another app.';
 
   @override
+  String get webdavUploadLayoutTitle => 'Upload layout';
+
+  @override
+  String get webdavUploadLayoutFlat => 'Flat in current folder';
+
+  @override
+  String get webdavUploadLayoutPreserve => 'Keep folder structure';
+
+  @override
   String get webdavActionFavorite => 'Favorite';
 
   @override

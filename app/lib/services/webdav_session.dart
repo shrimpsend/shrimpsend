@@ -96,6 +96,7 @@ class WebDavClient {
     String localFilePath, {
     void Function(int count, int total)? onProgress,
     CancelToken? cancelToken,
+    bool ensureParent = true,
   }) async {
     return _guard(() async {
       await _client.writeFromFile(
@@ -103,6 +104,7 @@ class WebDavClient {
         appRelativeToWebDavResourcePath(relativePath),
         onProgress: onProgress,
         cancelToken: cancelToken,
+        ensureParent: ensureParent,
       );
     });
   }
