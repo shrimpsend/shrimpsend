@@ -31,9 +31,9 @@ import '../providers/webdav_provider.dart';
 import '../theme_store.dart';
 import '../ui/app_ui.dart';
 import '../utils/effective_save_dir_display.dart';
-import '../utils/effective_save_dir_display.dart';
 import '../utils/gallery_permission.dart';
 import '../utils/toast.dart';
+import '../utils/webdav_membership_gate.dart';
 import '../widgets/app_confirm_dialog.dart';
 import '../services/app_update_service.dart';
 import '../services/analytics/analytics.dart';
@@ -472,7 +472,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     .withValues(alpha: 0.12),
                                 iconColor: theme.colorScheme.primary,
                                 title: l10n.settingsNavWebDav,
-                                subtitle: l10n.settingsNavWebDavSubtitle,
+                                subtitle: _webDavNavSubtitle(l10n, ref),
                                 trailing: _buildWebDavStatusBadge(context, ref),
                                 onTap: () async {
                                   await Navigator.pushNamed(
@@ -1152,20 +1152,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  String _webDavNavSubtitle(AppLocalizations l10n, WidgetRef ref) {
+    final count = ref.watch(webDavConnectionsProvider).valueOrNull?.length ?? 0;
+    if (count == 0 && !membershipCanAddWebDav(_membership)) {
+      return l10n.settingsWebDavMemberOnly;
+    }
+    return l10n.settingsNavWebDavSubtitle;
+  }
+
   Widget _buildWebDavStatusBadge(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = context.appColors;
     final l10n = AppLocalizations.of(context);
     final webDavAsync = ref.watch(webDavConnectionsProvider);
     final count = webDavAsync.valueOrNull?.length ?? 0;
+    final canAddWebDav = membershipCanAddWebDav(_membership);
 
     final Color background;
     final Color foreground;
     final String label;
     if (count == 0) {
-      background = colors.surfaceMuted;
-      foreground = colors.textSecondary;
-      label = l10n.settingsWebDavStatusNone;
+      if (!canAddWebDav) {
+        background = colors.surfaceMuted;
+        foreground = colors.textSecondary;
+        label = l10n.settingsWebDavMemberOnly;
+      } else {
+        background = colors.surfaceMuted;
+        foreground = colors.textSecondary;
+        label = l10n.settingsWebDavStatusNone;
+      }
     } else {
       final scheme = theme.colorScheme;
       background = scheme.primary.withValues(alpha: 0.12);

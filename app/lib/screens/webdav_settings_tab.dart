@@ -6,6 +6,7 @@ import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/webdav_provider.dart';
 import '../ui/app_ui.dart';
+import '../utils/webdav_membership_gate.dart';
 import 'webdav_connection_screen.dart';
 import 'webdav_transfer_list_screen.dart';
 
@@ -99,6 +100,8 @@ class WebDavSettingsTab extends ConsumerWidget {
           title: Text(l10n.webdavAddConnection),
           trailing: const Icon(LucideIcons.chevronRight, size: 18),
           onTap: () async {
+            if (!await ensureCanAddWebDav(context)) return;
+            if (!context.mounted) return;
             await Navigator.push(
               context,
               MaterialPageRoute(

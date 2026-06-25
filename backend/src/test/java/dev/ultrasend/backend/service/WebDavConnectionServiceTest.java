@@ -27,6 +27,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +41,8 @@ class WebDavConnectionServiceTest {
     private WebDavConnectionRepository webDavConnectionRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private MembershipService membershipService;
     @Mock
     private Environment environment;
 
@@ -53,7 +57,39 @@ class WebDavConnectionServiceTest {
         userDataEncryption = new UserDataEncryptionService(properties, userRepository, environment);
         userDataEncryption.init();
         service = new WebDavConnectionService(
-                webDavConnectionRepository, userRepository, userDataEncryption);
+                webDavConnectionRepository, userRepository, userDataEncryption, membershipService);
+    }
+
+    private WebDavConnectionRequest sampleCreateRequest() {
+        WebDavConnectionRequest req = new WebDavConnectionRequest();
+        req.setName("NAS");
+        req.setBaseUrl("https://dav.example.com");
+        req.setUsername("alice");
+        req.setPassword("secret-pass");
+        req.setRootPath("/files");
+        return req;
+    }
+
+    @Test
+    void createRejectedForFreeUser() {
+        doThrow(new IllegalArgumentException(MembershipService.WEBDAV_MEMBER_ONLY_MESSAGE))
+                .when(membershipService).ensureCanAddWebDav(7L);
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.create(7L, sampleCreateRequest()));
+        assertEquals(MembershipService.WEBDAV_MEMBER_ONLY_MESSAGE, ex.getMessage());
+    }
+
+    @Test
+    void testDraftRejectedForFreeUser() {
+        doThrow(new IllegalArgumentException(MembershipService.WEBDAV_MEMBER_ONLY_MESSAGE))
+                .when(membershipService).ensureCanAddWebDav(7L);
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.testDraft(7L, sampleCreateRequest()));
+        assertEquals(MembershipService.WEBDAV_MEMBER_ONLY_MESSAGE, ex.getMessage());
     }
 
     @Test
@@ -69,14 +105,11 @@ class WebDavConnectionServiceTest {
             return c;
         });
 
-        WebDavConnectionRequest req = new WebDavConnectionRequest();
-        req.setName("NAS");
-        req.setBaseUrl("https://dav.example.com");
-        req.setUsername("alice");
-        req.setPassword("secret-pass");
-        req.setRootPath("/files");
+        WebDavConnectionRequest req = sampleCreateRequest();
 
         service.create(7L, req);
+
+        verify(membershipService).ensureCanAddWebDav(eq(7L));
 
         ArgumentCaptor<WebDavConnection> captor = ArgumentCaptor.forClass(WebDavConnection.class);
         verify(webDavConnectionRepository).save(captor.capture());

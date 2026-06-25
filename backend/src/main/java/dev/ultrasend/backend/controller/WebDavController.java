@@ -83,6 +83,6 @@ public class WebDavController {
             @Valid @RequestBody WebDavConnectionRequest req) {
         Long userId = Long.parseLong((String) auth.getPrincipal());
         log.info("webdav testDraft userId={}", userId);
-        return ResponseEntity.ok(webDavConnectionService.testDraft(req));
+        return ResponseEntity.ok(webDavConnectionService.testDraft(userId, req));
     }
 }

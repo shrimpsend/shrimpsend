@@ -23,6 +23,7 @@ public class WebDavConnectionService {
     private final WebDavConnectionRepository webDavConnectionRepository;
     private final UserRepository userRepository;
     private final UserDataEncryptionService userDataEncryption;
+    private final MembershipService membershipService;
 
     public List<WebDavConnectionSummaryResponse> listConnections(Long userId) {
         return webDavConnectionRepository.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
@@ -49,6 +50,7 @@ public class WebDavConnectionService {
 
     @Transactional
     public WebDavConnectionSummaryResponse create(Long userId, WebDavConnectionRequest req) {
+        membershipService.ensureCanAddWebDav(userId);
         validateRequest(req, true);
         User user = userRepository.findById(userId).orElseThrow();
         String baseUrl = WebDavPropfindClient.normalizeBaseUrl(req.getBaseUrl());
@@ -123,7 +125,8 @@ public class WebDavConnectionService {
                 conn.getClientApp());
     }
 
-    public WebDavTestResponse testDraft(WebDavConnectionRequest req) {
+    public WebDavTestResponse testDraft(Long userId, WebDavConnectionRequest req) {
+        membershipService.ensureCanAddWebDav(userId);
         validateRequest(req, true);
         String baseUrl = WebDavPropfindClient.normalizeBaseUrl(req.getBaseUrl());
         CstCloudClientAppSupport.validateWebDavClientApp(baseUrl, req.getClientApp());

@@ -39,6 +39,7 @@ import '../utils/helpers.dart';
 import '../utils/open_received_file.dart';
 import '../utils/received_file_actions.dart';
 import '../utils/save_as_feedback.dart';
+import '../utils/webdav_membership_gate.dart';
 import '../utils/reveal_file_in_folder.dart';
 import '../utils/toast.dart';
 import '../widgets/app_confirm_dialog.dart';
@@ -8820,6 +8821,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       await Navigator.pushNamed(context, '/login');
       return;
     }
+    if (!await ensureCanAddWebDav(context)) return;
+    if (!mounted) return;
     final ok = await Navigator.push<bool>(
       context,
       MaterialPageRoute(

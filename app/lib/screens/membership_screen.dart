@@ -824,6 +824,11 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
                     colors,
                     l10n.membershipFeatureUploadHosted(uploadGib),
                   ),
+                  _bulletLine(
+                    theme,
+                    colors,
+                    l10n.membershipFeatureWebDav,
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   if (disabled && !(_pendingOrderNo != null || _purchasingApple))
                     Padding(
@@ -1238,6 +1243,15 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
                                             : l10n.membershipTierSubtitleBuyout),
                                     style: theme.textTheme.bodySmall?.copyWith(color: colors.textSecondary),
                                   ),
+                                  if (!isAddon) ...[
+                                    const SizedBox(height: AppSpacing.xs),
+                                    Text(
+                                      l10n.membershipFeatureWebDav,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: colors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: AppSpacing.sm),
                                   if (isAddon && !canBuyAddon) ...[
                                     Text(
