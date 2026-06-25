@@ -81,6 +81,7 @@
   "settingsNavS3Subtitle": "广域网文件传输",
   "settingsNavWebDav": "WebDAV",
   "settingsNavWebDavSubtitle": "远程文件存储",
+  "settingsWebDavMemberOnly": "会员功能",
   "settingsWebDavStatusNone": "未配置",
   "settingsWebDavStatusCount": "{count} 个连接",
   "@settingsWebDavStatusCount": {
@@ -684,6 +685,7 @@
       }
     }
   },
+  "membershipFeatureWebDav": "WebDAV 远程存储（不限连接数）",
   "membershipPlanPopular": "推荐",
   "membershipOverseasNoAlipay": "海外版不支持支付宝，请使用应用内订阅完成支付。",
   "membershipSubscribeInApp": "应用内订阅",
@@ -1345,6 +1347,10 @@
   "webdavAddMenuTooltip": "添加连接",
   "webdavScanLogin": "扫码登录",
   "webdavAddConnection": "添加 WebDAV",
+  "webdavMemberOnlyTitle": "WebDAV 为会员功能",
+  "webdavMemberOnlyBody": "开通会员后即可添加 WebDAV 连接，数量不限。已有连接可继续正常使用。",
+  "webdavMemberOnlyAction": "去开通会员",
+  "webdavEmptyMemberPrompt": "WebDAV 为会员功能。开通会员后可添加远程存储连接，数量不限。",
   "webdavEditConnection": "编辑 WebDAV",
   "webdavSectionTitle": "WebDAV",
   "webdavFormName": "名称",

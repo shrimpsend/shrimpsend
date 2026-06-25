@@ -16,6 +16,8 @@ public class MembershipMeResponse {
     private Integer addonPacks;
     private Integer currentDeviceCount;
     private Boolean canAddDevice;
+    /** {@code true} if the user may create new WebDAV connections (paid tier). */
+    private Boolean canAddWebDav;
     private Boolean canBuyAddon;
     /** Overseas subscription period end (epoch millis). */
     private Long subscriptionExpiresAtMs;

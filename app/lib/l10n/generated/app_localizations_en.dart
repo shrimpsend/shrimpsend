@@ -247,6 +247,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsNavWebDavSubtitle => 'Remote file storage';
 
   @override
+  String get settingsWebDavMemberOnly => 'Members only';
+
+  @override
   String get settingsWebDavStatusNone => 'Not configured';
 
   @override
@@ -1892,6 +1895,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get membershipFeatureWebDav =>
+      'WebDAV remote storage (unlimited connections)';
+
+  @override
   String get membershipPlanPopular => 'Popular';
 
   @override
@@ -3177,6 +3184,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webdavAddConnection => 'Add WebDAV';
+
+  @override
+  String get webdavMemberOnlyTitle => 'WebDAV is a member feature';
+
+  @override
+  String get webdavMemberOnlyBody =>
+      'Subscribe to add WebDAV connections with no limit. Existing connections keep working.';
+
+  @override
+  String get webdavMemberOnlyAction => 'Upgrade membership';
+
+  @override
+  String get webdavEmptyMemberPrompt =>
+      'WebDAV is a member feature. Upgrade to add remote storage connections with no limit.';
 
   @override
   String get webdavEditConnection => 'Edit WebDAV';

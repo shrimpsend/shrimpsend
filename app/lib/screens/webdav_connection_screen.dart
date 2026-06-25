@@ -9,6 +9,7 @@ import '../services/webdav_credential_store.dart';
 import '../ui/app_ui.dart';
 import '../utils/auth_route_guard.dart';
 import '../utils/toast.dart';
+import '../utils/webdav_membership_gate.dart';
 
 class WebDavConnectionScreen extends ConsumerStatefulWidget {
   final int? connectionId;
@@ -117,6 +118,8 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
       AppToast.show(context, message: AppLocalizations.of(context).webdavPasswordRequired);
       return;
     }
+    if (!_isEdit && !await ensureCanAddWebDav(context)) return;
+    if (!mounted) return;
     setState(() => _testing = true);
     final l10n = AppLocalizations.of(context);
     try {
@@ -142,6 +145,8 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
       AppToast.show(context, message: AppLocalizations.of(context).webdavPasswordRequired);
       return;
     }
+    if (!_isEdit && !await ensureCanAddWebDav(context)) return;
+    if (!mounted) return;
     setState(() => _saving = true);
     final l10n = AppLocalizations.of(context);
     try {

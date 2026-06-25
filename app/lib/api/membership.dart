@@ -44,6 +44,7 @@ class MembershipMe {
   final int addonPacks;
   final int currentDeviceCount;
   final bool canAddDevice;
+  final bool canAddWebDav;
   final bool canBuyAddon;
   final int? subscriptionExpiresAtMs;
   final bool? subscriptionCancelAtPeriodEnd;
@@ -65,6 +66,7 @@ class MembershipMe {
     this.addonPacks = 0,
     required this.currentDeviceCount,
     required this.canAddDevice,
+    this.canAddWebDav = false,
     this.canBuyAddon = false,
     this.subscriptionExpiresAtMs,
     this.subscriptionCancelAtPeriodEnd,
@@ -85,6 +87,7 @@ class MembershipMe {
       addonPacks: (j['addonPacks'] as num?)?.toInt() ?? 0,
       currentDeviceCount: (j['currentDeviceCount'] as num?)?.toInt() ?? 0,
       canAddDevice: j['canAddDevice'] == true,
+      canAddWebDav: j['canAddWebDav'] == true,
       canBuyAddon: j['canBuyAddon'] == true,
       subscriptionExpiresAtMs: (j['subscriptionExpiresAtMs'] as num?)?.toInt(),
       subscriptionCancelAtPeriodEnd: j['subscriptionCancelAtPeriodEnd'] as bool?,

@@ -1,6 +1,9 @@
 package dev.ultrasend.backend.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -8,8 +11,6 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
-
-import java.util.Map;
 
 @Service
 @Slf4j
@@ -22,17 +23,37 @@ public class SendCloudMailService {
     private final String from;
     private final String fromName;
     private final WebClient webClient;
+    private final ObjectMapper objectMapper;
 
+    @Autowired
     public SendCloudMailService(
             @Value("${sendcloud.api-user}") String apiUser,
             @Value("${sendcloud.api-key}") String apiKey,
             @Value("${sendcloud.from}") String from,
-            @Value("${sendcloud.from-name:虾传}") String fromName) {
+            @Value("${sendcloud.from-name:虾传}") String fromName,
+            ObjectMapper objectMapper) {
+        this(apiUser, apiKey, from, fromName, WebClient.create(), objectMapper);
+    }
+
+    SendCloudMailService(
+            String apiUser,
+            String apiKey,
+            String from,
+            String fromName,
+            WebClient webClient,
+            ObjectMapper objectMapper) {
         this.apiUser = apiUser;
         this.apiKey = apiKey;
         this.from = from;
         this.fromName = fromName;
-        this.webClient = WebClient.create();
+        this.webClient = webClient;
+        this.objectMapper = objectMapper;
+
+        if (isConfigured()) {
+            log.info("sendcloud mail service initialized: apiUser={} from={}", apiUser, from);
+        } else {
+            log.warn("sendcloud mail service initialized but credentials are missing");
+        }
     }
 
     public void sendVerificationCode(String to, String code) {
@@ -42,6 +63,8 @@ public class SendCloudMailService {
     }
 
     private void sendMail(String to, String subject, String html) {
+        assertConfigured();
+
         MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
         formData.add("apiUser", apiUser);
         formData.add("apiKey", apiKey);
@@ -59,10 +82,43 @@ public class SendCloudMailService {
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
-            log.info("sendcloud mail sent to={} response={}", to, response);
+            validateResponse(response, to);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("sendcloud mail failed to={}", to, e);
+            log.error("sendcloud mail request failed to={}", to, e);
             throw new RuntimeException("邮件发送失败，请稍后重试");
+        }
+    }
+
+    void validateResponse(String response, String to) {
+        try {
+            JsonNode root = objectMapper.readTree(response);
+            if (root.path("result").asBoolean(false)) {
+                log.info("sendcloud mail success to={} response={}", to, response);
+                return;
+            }
+            int statusCode = root.path("statusCode").asInt(-1);
+            String message = root.path("message").asText("未知错误");
+            log.error("sendcloud mail failed to={} statusCode={} message={} response={}",
+                    to, statusCode, message, response);
+            throw new RuntimeException("邮件发送失败：" + message + " (code: " + statusCode + ")");
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("sendcloud mail response parse failed to={} response={}", to, response, e);
+            throw new RuntimeException("邮件发送失败，请稍后重试");
+        }
+    }
+
+    private boolean isConfigured() {
+        return apiUser != null && !apiUser.isBlank()
+                && apiKey != null && !apiKey.isBlank();
+    }
+
+    private void assertConfigured() {
+        if (!isConfigured()) {
+            throw new RuntimeException("邮件服务未配置，请联系管理员");
         }
     }
 

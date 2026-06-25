@@ -76,6 +76,9 @@ public class MembershipService {
 
     public static final String ADDON_PRODUCT_CODE = "ADDON_5";
 
+    public static final String WEBDAV_MEMBER_ONLY_MESSAGE =
+            "WebDAV 为会员功能，请开通会员后再添加连接";
+
     public List<MembershipTierDto> listTiers() {
         if (clusterDeploymentService.isOverseasDeployment()) {
             return listOverseasTiers();
@@ -132,6 +135,7 @@ public class MembershipService {
                 paymentChannel = "FREE";
             }
             boolean canSwitch = "FREE".equals(paymentChannel);
+            boolean canAddWebDav = canAddWebDav(userId);
             return MembershipMeResponse.builder()
                     .tierCode(ot.getCode())
                     .tierName(ot.getDisplayName())
@@ -139,6 +143,7 @@ public class MembershipService {
                     .addonPacks(0)
                     .currentDeviceCount(currentCount)
                     .canAddDevice(currentCount < limit)
+                    .canAddWebDav(canAddWebDav)
                     .canBuyAddon(false)
                     .subscriptionExpiresAtMs(expMs)
                     .subscriptionCancelAtPeriodEnd(cancelAtEnd)
@@ -158,6 +163,7 @@ public class MembershipService {
                 .map(e -> e.getAddonPacks() != null ? e.getAddonPacks() : 0)
                 .orElse(0);
         boolean canBuyAddon = tier == MembershipTier.MINI || tier == MembershipTier.PRO;
+        boolean canAddWebDav = canAddWebDav(userId);
         String paymentChannel = entOpt.map(MembershipEntitlement::getPaymentChannel).orElse("FREE");
         if (paymentChannel == null || paymentChannel.isBlank()) {
             paymentChannel = tier == MembershipTier.FREE ? "FREE" : "ALIPAY_LIFETIME";
@@ -169,6 +175,7 @@ public class MembershipService {
                 .addonPacks(addonPacks)
                 .currentDeviceCount(currentCount)
                 .canAddDevice(currentCount < limit)
+                .canAddWebDav(canAddWebDav)
                 .canBuyAddon(canBuyAddon)
                 .paymentChannel(paymentChannel)
                 .canSwitchChannel("FREE".equals(paymentChannel))
@@ -239,6 +246,19 @@ public class MembershipService {
         return membershipEntitlementRepository.findByUserId(userId)
                 .map(entitlement -> MembershipTier.fromCode(entitlement.getTierCode()))
                 .orElse(MembershipTier.FREE);
+    }
+
+    public boolean canAddWebDav(Long userId) {
+        if (clusterDeploymentService.isOverseasDeployment()) {
+            return hostedQuotaService.effectiveTier(userId) != OverseasMembershipTier.FREE;
+        }
+        return getCurrentTier(userId) != MembershipTier.FREE;
+    }
+
+    public void ensureCanAddWebDav(Long userId) {
+        if (!canAddWebDav(userId)) {
+            throw new IllegalArgumentException(WEBDAV_MEMBER_ONLY_MESSAGE);
+        }
     }
 
     public int resolveDeviceLimitForUser(Long userId) {

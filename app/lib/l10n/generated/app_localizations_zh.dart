@@ -239,6 +239,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsNavWebDavSubtitle => '远程文件存储';
 
   @override
+  String get settingsWebDavMemberOnly => '会员功能';
+
+  @override
   String get settingsWebDavStatusNone => '未配置';
 
   @override
@@ -1821,6 +1824,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get membershipFeatureWebDav => 'WebDAV 远程存储（不限连接数）';
+
+  @override
   String get membershipPlanPopular => '推荐';
 
   @override
@@ -3031,6 +3037,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webdavAddConnection => '添加 WebDAV';
+
+  @override
+  String get webdavMemberOnlyTitle => 'WebDAV 为会员功能';
+
+  @override
+  String get webdavMemberOnlyBody => '开通会员后即可添加 WebDAV 连接，数量不限。已有连接可继续正常使用。';
+
+  @override
+  String get webdavMemberOnlyAction => '去开通会员';
+
+  @override
+  String get webdavEmptyMemberPrompt => 'WebDAV 为会员功能。开通会员后可添加远程存储连接，数量不限。';
 
   @override
   String get webdavEditConnection => '编辑 WebDAV';

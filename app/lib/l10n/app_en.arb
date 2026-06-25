@@ -101,6 +101,7 @@
   "settingsNavS3Subtitle": "Wide-area file transfer",
   "settingsNavWebDav": "WebDAV",
   "settingsNavWebDavSubtitle": "Remote file storage",
+  "settingsWebDavMemberOnly": "Members only",
   "settingsWebDavStatusNone": "Not configured",
   "settingsWebDavStatusCount": "{count, plural, =1{1 connection} other{{count} connections}}",
   "@settingsWebDavStatusCount": {
@@ -1043,6 +1044,7 @@
       }
     }
   },
+  "membershipFeatureWebDav": "WebDAV remote storage (unlimited connections)",
   "membershipPlanPopular": "Popular",
   "membershipOverseasNoAlipay": "Overseas builds don’t support Alipay — subscribe in the app.",
   "membershipSubscribeInApp": "Subscribe in app",
@@ -1798,6 +1800,10 @@
   "webdavAddMenuTooltip": "Add connection",
   "webdavScanLogin": "Scan to sign in",
   "webdavAddConnection": "Add WebDAV",
+  "webdavMemberOnlyTitle": "WebDAV is a member feature",
+  "webdavMemberOnlyBody": "Subscribe to add WebDAV connections with no limit. Existing connections keep working.",
+  "webdavMemberOnlyAction": "Upgrade membership",
+  "webdavEmptyMemberPrompt": "WebDAV is a member feature. Upgrade to add remote storage connections with no limit.",
   "webdavEditConnection": "Edit WebDAV",
   "webdavSectionTitle": "WebDAV",
   "webdavFormName": "Name",

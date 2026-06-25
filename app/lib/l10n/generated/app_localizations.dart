@@ -542,6 +542,12 @@ abstract class AppLocalizations {
   /// **'Remote file storage'**
   String get settingsNavWebDavSubtitle;
 
+  /// No description provided for @settingsWebDavMemberOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Members only'**
+  String get settingsWebDavMemberOnly;
+
   /// No description provided for @settingsWebDavStatusNone.
   ///
   /// In en, this message translates to:
@@ -3426,6 +3432,12 @@ abstract class AppLocalizations {
   /// **'{gib} GiB / month hosted upload quota'**
   String membershipFeatureUploadHosted(int gib);
 
+  /// No description provided for @membershipFeatureWebDav.
+  ///
+  /// In en, this message translates to:
+  /// **'WebDAV remote storage (unlimited connections)'**
+  String get membershipFeatureWebDav;
+
   /// No description provided for @membershipPlanPopular.
   ///
   /// In en, this message translates to:
@@ -5609,6 +5621,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add WebDAV'**
   String get webdavAddConnection;
+
+  /// No description provided for @webdavMemberOnlyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WebDAV is a member feature'**
+  String get webdavMemberOnlyTitle;
+
+  /// No description provided for @webdavMemberOnlyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscribe to add WebDAV connections with no limit. Existing connections keep working.'**
+  String get webdavMemberOnlyBody;
+
+  /// No description provided for @webdavMemberOnlyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade membership'**
+  String get webdavMemberOnlyAction;
+
+  /// No description provided for @webdavEmptyMemberPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'WebDAV is a member feature. Upgrade to add remote storage connections with no limit.'**
+  String get webdavEmptyMemberPrompt;
 
   /// No description provided for @webdavEditConnection.
   ///
