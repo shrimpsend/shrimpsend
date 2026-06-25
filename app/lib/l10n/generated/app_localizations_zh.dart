@@ -3243,6 +3243,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webdavTransferPauseAll => '全部暂停';
 
   @override
+  String get webdavTransferTerminateAll => '终止任务';
+
+  @override
+  String get webdavTransferTerminateConfirmTitle => '终止所有传输？';
+
+  @override
+  String get webdavTransferTerminateConfirmBody =>
+      '进行中的上传将停止，文件会回到待发文件箱。下载任务将被取消。';
+
+  @override
   String get webdavTransferEmpty => '暂无传输任务';
 
   @override

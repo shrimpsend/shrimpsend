@@ -158,6 +158,11 @@ final class PendingFilesNotifier extends Notifier<List<PendingFileEntry>> {
 
   /// Restores held dispatch entries back into the outbox after a failed enqueue.
   void rollbackHeldDispatch(Iterable<String> localPaths) {
+    restoreHeldDispatch(localPaths);
+  }
+
+  /// Restores multiple held dispatch entries back into the outbox.
+  void restoreHeldDispatch(Iterable<String> localPaths) {
     for (final localPath in localPaths) {
       if (localPath.isEmpty) continue;
       onDeliverySettled(localPath, success: false);

@@ -3390,6 +3390,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webdavTransferPauseAll => 'Pause all';
 
   @override
+  String get webdavTransferTerminateAll => 'Terminate all';
+
+  @override
+  String get webdavTransferTerminateConfirmTitle => 'Terminate all transfers?';
+
+  @override
+  String get webdavTransferTerminateConfirmBody =>
+      'Active uploads will stop and return to the outbox. Downloads will be cancelled.';
+
+  @override
   String get webdavTransferEmpty => 'No active transfers';
 
   @override

@@ -66,6 +66,22 @@ void main() {
       expect(container.read(pendingFilesProvider).single.file.name, 'b.txt');
     });
 
+    test('restoreHeldDispatch restores multiple committed entries', () async {
+      final a = _entry('e1.txt');
+      final b = _entry('e2.txt');
+      await notifier.add([a, b]);
+
+      final prep = await notifier.prepareDispatch([a, b]);
+      await notifier.commitDispatch(prep.queued);
+      expect(container.read(pendingFilesProvider), isEmpty);
+
+      notifier.restoreHeldDispatch([
+        a.file.path!,
+        b.file.path!,
+      ]);
+      expect(container.read(pendingFilesProvider).length, 2);
+    });
+
     test('commitDispatch without prepareDispatch clears outbox', () async {
       final entry = _entry('d.txt');
       await notifier.add([entry]);

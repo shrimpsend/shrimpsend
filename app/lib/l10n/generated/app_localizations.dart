@@ -5982,6 +5982,24 @@ abstract class AppLocalizations {
   /// **'Pause all'**
   String get webdavTransferPauseAll;
 
+  /// No description provided for @webdavTransferTerminateAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Terminate all'**
+  String get webdavTransferTerminateAll;
+
+  /// No description provided for @webdavTransferTerminateConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Terminate all transfers?'**
+  String get webdavTransferTerminateConfirmTitle;
+
+  /// No description provided for @webdavTransferTerminateConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Active uploads will stop and return to the outbox. Downloads will be cancelled.'**
+  String get webdavTransferTerminateConfirmBody;
+
   /// No description provided for @webdavTransferEmpty.
   ///
   /// In en, this message translates to:

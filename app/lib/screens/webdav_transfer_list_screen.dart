@@ -87,6 +87,34 @@ class _WebDavTransferListScreenState extends State<WebDavTransferListScreen>
     await _refresh();
   }
 
+  Future<void> _terminateAll() async {
+    final l10n = AppLocalizations.of(context);
+    final colors = context.appColors;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.webdavTransferTerminateConfirmTitle),
+        content: Text(l10n.webdavTransferTerminateConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: colors.danger),
+            child: Text(l10n.webdavTransferTerminateAll),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await WebDavTransferService.instance.terminateAllUploads(
+      widget.connection.id,
+    );
+    await _refresh();
+  }
+
   Future<void> _resume(TransferRecord record) async {
     final client = _client;
     if (client == null) return;
@@ -145,9 +173,26 @@ class _WebDavTransferListScreenState extends State<WebDavTransferListScreen>
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
-          child: OutlinedButton(
-            onPressed: _pauseAll,
-            child: Text(l10n.webdavTransferPauseAll),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _pauseAll,
+                  child: Text(l10n.webdavTransferPauseAll),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _terminateAll,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colors.danger,
+                    side: BorderSide(color: colors.danger),
+                  ),
+                  child: Text(l10n.webdavTransferTerminateAll),
+                ),
+              ),
+            ],
           ),
         ),
       ),

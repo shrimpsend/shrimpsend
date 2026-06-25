@@ -1915,6 +1915,9 @@
   "webdavTransferUploading": "Uploading",
   "webdavTransferDownloading": "Downloading",
   "webdavTransferPauseAll": "Pause all",
+  "webdavTransferTerminateAll": "Terminate all",
+  "webdavTransferTerminateConfirmTitle": "Terminate all transfers?",
+  "webdavTransferTerminateConfirmBody": "Active uploads will stop and return to the outbox. Downloads will be cancelled.",
   "webdavTransferEmpty": "No active transfers",
   "webdavTransferQueued": "Queued {count} transfer(s)",
   "@webdavTransferQueued": {

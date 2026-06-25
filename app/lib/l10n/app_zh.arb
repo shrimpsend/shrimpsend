@@ -1462,6 +1462,9 @@
   "webdavTransferUploading": "上传中",
   "webdavTransferDownloading": "下载中",
   "webdavTransferPauseAll": "全部暂停",
+  "webdavTransferTerminateAll": "终止任务",
+  "webdavTransferTerminateConfirmTitle": "终止所有传输？",
+  "webdavTransferTerminateConfirmBody": "进行中的上传将停止，文件会回到待发文件箱。下载任务将被取消。",
   "webdavTransferEmpty": "暂无传输任务",
   "webdavTransferQueued": "已加入传输队列（{count}）",
   "@webdavTransferQueued": {
