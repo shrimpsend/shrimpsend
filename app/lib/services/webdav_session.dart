@@ -12,6 +12,13 @@ import 'transfer_error_message.dart';
 
 final logWebDav = logSettings;
 
+/// TCP/TLS connect timeout for WebDAV requests.
+const webDavConnectTimeoutMs = 15000;
+
+/// Max time to send or receive an entire file body (PUT/GET).
+/// 60s was too short for large uploads on slow links (e.g. cloud WebDAV).
+const webDavTransferTimeoutMs = 30 * 60 * 1000;
+
 class WebDavEntry {
   final String name;
   final String path;
@@ -40,9 +47,9 @@ class WebDavClient {
       user: creds.username,
       password: creds.password,
     );
-    client.setConnectTimeout(15000);
-    client.setSendTimeout(60000);
-    client.setReceiveTimeout(60000);
+    client.setConnectTimeout(webDavConnectTimeoutMs);
+    client.setSendTimeout(webDavTransferTimeoutMs);
+    client.setReceiveTimeout(webDavTransferTimeoutMs);
     final userAgent = resolveWebDavUserAgent(creds);
     if (userAgent != null && userAgent.isNotEmpty) {
       client.c.configureUserAgent(userAgent);
