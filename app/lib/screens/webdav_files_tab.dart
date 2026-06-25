@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../models/pending_file_entry.dart';
+import '../providers/pending_files_provider.dart';
 import '../providers/webdav_provider.dart';
 import '../services/local_received_file_resolver.dart';
 import '../services/received_file_dao.dart';
@@ -249,22 +250,25 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
     }
   }
 
-  void queuePlatformFileUploads(
+  /// Returns started upload count and skipped entry count.
+  Future<({int started, int skipped})> queuePlatformFileUploads(
     List<PendingFileEntry> entries, {
     required WebDavUploadLayout layout,
-  }) {
+  }) async {
     if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
-      if (!mounted) return;
+      if (!mounted) return (started: 0, skipped: 0);
       final l10n = AppLocalizations.of(context);
       AppToast.show(context, message: l10n.webdavCstCloudUploadNotSupported);
-      return;
+      return (started: 0, skipped: 0);
     }
+
     final jobs = buildWebDavUploadJobs(
       relativeDir: _relativePath,
       entries: entries,
       layout: layout,
     );
-    if (jobs.isEmpty) return;
+    if (jobs.isEmpty) return (started: 0, skipped: 0);
+
     final uploads = jobs
         .map(
           (j) => (
@@ -275,14 +279,32 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
           ),
         )
         .toList();
+
+    final notifier = ref.read(pendingFilesProvider.notifier);
+    final committed = await notifier.commitDispatch(entries);
+    final skipped = committed.skipped;
+    if (committed.queued.isEmpty) return (started: 0, skipped: skipped);
+
+    final committedPaths = committed.queued
+        .map((e) => e.file.path)
+        .whereType<String>()
+        .toSet();
+    final uploadsToStart = uploads
+        .where((u) => committedPaths.contains(u.localPath))
+        .toList();
+    if (uploadsToStart.isEmpty) {
+      return (started: 0, skipped: skipped);
+    }
+
     unawaited(
       WebDavTransferService.instance.enqueueUploads(
         client: widget.client,
         connection: widget.connection,
         relativeDir: _relativePath,
-        files: uploads,
+        files: uploadsToStart,
       ),
     );
+    return (started: uploadsToStart.length, skipped: skipped);
   }
 
   String get currentRelativePath => _relativePath;

@@ -3398,6 +3398,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String webdavBulkUploadPreparing(int count) {
+    return 'Preparing $count file(s) for upload…';
+  }
+
+  @override
   String get webdavOutboxUpload => 'Upload to WebDAV';
 
   @override

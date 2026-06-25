@@ -3251,6 +3251,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String webdavBulkUploadPreparing(int count) {
+    return '正在准备上传 $count 个文件…';
+  }
+
+  @override
   String get webdavOutboxUpload => '上传到 WebDAV';
 
   @override

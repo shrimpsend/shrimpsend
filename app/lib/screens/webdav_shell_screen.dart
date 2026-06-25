@@ -272,7 +272,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         label: l10n.webdavOutboxUpload,
         icon: LucideIcons.upload,
         destinationHint: _uploadTargetLabel(l10n),
-        onExecute: (queued, layout) async {
+        onExecute: (entries, layout) async {
           final filesTab = _filesTabKey.currentState;
           if (filesTab == null) return;
           if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
@@ -283,12 +283,31 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
             );
             return;
           }
-          filesTab.queuePlatformFileUploads(queued, layout: layout);
-          if (!mounted) return;
-          AppToast.show(
-            context,
-            message: l10n.webdavTransferQueued(queued.length),
-          );
+          try {
+            final result = await filesTab.queuePlatformFileUploads(
+              entries,
+              layout: layout,
+            );
+            if (!mounted) return;
+            if (result.skipped > 0) {
+              AppToast.show(
+                context,
+                message: l10n.fmPendingDispatchPartialSkipped(result.skipped),
+              );
+            }
+            if (result.started > 0) {
+              AppToast.show(
+                context,
+                message: l10n.webdavTransferQueued(result.started),
+              );
+            }
+          } catch (e) {
+            if (!mounted) return;
+            AppToast.show(
+              context,
+              message: l10n.webdavUploadFailed('$e'),
+            );
+          }
         },
       ),
     );
@@ -399,7 +418,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
                               Badge(
                                 isLabelVisible: pendingCount > 0,
                                 label: Text(
-                                  pendingCount > 99 ? '99+' : '$pendingCount',
+                                  '$pendingCount',
                                   style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,

@@ -5994,6 +5994,12 @@ abstract class AppLocalizations {
   /// **'Queued {count} transfer(s)'**
   String webdavTransferQueued(int count);
 
+  /// No description provided for @webdavBulkUploadPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing {count} file(s) for upload…'**
+  String webdavBulkUploadPreparing(int count);
+
   /// No description provided for @webdavOutboxUpload.
   ///
   /// In en, this message translates to:

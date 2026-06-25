@@ -344,24 +344,14 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
 
     final layout = _uploadLayout ?? WebDavUploadLayout.flat;
     await saveWebDavUploadLayoutPref(layout);
+    if (!mounted) return;
 
     final rootContext = context;
+    if (!mounted) return;
     Navigator.pop(rootContext);
-
-    final dispatch =
-        await ref.read(pendingFilesProvider.notifier).beginDispatch(entries);
     if (!rootContext.mounted) return;
 
-    final l10n = AppLocalizations.of(rootContext);
-    if (dispatch.skipped > 0) {
-      AppToast.show(
-        rootContext,
-        message: l10n.fmPendingDispatchPartialSkipped(dispatch.skipped),
-      );
-    }
-    if (dispatch.queued.isEmpty) return;
-
-    unawaited(action.onExecute(dispatch.queued, layout));
+    await action.onExecute(entries, layout);
   }
 
   @override

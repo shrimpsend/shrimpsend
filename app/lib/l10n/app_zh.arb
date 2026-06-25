@@ -1469,6 +1469,12 @@
       "count": { "type": "int" }
     }
   },
+  "webdavBulkUploadPreparing": "正在准备上传 {count} 个文件…",
+  "@webdavBulkUploadPreparing": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "webdavOutboxUpload": "上传到 WebDAV",
   "webdavOutboxUploadTarget": "上传至 {path}",
   "@webdavOutboxUploadTarget": {

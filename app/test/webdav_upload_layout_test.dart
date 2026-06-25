@@ -79,4 +79,13 @@ void main() {
       expect(isMkcolSuccess(409), isFalse);
     });
   });
+
+  group('ensureParentsForRemoteFile parent dirs', () {
+    test('single deep file only needs its ancestor chain', () {
+      expect(
+        collectSortedParentDirs(['root/a/b/c.txt']),
+        ['root', 'root/a', 'root/a/b'],
+      );
+    });
+  });
 }

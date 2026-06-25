@@ -4,7 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../api/webdav.dart';
+import '../logger.dart';
 import '../providers/auth_provider.dart';
+import 'async_semaphore.dart';
 import 'file_store.dart';
 import 'received_file_dao.dart';
 import 'pending_dispatch_bridge.dart';
@@ -16,6 +18,7 @@ import 'transfer_status.dart';
 import 'webdav_cstcloud.dart';
 import 'webdav_path_preparer.dart';
 import 'webdav_session.dart';
+import 'webdav_upload_local_resolver.dart';
 import 'visible_export_target.dart';
 
 export 'webdav_upload_layout.dart' show webDavRemoteParentPath, collectSortedParentDirs;
@@ -79,6 +82,8 @@ class WebDavTransferService extends ChangeNotifier {
   final Map<String, int> _lastPersistedBytes = {};
   final Map<String, DateTime> _lastProgressPersist = {};
   static const _progressPersistInterval = Duration(milliseconds: 500);
+  static const _uploadConcurrency = 6;
+  final _uploadSemaphore = AsyncSemaphore(_uploadConcurrency);
   final Set<WebDavUploadCompleted> _uploadCompletedListeners = {};
   final Set<WebDavDownloadCompleted> _downloadCompletedListeners = {};
 
@@ -160,7 +165,7 @@ class WebDavTransferService extends ChangeNotifier {
     }
   }
 
-  Future<void> enqueueUploads({
+  Future<int> enqueueUploads({
     required WebDavClient client,
     required WebDavConnectionSummary connection,
     required String relativeDir,
@@ -172,29 +177,26 @@ class WebDavTransferService extends ChangeNotifier {
     })> files,
   }) async {
     if (cstCloudWebDavBlocksGeneralUpload(connection.baseUrl)) {
-      return;
+      return 0;
     }
-    if (files.isEmpty) return;
-
-    final preparer = WebDavPathPreparer(
-      connectionId: connection.id,
-      client: client,
-    );
-    await preparer.prepareRemoteDirs(files.map((f) => f.remotePath));
+    if (files.isEmpty) return 0;
 
     for (final file in files) {
       unawaited(
-        _runUpload(
-          client: client,
-          connection: connection,
-          remotePath: file.remotePath,
-          localPath: file.localPath,
-          fileName: file.name,
-          fileSize: file.size,
-          ensureParent: false,
+        _uploadSemaphore.run(
+          () => _runUpload(
+            client: client,
+            connection: connection,
+            remotePath: file.remotePath,
+            localPath: file.localPath,
+            fileName: file.name,
+            fileSize: file.size,
+            ensureParent: false,
+          ),
         ),
       );
     }
+    return files.length;
   }
 
   Future<bool> _runDownload({
@@ -343,6 +345,37 @@ class WebDavTransferService extends ChangeNotifier {
     required int fileSize,
     bool ensureParent = true,
   }) async {
+    final heldPath = localPath;
+    final resolved = await resolveUploadLocalFile(
+      localPath: localPath,
+      fileName: fileName,
+      cachedSize: fileSize,
+    );
+    if (resolved == null) {
+      PendingDispatchBridge.notifySettled(heldPath, success: false);
+      return;
+    }
+
+    final preparer = WebDavPathPreparer(
+      connectionId: connection.id,
+      client: client,
+    );
+    try {
+      await preparer.ensureParentsForRemoteFile(remotePath);
+    } catch (e, st) {
+      logSettings.warning(
+        'WebDAV ensureParents failed path=$remotePath',
+        e,
+        st,
+      );
+      PendingDispatchBridge.notifySettled(heldPath, success: false);
+      return;
+    }
+
+    final uploadPath = resolved.path;
+    final uploadName = resolved.fileName;
+    final uploadSize = resolved.size;
+
     final connKey = webDavConnectionKey(connection.id);
     final transferId =
         'webdav_${connKey}_ul_${remotePath.hashCode.abs()}_${DateTime.now().millisecondsSinceEpoch}';
@@ -353,40 +386,41 @@ class WebDavTransferService extends ChangeNotifier {
 
     final record = TransferRecord(
       transferId: transferId,
-      fileName: fileName,
-      fileSize: fileSize,
-      filePath: localPath,
+      fileName: uploadName,
+      fileSize: uploadSize,
+      filePath: uploadPath,
       channel: 'webdav',
       direction: 'upload',
       webdavConnectionId: connKey,
       webdavRemotePath: remotePath,
     );
-    await TransferStateManager.instance.saveRecord(record);
-    _updateSnapshot(
-      transferId: transferId,
-      fileName: fileName,
-      fileSize: fileSize,
-      transferredBytes: 0,
-      direction: 'upload',
-      status: TransferStatus.inProgress,
-      tracker: tracker,
-      remotePath: remotePath,
-    );
 
     try {
+      await TransferStateManager.instance.saveRecord(record);
+      _updateSnapshot(
+        transferId: transferId,
+        fileName: uploadName,
+        fileSize: uploadSize,
+        transferredBytes: 0,
+        direction: 'upload',
+        status: TransferStatus.inProgress,
+        tracker: tracker,
+        remotePath: remotePath,
+      );
+
       await client.uploadFileFromPath(
         remotePath,
-        localPath,
+        uploadPath,
         cancelToken: cancelToken,
         ensureParent: ensureParent,
         onProgress: (sent, total) {
-          final totalBytes = total > 0 ? total : fileSize;
+          final totalBytes = total > 0 ? total : uploadSize;
           tracker.update(sent);
           _scheduleProgressPersist(transferId, sent);
           _updateSnapshot(
             transferId: transferId,
-            fileName: fileName,
-            fileSize: totalBytes > 0 ? totalBytes : fileSize,
+            fileName: uploadName,
+            fileSize: totalBytes > 0 ? totalBytes : uploadSize,
             transferredBytes: sent,
             direction: 'upload',
             status: TransferStatus.inProgress,
@@ -405,11 +439,8 @@ class WebDavTransferService extends ChangeNotifier {
         TransferStatus.completed,
       );
       _snapshots.remove(transferId);
-      _cancelTokens.remove(transferId);
-      _speedTrackers.remove(transferId);
-      _clearProgressPersist(transferId);
       notifyListeners();
-      PendingDispatchBridge.notifySettled(localPath, success: true);
+      PendingDispatchBridge.notifySettled(heldPath, success: true);
     } on DioException catch (e) {
       await _flushProgressPersist(transferId);
       if (CancelToken.isCancel(e)) {
@@ -419,15 +450,15 @@ class WebDavTransferService extends ChangeNotifier {
         );
         _updateSnapshot(
           transferId: transferId,
-          fileName: fileName,
-          fileSize: fileSize,
+          fileName: uploadName,
+          fileSize: uploadSize,
           transferredBytes: record.transferredBytes,
           direction: 'upload',
           status: TransferStatus.paused,
           tracker: tracker,
           remotePath: remotePath,
         );
-        PendingDispatchBridge.notifySettled(localPath, success: false);
+        PendingDispatchBridge.notifySettled(heldPath, success: false);
       } else {
         await TransferStateManager.instance.markStatus(
           transferId,
@@ -435,16 +466,18 @@ class WebDavTransferService extends ChangeNotifier {
         );
         _snapshots.remove(transferId);
         notifyListeners();
-        PendingDispatchBridge.notifySettled(localPath, success: false);
+        PendingDispatchBridge.notifySettled(heldPath, success: false);
       }
     } catch (_) {
-      await TransferStateManager.instance.markStatus(
-        transferId,
-        TransferStatus.failed,
-      );
-      _snapshots.remove(transferId);
-      notifyListeners();
-      PendingDispatchBridge.notifySettled(localPath, success: false);
+      if (_snapshots.containsKey(transferId)) {
+        await TransferStateManager.instance.markStatus(
+          transferId,
+          TransferStatus.failed,
+        );
+        _snapshots.remove(transferId);
+        notifyListeners();
+      }
+      PendingDispatchBridge.notifySettled(heldPath, success: false);
     } finally {
       _cancelTokens.remove(transferId);
       _speedTrackers.remove(transferId);

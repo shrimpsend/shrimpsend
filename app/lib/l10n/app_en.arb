@@ -1922,6 +1922,12 @@
       "count": { "type": "int" }
     }
   },
+  "webdavBulkUploadPreparing": "Preparing {count} file(s) for upload…",
+  "@webdavBulkUploadPreparing": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "webdavOutboxUpload": "Upload to WebDAV",
   "webdavOutboxUploadTarget": "Upload to {path}",
   "@webdavOutboxUploadTarget": {

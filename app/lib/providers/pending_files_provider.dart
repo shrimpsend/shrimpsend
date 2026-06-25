@@ -89,7 +89,8 @@ final class PendingFilesNotifier extends Notifier<List<PendingFileEntry>> {
     return result;
   }
 
-  Future<PendingDispatchResult> beginDispatch(
+  /// Validates and stabilizes [entries] without mutating outbox state.
+  Future<PendingDispatchResult> prepareDispatch(
     List<PendingFileEntry> entries,
   ) async {
     if (entries.isEmpty) {
@@ -98,56 +99,94 @@ final class PendingFilesNotifier extends Notifier<List<PendingFileEntry>> {
 
     final queued = <PendingFileEntry>[];
     var skipped = 0;
-    var nextState = List<PendingFileEntry>.from(state);
 
     for (final entry in entries) {
-      final stabilized = await PendingFilesPathStabilizer.stabilizeOne(
-        entry.file,
-        logSource: 'pending_dispatch',
-      );
-      if (stabilized == null) {
+      final ready = await _stabilizeDispatchEntry(entry);
+      if (ready == null) {
         skipped++;
         continue;
       }
-      final path = stabilized.path;
+      queued.add(ready);
+    }
+
+    return (queued: queued, skipped: skipped);
+  }
+
+  /// Removes [queued] from outbox and holds them until delivery settles.
+  Future<PendingDispatchResult> commitDispatch(
+    List<PendingFileEntry> queued,
+  ) async {
+    if (queued.isEmpty) {
+      return (queued: <PendingFileEntry>[], skipped: 0);
+    }
+
+    final committed = <PendingFileEntry>[];
+    var skipped = 0;
+    var nextState = List<PendingFileEntry>.from(state);
+
+    for (final ready in queued) {
+      final path = ready.file.path;
       if (path == null || path.isEmpty) {
         skipped++;
         continue;
       }
-      final local = File(path);
-      if (!await local.exists()) {
-        skipped++;
-        continue;
-      }
-      final diskSize = await local.length();
-      if (diskSize <= 0) {
-        skipped++;
-        continue;
-      }
-
-      final ready = PendingFileEntry.fromPlatformFile(
-        PlatformFile(
-          name: stabilized.name,
-          path: path,
-          size: diskSize,
-        ),
-        relativeSubPath: entry.relativeSubPath,
-      );
-      final removed = _removeFirstMatching(nextState, entry, readyPath: path);
+      final removed = _removeFirstMatching(nextState, ready, readyPath: path);
       if (!removed) {
         skipped++;
         continue;
       }
       _heldForDispatch[path] = ready;
-      queued.add(ready);
+      committed.add(ready);
     }
 
-    if (queued.isNotEmpty) {
+    if (committed.isNotEmpty) {
       state = nextState;
       await PendingFilesStore.save(state);
     }
 
-    return (queued: queued, skipped: skipped);
+    return (queued: committed, skipped: skipped);
+  }
+
+  Future<PendingDispatchResult> beginDispatch(
+    List<PendingFileEntry> entries,
+  ) async {
+    final prep = await prepareDispatch(entries);
+    if (prep.queued.isEmpty) return prep;
+    final committed = await commitDispatch(prep.queued);
+    return (queued: committed.queued, skipped: prep.skipped + committed.skipped);
+  }
+
+  /// Restores held dispatch entries back into the outbox after a failed enqueue.
+  void rollbackHeldDispatch(Iterable<String> localPaths) {
+    for (final localPath in localPaths) {
+      if (localPath.isEmpty) continue;
+      onDeliverySettled(localPath, success: false);
+    }
+  }
+
+  Future<PendingFileEntry?> _stabilizeDispatchEntry(
+    PendingFileEntry entry,
+  ) async {
+    final stabilized = await PendingFilesPathStabilizer.stabilizeOne(
+      entry.file,
+      logSource: 'pending_dispatch',
+    );
+    if (stabilized == null) return null;
+    final path = stabilized.path;
+    if (path == null || path.isEmpty) return null;
+    final local = File(path);
+    if (!await local.exists()) return null;
+    final diskSize = await local.length();
+    if (diskSize <= 0) return null;
+
+    return PendingFileEntry.fromPlatformFile(
+      PlatformFile(
+        name: stabilized.name,
+        path: path,
+        size: diskSize,
+      ),
+      relativeSubPath: entry.relativeSubPath,
+    );
   }
 
   void onDeliverySettled(String localPath, {required bool success}) {
