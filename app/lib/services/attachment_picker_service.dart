@@ -10,6 +10,7 @@ import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../screens/apk_picker_screen.dart';
 import '../utils/gallery_permission.dart';
+import '../utils/runtime_platform.dart';
 import '../utils/toast.dart';
 import '../widgets/app_confirm_dialog.dart';
 import '../widgets/attachment_picker_sheet.dart';
@@ -38,10 +39,27 @@ final class AttachmentPickerService {
   static Future<List<PlatformFile>> _pickFiles() async {
     final result = await FilePicker.platform.pickFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return [];
-    return result.files
+    return _validPlatformFiles(result.files);
+  }
+
+  static Future<List<PlatformFile>> _pickMediaFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.media,
+    );
+    if (result == null || result.files.isEmpty) return [];
+    return _validPlatformFiles(result.files);
+  }
+
+  static List<PlatformFile> _validPlatformFiles(List<PlatformFile> files) {
+    return files
         .where((f) => f.size > 0 && (f.bytes != null || f.path != null))
         .toList();
   }
+
+  /// Desktop uses the native file picker; mobile uses the gallery asset picker.
+  @visibleForTesting
+  static bool get imageVideoUsesDesktopFilePicker => RuntimePlatform.isDesktop;
 
   static Future<({bool proceed, bool hideLimitedOverlay})>
       _ensureGalleryReadForPicker(BuildContext context) async {
@@ -136,6 +154,14 @@ final class AttachmentPickerService {
 
   static Future<List<PlatformFile>> _pickImageVideo(BuildContext context) async {
     if (!context.mounted) return [];
+    if (imageVideoUsesDesktopFilePicker) {
+      try {
+        return await _pickMediaFiles();
+      } catch (e) {
+        _log.warning('pickImageVideo desktop failed: $e');
+        return [];
+      }
+    }
     try {
       final access = await _ensureGalleryReadForPicker(context);
       if (!access.proceed || !context.mounted) return [];

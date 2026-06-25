@@ -15,8 +15,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
-import 'package:permission_handler/permission_handler.dart';
-import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../api/api.dart';
 import '../config/env.dart';
@@ -37,7 +35,6 @@ import '../lan/lan_receiver.dart';
 import '../lan/transfer_worker.dart';
 import '../logger.dart';
 import '../utils/file_utils.dart';
-import '../utils/gallery_permission.dart';
 import '../utils/helpers.dart';
 import '../utils/open_received_file.dart';
 import '../utils/received_file_actions.dart';
@@ -78,6 +75,7 @@ import '../services/speed_tracker.dart';
 import '../services/transfer_protocol.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
+import '../services/attachment_picker_service.dart';
 import '../services/chat_message_dao.dart';
 import '../services/received_file_dao.dart';
 import '../services/received_file_index_pipeline.dart';
@@ -98,7 +96,6 @@ import '../ui/app_ui.dart';
 import '../ui/platform_performance.dart';
 import '../webrtc/webrtc_manager.dart';
 import '../webrtc/signaling_channel.dart';
-import 'apk_picker_screen.dart';
 import 'qr_scanner_screen.dart';
 import '../services/native_tab_bar_service.dart';
 
@@ -4789,17 +4786,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _handleAttachmentChoice(AttachmentPickerChoice choice) async {
-    List<PlatformFile> picked = [];
-    switch (choice) {
-      case AttachmentPickerChoice.imageVideo:
-        picked = await _pickImageVideo();
-      case AttachmentPickerChoice.file:
-        picked = await _pickFiles();
-      case AttachmentPickerChoice.folder:
-        picked = await _pickFolder();
-      case AttachmentPickerChoice.apk:
-        picked = await _pickApk();
-    }
+    final picked = await AttachmentPickerService.pick(choice, context);
     Analytics.track(AnalyticsEvents.attachmentPick, {
       'choice': choice.name,
       'picked_count': picked.length,
@@ -4835,178 +4822,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
     if (choice == null || !mounted) return;
     await _handleAttachmentChoice(choice);
-  }
-
-  Future<List<PlatformFile>> _pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
-    if (result == null || result.files.isEmpty) return [];
-    return result.files
-        .where((f) => f.size > 0 && (f.bytes != null || f.path != null))
-        .toList();
-  }
-
-  Future<({bool proceed, bool hideLimitedOverlay})> _ensureGalleryReadForPicker() async {
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      return (proceed: true, hideLimitedOverlay: false);
-    }
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-    final l10n = AppLocalizations.of(context);
-
-    var state = await getGalleryReadPermissionState();
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-    state = await repairGalleryReadPermissionIfNeeded(state);
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-    if (isGalleryReadFullyAuthorized(state)) {
-      return (proceed: true, hideLimitedOverlay: false);
-    }
-
-    final confirmed = await AppConfirmDialog.show(
-      context,
-      title: l10n.chatGalleryReadPermissionTitle,
-      content: l10n.chatGalleryReadPermissionBody,
-      confirmLabel: l10n.chatGalleryReadPermissionConfirm,
-      icon: LucideIcons.images,
-    );
-    if (!confirmed || !mounted) return (proceed: false, hideLimitedOverlay: false);
-
-    state = await requestGalleryReadPermission();
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-
-    if (isGalleryReadFullyAuthorized(state)) {
-      return (proceed: true, hideLimitedOverlay: false);
-    }
-
-    if (state == PermissionState.limited) {
-      final openSettings = await AppConfirmDialog.show(
-        context,
-        title: l10n.chatGalleryReadPermissionTitle,
-        content: l10n.chatGalleryReadPermissionLimited,
-        confirmLabel: l10n.qrScannerOpenSettings,
-        cancelLabel: l10n.chatGalleryReadPermissionContinuePartial,
-        icon: LucideIcons.images,
-      );
-      if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-      if (openSettings) {
-        await openAppSettings();
-        return (proceed: false, hideLimitedOverlay: false);
-      }
-      return (proceed: true, hideLimitedOverlay: true);
-    }
-
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-    AppToast.show(context, message: l10n.chatGalleryReadPermissionDenied);
-    return (proceed: false, hideLimitedOverlay: false);
-  }
-
-  Future<List<PlatformFile>> _pickAssetsFromGallery({
-    bool hideLimitedOverlay = false,
-  }) async {
-    final assets = await AssetPicker.pickAssets(
-      context,
-      pickerConfig: AssetPickerConfig(
-        requestType: RequestType.common,
-        maxAssets: 999,
-        limitedPermissionOverlayPredicate:
-            hideLimitedOverlay ? (_) => false : null,
-        textDelegate: assetPickerTextDelegateFromLocale(
-          const Locale('zh', 'CN'),
-        ),
-      ),
-    );
-    if (assets == null || assets.isEmpty) return [];
-
-    final result = <PlatformFile>[];
-    for (final asset in assets) {
-      final file = await asset.file;
-      if (file == null) continue;
-      final stat = await file.stat();
-      if (stat.size <= 0) continue;
-      result.add(
-        PlatformFile(
-          name: await asset.titleAsync,
-          path: file.path,
-          size: stat.size,
-        ),
-      );
-    }
-    return result;
-  }
-
-  Future<List<PlatformFile>> _pickImageVideo() async {
-    if (!mounted) return [];
-    try {
-      final access = await _ensureGalleryReadForPicker();
-      if (!access.proceed) return [];
-      return await _pickAssetsFromGallery(
-        hideLimitedOverlay: access.hideLimitedOverlay,
-      );
-    } catch (e) {
-      logChat.warning('_pickImageVideo failed: $e');
-      return [];
-    }
-  }
-
-  Future<List<PlatformFile>> _pickFolder() async {
-    final dirPath = await FilePicker.platform.getDirectoryPath();
-    if (dirPath == null) return [];
-
-    final dir = Directory(dirPath);
-    if (!await dir.exists()) return [];
-
-    final result = <PlatformFile>[];
-    var listFailed = false;
-    try {
-      await for (final entity in dir.list(
-        recursive: true,
-        followLinks: false,
-      )) {
-        if (entity is File) {
-          try {
-            final stat = await entity.stat();
-            if (stat.size <= 0) continue;
-            result.add(
-              PlatformFile(
-                name: entity.path.split(Platform.pathSeparator).last,
-                path: entity.path,
-                size: stat.size,
-              ),
-            );
-          } catch (_) {}
-        }
-      }
-    } catch (e) {
-      listFailed = true;
-      logChat.warning('_pickFolder list failed: $e');
-    }
-
-    if (result.isEmpty && mounted) {
-      final message = Platform.isAndroid && listFailed
-          ? _l10n.chatScreenFolderSafTryFiles
-          : _l10n.chatScreenFolderEmpty;
-      AppToast.show(context, message: message);
-    }
-    return result;
-  }
-
-  Future<List<PlatformFile>> _pickApk() async {
-    _composerKey.currentState?.unfocus();
-    final picks = await Navigator.push<List<ApkPickResult>>(
-      context,
-      MaterialPageRoute(builder: (_) => const ApkPickerScreen()),
-    );
-    if (picks == null || picks.isEmpty) return [];
-
-    final result = <PlatformFile>[];
-    for (final pick in picks) {
-      final file = File(pick.path);
-      if (!await file.exists()) continue;
-      final stat = await file.stat();
-      if (stat.size <= 0) continue;
-      result.add(
-        PlatformFile(name: pick.displayName, path: pick.path, size: stat.size),
-      );
-    }
-    return result;
   }
 
   Future<void> _handleDesktopPasteFromClipboard(
