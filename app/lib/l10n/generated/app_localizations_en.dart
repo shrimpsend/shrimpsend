@@ -3446,6 +3446,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webdavTransferProgressComplete => 'Upload complete';
 
   @override
+  String get webdavTransferFailedStatus => 'Failed';
+
+  @override
+  String get webdavTransferViewError => 'View error';
+
+  @override
+  String get webdavTransferErrorTitle => 'Transfer failed';
+
+  @override
+  String get webdavTransferErrorUnknown => 'Unknown error';
+
+  @override
   String get webdavOutboxUpload => 'Upload to WebDAV';
 
   @override

@@ -8,6 +8,7 @@ import '../api/webdav.dart';
 import '../logger.dart';
 import 'webdav_credential_store.dart';
 import 'webdav_cstcloud.dart';
+import 'transfer_error_message.dart';
 
 final logWebDav = logSettings;
 
@@ -256,17 +257,29 @@ class WebDavClient {
       logWebDav.warning(
         'webdav request failed status=$status$detail message=${redactWebDavSecrets('$e')}',
       );
-      if (status != null) {
-        final body = _responseBodyFromError(e);
-        if (status == 403 &&
-            body.toLowerCase().contains('client type mismatch')) {
-          throw Exception('WebDAV 操作失败：$kCstCloudWebDavUploadBlockedMessage');
-        }
-        throw Exception('WebDAV 操作失败 (HTTP $status)');
-      }
-      throw Exception('WebDAV 操作失败');
+      throw Exception(userFacingWebDavError(e));
     }
   }
+}
+
+String userFacingWebDavError(Object error) {
+  if (error is DioException) {
+    final status = error.response?.statusCode;
+    if (status == 403) {
+      final body = _responseBodyFromError(error);
+      if (body.toLowerCase().contains('client type mismatch')) {
+        return 'WebDAV 操作失败：$kCstCloudWebDavUploadBlockedMessage';
+      }
+    }
+    return 'WebDAV 操作失败：${formatTransferErrorMessage(error)}';
+  }
+
+  final text = error.toString().trim();
+  if (text.isEmpty) return 'WebDAV 操作失败';
+  if (text.startsWith('Exception: ')) {
+    return text.substring('Exception: '.length);
+  }
+  return 'WebDAV 操作失败：$text';
 }
 
 String _responseBodyFromError(Object error) {

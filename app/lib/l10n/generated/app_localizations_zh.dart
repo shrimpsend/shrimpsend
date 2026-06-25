@@ -3299,6 +3299,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webdavTransferProgressComplete => '上传完成';
 
   @override
+  String get webdavTransferFailedStatus => '失败';
+
+  @override
+  String get webdavTransferViewError => '查看错误';
+
+  @override
+  String get webdavTransferErrorTitle => '传输失败';
+
+  @override
+  String get webdavTransferErrorUnknown => '未知错误';
+
+  @override
   String get webdavOutboxUpload => '上传到 WebDAV';
 
   @override

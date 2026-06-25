@@ -1516,6 +1516,10 @@
     }
   },
   "webdavTransferProgressComplete": "上传完成",
+  "webdavTransferFailedStatus": "失败",
+  "webdavTransferViewError": "查看错误",
+  "webdavTransferErrorTitle": "传输失败",
+  "webdavTransferErrorUnknown": "未知错误",
   "webdavOutboxUpload": "上传到 WebDAV",
   "webdavOutboxUploadTarget": "上传至 {path}",
   "@webdavOutboxUploadTarget": {

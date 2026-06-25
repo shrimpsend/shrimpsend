@@ -12,6 +12,7 @@ import 'received_file_dao.dart';
 import 'pending_dispatch_bridge.dart';
 import 'received_file_index_pipeline.dart';
 import 'speed_tracker.dart';
+import 'transfer_error_message.dart';
 import 'transfer_record.dart';
 import 'transfer_state_manager.dart';
 import 'transfer_status.dart';
@@ -55,6 +56,7 @@ class WebDavTransferSnapshot {
   final String status;
   final double bytesPerSecond;
   final String? webdavRemotePath;
+  final String? errorMessage;
 
   const WebDavTransferSnapshot({
     required this.transferId,
@@ -65,6 +67,7 @@ class WebDavTransferSnapshot {
     required this.status,
     required this.bytesPerSecond,
     this.webdavRemotePath,
+    this.errorMessage,
   });
 
   int get progressPercent =>
@@ -421,29 +424,34 @@ class WebDavTransferService extends ChangeNotifier {
           remotePath: entry.path,
         );
       } else {
-        await TransferStateManager.instance.markStatus(
-          transferId,
-          TransferStatus.failed,
+        await _markTransferFailed(
+          transferId: transferId,
+          fileName: entry.name,
+          fileSize: fileSize,
+          transferredBytes: record.transferredBytes,
+          direction: 'download',
+          remotePath: entry.path,
+          error: e,
+          tracker: tracker,
         );
-        _snapshots.remove(transferId);
-        _cancelTokens.remove(transferId);
-        _speedTrackers.remove(transferId);
-        _clearProgressPersist(transferId);
-        notifyListeners();
       }
       return false;
-    } catch (_) {
+    } catch (e) {
       await _flushProgressPersist(transferId);
-      await TransferStateManager.instance.markStatus(
-        transferId,
-        TransferStatus.failed,
+      await _markTransferFailed(
+        transferId: transferId,
+        fileName: entry.name,
+        fileSize: fileSize,
+        transferredBytes: record.transferredBytes,
+        direction: 'download',
+        remotePath: entry.path,
+        error: e,
+        tracker: tracker,
       );
-      _snapshots.remove(transferId);
+      return false;
+    } finally {
       _cancelTokens.remove(transferId);
       _speedTrackers.remove(transferId);
-      _clearProgressPersist(transferId);
-      notifyListeners();
-      return false;
     }
   }
 
@@ -628,27 +636,41 @@ class WebDavTransferService extends ChangeNotifier {
           remotePath: remotePath,
         );
       } else if (transferId != null) {
-        await TransferStateManager.instance.markStatus(
-          transferId,
-          TransferStatus.failed,
+        await _markTransferFailed(
+          transferId: transferId,
+          fileName: handle.fileName,
+          fileSize: handle.fileSize,
+          transferredBytes:
+              (await TransferStateManager.instance.getRecord(transferId))
+                      ?.transferredBytes ??
+                  0,
+          direction: 'upload',
+          remotePath: remotePath,
+          error: e,
+          tracker: _speedTrackers[transferId],
         );
-        _snapshots.remove(transferId);
-        notifyListeners();
         PendingDispatchBridge.notifySettled(heldPath, success: false);
         _recordUploadBatchFailure(connection.id);
       } else {
         PendingDispatchBridge.notifySettled(heldPath, success: false);
         _recordUploadBatchFailure(connection.id);
       }
-    } catch (_) {
+    } catch (e) {
       final transferId = handle.transferId;
       if (transferId != null && _snapshots.containsKey(transferId)) {
-        await TransferStateManager.instance.markStatus(
-          transferId,
-          TransferStatus.failed,
+        await _markTransferFailed(
+          transferId: transferId,
+          fileName: handle.fileName,
+          fileSize: handle.fileSize,
+          transferredBytes:
+              (await TransferStateManager.instance.getRecord(transferId))
+                      ?.transferredBytes ??
+                  0,
+          direction: 'upload',
+          remotePath: remotePath,
+          error: e,
+          tracker: _speedTrackers[transferId],
         );
-        _snapshots.remove(transferId);
-        notifyListeners();
       }
       PendingDispatchBridge.notifySettled(heldPath, success: false);
       _recordUploadBatchFailure(connection.id);
@@ -927,6 +949,7 @@ class WebDavTransferService extends ChangeNotifier {
         status: r.status,
         bytesPerSecond: 0,
         webdavRemotePath: r.webdavRemotePath,
+        errorMessage: r.errorMessage,
       );
     }
   }
@@ -959,6 +982,31 @@ class WebDavTransferService extends ChangeNotifier {
     _lastProgressPersist.remove(transferId);
   }
 
+  Future<void> _markTransferFailed({
+    required String transferId,
+    required String fileName,
+    required int fileSize,
+    required int transferredBytes,
+    required String direction,
+    required String remotePath,
+    required Object error,
+    SpeedTracker? tracker,
+  }) async {
+    final message = formatTransferErrorMessage(error);
+    await TransferStateManager.instance.markFailed(transferId, message);
+    _updateSnapshot(
+      transferId: transferId,
+      fileName: fileName,
+      fileSize: fileSize,
+      transferredBytes: transferredBytes,
+      direction: direction,
+      status: TransferStatus.failed,
+      tracker: tracker ?? SpeedTracker(),
+      remotePath: remotePath,
+      errorMessage: message,
+    );
+  }
+
   void _updateSnapshot({
     required String transferId,
     required String fileName,
@@ -968,6 +1016,7 @@ class WebDavTransferService extends ChangeNotifier {
     required String status,
     required SpeedTracker tracker,
     String? remotePath,
+    String? errorMessage,
   }) {
     _snapshots[transferId] = WebDavTransferSnapshot(
       transferId: transferId,
@@ -978,6 +1027,7 @@ class WebDavTransferService extends ChangeNotifier {
       status: status,
       bytesPerSecond: tracker.bytesPerSecond,
       webdavRemotePath: remotePath,
+      errorMessage: errorMessage,
     );
     notifyListeners();
   }

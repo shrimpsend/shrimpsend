@@ -11,7 +11,7 @@ import 'transfer_record.dart';
 import '../chat/thread_key.dart';
 import '../logger.dart';
 
-const _dbVersion = 8;
+const _dbVersion = 9;
 
 const _createTransferRecords = '''
 CREATE TABLE transfer_records (
@@ -36,7 +36,8 @@ CREATE TABLE transfer_records (
   webrtc_offset  INTEGER,
   webrtc_target_device_id TEXT,
   webdav_connection_id TEXT,
-  webdav_remote_path TEXT
+  webdav_remote_path TEXT,
+  error_message TEXT
 );
 
 CREATE INDEX idx_transfer_status ON transfer_records(status);
@@ -432,6 +433,13 @@ WHERE cache_path IS NULL OR cache_path = ''
       }
       await db.execute(_createWebDavFavorites);
       await db.execute(_createWebDavRecent);
+    }
+    if (oldVersion < 9) {
+      if (!await _tableHasColumn(db, 'transfer_records', 'error_message')) {
+        await db.execute(
+          'ALTER TABLE transfer_records ADD COLUMN error_message TEXT',
+        );
+      }
     }
   }
 

@@ -1969,6 +1969,10 @@
     }
   },
   "webdavTransferProgressComplete": "Upload complete",
+  "webdavTransferFailedStatus": "Failed",
+  "webdavTransferViewError": "View error",
+  "webdavTransferErrorTitle": "Transfer failed",
+  "webdavTransferErrorUnknown": "Unknown error",
   "webdavOutboxUpload": "Upload to WebDAV",
   "webdavOutboxUploadTarget": "Upload to {path}",
   "@webdavOutboxUploadTarget": {

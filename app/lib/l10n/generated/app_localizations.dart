@@ -6060,6 +6060,30 @@ abstract class AppLocalizations {
   /// **'Upload complete'**
   String get webdavTransferProgressComplete;
 
+  /// No description provided for @webdavTransferFailedStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get webdavTransferFailedStatus;
+
+  /// No description provided for @webdavTransferViewError.
+  ///
+  /// In en, this message translates to:
+  /// **'View error'**
+  String get webdavTransferViewError;
+
+  /// No description provided for @webdavTransferErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer failed'**
+  String get webdavTransferErrorTitle;
+
+  /// No description provided for @webdavTransferErrorUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown error'**
+  String get webdavTransferErrorUnknown;
+
   /// No description provided for @webdavOutboxUpload.
   ///
   /// In en, this message translates to:
