@@ -315,16 +315,15 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       );
     }
 
-    return Material(
-      color: colors.surface,
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.12),
+    return ColoredBox(
+      color: colors.background,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Divider(height: 1, thickness: 1, color: colors.border),
           SafeArea(
             top: false,
+            minimum: EdgeInsets.zero,
             child: SizedBox(
               height: AppLayout.webDavBottomBarHeight,
               child: Row(
@@ -449,43 +448,47 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     final client = _client!;
     final transferUi = ref.watch(webDavTransferUiProvider(widget.connection.id));
     final activeTransfers = transferUi.activeCount;
+    final colors = context.appColors;
 
-    final body = Column(
-      children: [
-        Expanded(
-          child: IndexedStack(
-            index: _tabIndex,
-            children: [
-              WebDavFilesTab(
-                key: _filesTabKey,
-                connection: widget.connection,
-                client: client,
-                initialPath: _currentPath,
-                onPathChanged: (p) => _currentPath = p,
-                onSelectionChanged: _onTabSelectionChanged,
-                onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-              ),
-              WebDavRecentTab(
-                key: _recentTabKey,
-                connection: widget.connection,
-                client: client,
-                onOpenFolder: (path) => _switchToFilesTab(path: path),
-                onSelectionChanged: _onTabSelectionChanged,
-                onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-              ),
-              WebDavFavoritesTab(
-                key: _favoritesTabKey,
-                connection: widget.connection,
-                client: client,
-                onOpenFolder: (path) => _switchToFilesTab(path: path),
-                onSelectionChanged: _onTabSelectionChanged,
-                onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-              ),
-            ],
+    final body = ColoredBox(
+      color: colors.background,
+      child: Column(
+        children: [
+          Expanded(
+            child: IndexedStack(
+              index: _tabIndex,
+              children: [
+                WebDavFilesTab(
+                  key: _filesTabKey,
+                  connection: widget.connection,
+                  client: client,
+                  initialPath: _currentPath,
+                  onPathChanged: (p) => _currentPath = p,
+                  onSelectionChanged: _onTabSelectionChanged,
+                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                ),
+                WebDavRecentTab(
+                  key: _recentTabKey,
+                  connection: widget.connection,
+                  client: client,
+                  onOpenFolder: (path) => _switchToFilesTab(path: path),
+                  onSelectionChanged: _onTabSelectionChanged,
+                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                ),
+                WebDavFavoritesTab(
+                  key: _favoritesTabKey,
+                  connection: widget.connection,
+                  client: client,
+                  onOpenFolder: (path) => _switchToFilesTab(path: path),
+                  onSelectionChanged: _onTabSelectionChanged,
+                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                ),
+              ],
+            ),
           ),
-        ),
-        _buildWebDavBottomBar(context),
-      ],
+          _buildWebDavBottomBar(context),
+        ],
+      ),
     );
 
     return PopScope(
