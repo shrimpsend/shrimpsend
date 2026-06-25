@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
@@ -14,7 +13,7 @@ import '../utils/pending_files_merge.dart';
 import '../utils/runtime_platform.dart';
 import '../utils/toast.dart';
 
-typedef DesktopDropHandler = Future<void> Function(List<PlatformFile> files);
+typedef DesktopDropHandler = Future<void> Function(List<PendingFileEntry> entries);
 
 /// App-wide external file drop on desktop (mirrors [DesktopPasteDispatcher]).
 final class DesktopFileDropDispatcher {
@@ -40,19 +39,19 @@ final class DesktopFileDropDispatcher {
   }
 
   Future<void> dispatch(
-    List<PlatformFile> files, {
+    List<PendingFileEntry> entries, {
     GlobalKey<NavigatorState>? navigatorKey,
     Locale? locale,
   }) async {
-    if (files.isEmpty) return;
+    if (entries.isEmpty) return;
     if (_handlers.isNotEmpty) {
-      await _handlers.last.handler(files);
+      await _handlers.last.handler(entries);
       return;
     }
-    final added = await _persistFallback(files, navigatorKey: navigatorKey);
+    final added = await _persistFallback(entries, navigatorKey: navigatorKey);
     if (added) {
       _showFallbackToast(
-        files,
+        entries,
         navigatorKey: navigatorKey,
         locale: locale,
       );
@@ -60,43 +59,57 @@ final class DesktopFileDropDispatcher {
   }
 
   Future<bool> _persistFallback(
-    List<PlatformFile> files, {
+    List<PendingFileEntry> entries, {
     GlobalKey<NavigatorState>? navigatorKey,
   }) async {
     final ctx = navigatorKey?.currentContext;
     if (ctx != null && ctx.mounted) {
       final result = await ProviderScope.containerOf(ctx, listen: false)
           .read(pendingFilesProvider.notifier)
-          .add(
-            files.map((f) => PendingFileEntry.fromPlatformFile(f)).toList(),
-          );
+          .add(entries);
       return result.added > 0;
     }
     final existing = await PendingFilesStore.load();
-    final stabilized = await PendingFilesPathStabilizer.stabilizeAll(files);
+    final stabilized = await _stabilizeEntries(entries);
     if (stabilized.isEmpty) return false;
-    final incoming = stabilized
-        .map((f) => PendingFileEntry.fromPlatformFile(f))
-        .toList();
-    final merged = mergePendingFileEntries(existing.entries, incoming);
+    final merged = mergePendingFileEntries(existing.entries, stabilized);
     await PendingFilesStore.save(merged);
     return merged.length > existing.entries.length;
   }
 
+  Future<List<PendingFileEntry>> _stabilizeEntries(
+    List<PendingFileEntry> incoming,
+  ) async {
+    final result = <PendingFileEntry>[];
+    for (final entry in incoming) {
+      final stabilized = await PendingFilesPathStabilizer.stabilizeOne(
+        entry.file,
+      );
+      if (stabilized == null) continue;
+      result.add(
+        PendingFileEntry.fromPlatformFile(
+          stabilized,
+          relativeSubPath: entry.relativeSubPath,
+        ),
+      );
+    }
+    return result;
+  }
+
   void _showFallbackToast(
-    List<PlatformFile> files, {
+    List<PendingFileEntry> entries, {
     GlobalKey<NavigatorState>? navigatorKey,
     Locale? locale,
   }) {
-    if (files.isEmpty) return;
+    if (entries.isEmpty) return;
     final ctx = navigatorKey?.currentContext;
     if (ctx == null || !ctx.mounted) return;
     final loc = locale != null
         ? lookupAppLocalizations(locale)
         : AppLocalizations.of(ctx);
-    final message = files.length == 1
-        ? loc.fmPendingAddedOne(files.first.name)
-        : loc.fmPendingAddedMany(files.length);
+    final message = entries.length == 1
+        ? loc.fmPendingAddedOne(entries.first.file.name)
+        : loc.fmPendingAddedMany(entries.length);
     AppToast.show(ctx, message: message);
   }
 }
@@ -182,11 +195,11 @@ class _DesktopFileDropScopeBodyState extends State<_DesktopFileDropScopeBody> {
   Future<void> _onPerformDrop(PerformDropEvent event) async {
     _dispatcher.isHovering.value = false;
     try {
-      final files = await platformFilesFromPerformDrop(event);
-      if (files.isEmpty) return;
-      logChat.info('desktop drop accepted count=${files.length}');
+      final entries = await pendingEntriesFromPerformDrop(event);
+      if (entries.isEmpty) return;
+      logChat.info('desktop drop accepted count=${entries.length}');
       await _dispatcher.dispatch(
-        files,
+        entries,
         navigatorKey: widget.navigatorKey,
         locale: widget.locale,
       );

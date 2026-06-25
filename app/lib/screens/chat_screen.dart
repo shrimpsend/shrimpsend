@@ -4816,9 +4816,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  Future<void> _handleDesktopDropFiles(List<PlatformFile> files) async {
-    if (!_isDesktopPlatform || files.isEmpty || !mounted) return;
-    final ok = await _addPendingPlatformFiles(files);
+  Future<void> _handleDesktopDropFiles(List<PendingFileEntry> entries) async {
+    if (!_isDesktopPlatform || entries.isEmpty || !mounted) return;
+    final ok = await _addPendingFiles(entries);
     if (!ok && mounted) {
       AppToast.show(
         context,

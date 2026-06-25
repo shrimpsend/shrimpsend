@@ -4,13 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 
 import '../l10n/generated/app_localizations.dart';
 import '../models/pending_file_entry.dart';
 import '../screens/apk_picker_screen.dart';
+import '../utils/pending_folder_expand.dart';
 import '../utils/gallery_permission.dart';
 import '../utils/runtime_platform.dart';
 import '../utils/toast.dart';
@@ -190,36 +190,13 @@ final class AttachmentPickerService {
     final dir = Directory(dirPath);
     if (!await dir.exists()) return [];
 
-    final normalizedRoot = p.normalize(dirPath);
-    final result = <PendingFileEntry>[];
     var listFailed = false;
+    List<PendingFileEntry> result;
     try {
-      await for (final entity in dir.list(
-        recursive: true,
-        followLinks: false,
-      )) {
-        if (entity is File) {
-          try {
-            final stat = await entity.stat();
-            if (stat.size <= 0) continue;
-            final relativeSubPath = p
-                .relative(p.normalize(entity.path), from: normalizedRoot)
-                .replaceAll('\\', '/');
-            result.add(
-              PendingFileEntry.fromPlatformFile(
-                PlatformFile(
-                  name: p.basename(entity.path),
-                  path: entity.path,
-                  size: stat.size,
-                ),
-                relativeSubPath: relativeSubPath,
-              ),
-            );
-          } catch (_) {}
-        }
-      }
+      result = await expandDirectoryToPendingEntries(dirPath);
     } catch (e) {
       listFailed = true;
+      result = [];
       _log.warning('pickFolder list failed: $e');
     }
 
