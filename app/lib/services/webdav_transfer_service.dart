@@ -13,6 +13,7 @@ import 'speed_tracker.dart';
 import 'transfer_record.dart';
 import 'transfer_state_manager.dart';
 import 'transfer_status.dart';
+import 'webdav_cstcloud.dart';
 import 'webdav_session.dart';
 import 'visible_export_target.dart';
 
@@ -141,6 +142,9 @@ class WebDavTransferService extends ChangeNotifier {
     required String relativeDir,
     required List<({String name, String localPath, int size})> files,
   }) async {
+    if (cstCloudWebDavBlocksGeneralUpload(connection.baseUrl)) {
+      return;
+    }
     for (final file in files) {
       final remote = relativeDir.isEmpty
           ? file.name

@@ -3219,7 +3219,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webdavFormClientAppHint =>
-      'Data Capsule WebDAV only supports Zotero (8+); use credentials from the console';
+      'Data Capsule WebDAV is for Zotero sync. In ShrimpSend you can browse and download only — not upload.';
 
   @override
   String get webdavClientAppZotero => 'Zotero (8+)';
@@ -3229,6 +3229,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webdavTestConnection => 'Test connection';
+
+  @override
+  String get webdavDiagnoseUpload => 'Diagnose upload';
+
+  @override
+  String get webdavDiagnoseUploadRunning => 'Running upload diagnostics…';
+
+  @override
+  String get webdavDiagnoseUploadTitle => 'Upload diagnostic results';
+
+  @override
+  String webdavDiagnoseUploadFailed(String error) {
+    return 'Diagnostic failed: $error';
+  }
+
+  @override
+  String get webdavCstCloudReadOnlyBanner =>
+      'Data Capsule WebDAV does not support uploads — browse and download only. To upload files, use Settings → S3.';
+
+  @override
+  String get webdavCstCloudUploadNotSupported =>
+      'Data Capsule WebDAV does not support uploads. You can only browse and download files here.';
 
   @override
   String get webdavTestSuccess => 'Connection successful';

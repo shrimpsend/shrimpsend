@@ -32,8 +32,13 @@ class Client {
   // methods--------------------------------
 
   /// Set the public request headers
-  void setHeaders(Map<String, dynamic> headers) =>
-      this.c.options.headers = headers;
+  void setHeaders(Map<String, dynamic> headers) {
+    c.options.headers = headers;
+    final ua = headers['User-Agent'] ?? headers['user-agent'];
+    if (ua is String) {
+      c.configureUserAgent(ua);
+    }
+  }
 
   /// Set the connection server timeout time in milliseconds.
   void setConnectTimeout(int timeout) =>
@@ -196,6 +201,7 @@ class Client {
       this,
       path,
       data,
+      contentType: contentTypeForFileName(path),
       onProgress: onProgress,
       cancelToken: cancelToken,
     );
@@ -214,6 +220,7 @@ class Client {
       path,
       file.openRead(),
       file.lengthSync(),
+      contentType: contentTypeForFileName(localFilePath),
       onProgress: onProgress,
       cancelToken: cancelToken,
     );
@@ -223,10 +230,17 @@ class Client {
 /// create new client
 Client newClient(String uri,
     {String user = '', String password = '', bool debug = false, AuthType? authType}) {
+  final hasCreds = user.isNotEmpty && password.isNotEmpty;
   return Client(
     uri: fixSlash(uri),
-    c: WdDio(debug: debug, detectedAuthType: authType),
-    auth: Auth(user: user, pwd: password),
+    c: WdDio(
+      debug: debug,
+      detectedAuthType:
+          authType ?? (hasCreds ? AuthType.BasicAuth : null),
+    ),
+    auth: hasCreds
+        ? BasicAuth(user: user, pwd: password)
+        : Auth(user: user, pwd: password),
     debug: debug,
   );
 }

@@ -127,3 +127,47 @@ String path2Name(String path) {
   }
   return str;
 }
+
+const _mimeByExtension = {
+  'jpg': 'image/jpeg',
+  'jpeg': 'image/jpeg',
+  'png': 'image/png',
+  'gif': 'image/gif',
+  'webp': 'image/webp',
+  'heic': 'image/heic',
+  'bmp': 'image/bmp',
+  'pdf': 'application/pdf',
+  'txt': 'text/plain',
+  'html': 'text/html',
+  'htm': 'text/html',
+  'json': 'application/json',
+  'xml': 'application/xml',
+  'doc': 'application/msword',
+  'docx':
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'xls': 'application/vnd.ms-excel',
+  'xlsx':
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'ppt': 'application/vnd.ms-powerpoint',
+  'pptx':
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'zip': 'application/zip',
+  'rar': 'application/vnd.rar',
+  '7z': 'application/x-7z-compressed',
+  'mp4': 'video/mp4',
+  'mov': 'video/quicktime',
+  'avi': 'video/x-msvideo',
+  'mkv': 'video/x-matroska',
+  'webm': 'video/webm',
+  'mp3': 'audio/mpeg',
+  'wav': 'audio/wav',
+};
+
+String contentTypeForFileName(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) return 'application/octet-stream';
+  final base = trimmed.replaceAll('\\', '/').split('/').last;
+  if (!base.contains('.')) return 'application/octet-stream';
+  final ext = base.split('.').last.toLowerCase();
+  return _mimeByExtension[ext] ?? 'application/octet-stream';
+}

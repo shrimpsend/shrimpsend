@@ -87,7 +87,9 @@
 
 WebDAV 与 S3 使用相同的 `*.cstcloud.cn` 域名与 CFCA 证书链。若后端测试连接出现 `SSLHandshakeException` / PKIX 错误，原因与上表 S3 相同；升级至已修复版本后，后端会自动补充 CFCA 信任链完成探测。
 
-创建 WebDAV 凭证时，控制台仅支持 **Zotero（8 及以上）**。虾传会自动使用 Zotero User-Agent；请使用控制台生成的 WebDAV 用户名与密码（不是登录密码）。
+创建 WebDAV 凭证时，控制台仅支持 **Zotero（8 及以上）**。虾传会自动使用 Zotero User-Agent 进行浏览与下载；请使用控制台生成的 WebDAV 用户名与密码（不是登录密码）。
+
+**重要：** 数据胶囊 WebDAV **不支持在虾传中上传文件**，仅支持**浏览和下载**已有内容。如需上传文件，请改用 **设置 → S3** 配置数据胶囊 S3 连接。
 
 ## CORS（Web 端）
 

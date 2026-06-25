@@ -8,6 +8,7 @@ import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/pending_files_provider.dart';
 import '../providers/webdav_provider.dart';
+import '../services/webdav_cstcloud.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
@@ -49,7 +50,9 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   final _favoritesTabKey = GlobalKey<WebDavVirtualEntryTabState>();
   String _currentPath = '';
 
-  bool get _showOutboxButton => !_selectionMode;
+  bool get _showOutboxButton =>
+      !_selectionMode &&
+      !cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl);
 
   WebDavBrowsableTabController? _activeTabController() {
     return switch (_tabIndex) {
@@ -229,6 +232,14 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         onExecute: (queued) async {
           final filesTab = _filesTabKey.currentState;
           if (filesTab == null) return;
+          if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
+            if (!mounted) return;
+            AppToast.show(
+              context,
+              message: l10n.webdavCstCloudUploadNotSupported,
+            );
+            return;
+          }
           filesTab.queuePlatformFileUploads(queued);
           if (!mounted) return;
           AppToast.show(

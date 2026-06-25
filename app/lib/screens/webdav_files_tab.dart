@@ -12,6 +12,7 @@ import '../providers/webdav_provider.dart';
 import '../services/local_received_file_resolver.dart';
 import '../services/received_file_dao.dart';
 import '../services/webdav_favorite_dao.dart';
+import '../services/webdav_cstcloud.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
@@ -234,6 +235,12 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
   }
 
   void queuePlatformFileUploads(List<PlatformFile> files) {
+    if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      AppToast.show(context, message: l10n.webdavCstCloudUploadNotSupported);
+      return;
+    }
     final uploads = <({String name, String localPath, int size})>[];
     for (final file in files) {
       final path = file.path;
@@ -364,6 +371,16 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
               setState(() => _searchQuery = '');
             },
           ),
+        if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl))
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              0,
+            ),
+            child: _CstCloudReadOnlyBanner(message: l10n.webdavCstCloudReadOnlyBanner),
+          ),
         Expanded(
           child: WebDavEntrySurfaceShell(
             header: Padding(
@@ -408,7 +425,8 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
                       ),
                     ),
                   ),
-                  if (!_selectionMode) ...[
+                  if (!_selectionMode &&
+                      !cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) ...[
                     IconButton(
                       icon: Icon(
                         _viewMode == WebDavViewMode.list
@@ -427,6 +445,20 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
                       visualDensity: VisualDensity.compact,
                       tooltip: l10n.webdavActionNewFolder,
                       onPressed: _createFolder,
+                    ),
+                  ] else if (!_selectionMode) ...[
+                    IconButton(
+                      icon: Icon(
+                        _viewMode == WebDavViewMode.list
+                            ? LucideIcons.layoutGrid
+                            : LucideIcons.list,
+                        size: 18,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: _viewMode == WebDavViewMode.list
+                          ? l10n.webdavViewGrid
+                          : l10n.webdavViewList,
+                      onPressed: _toggleViewMode,
                     ),
                   ],
                 ],
@@ -470,11 +502,60 @@ class _BreadcrumbChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ActionChip(
-      label: Text(label),
-      onPressed: onTap,
-      visualDensity: VisualDensity.compact,
-      labelStyle: theme.textTheme.bodySmall,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.small,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xxs,
+          vertical: 2,
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CstCloudReadOnlyBanner extends StatelessWidget {
+  final String message;
+
+  const _CstCloudReadOnlyBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: colors.warningSurface,
+        borderRadius: AppRadius.small,
+        border: Border.all(color: colors.warning.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.info, size: 18, color: colors.warning),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

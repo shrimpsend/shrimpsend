@@ -1358,10 +1358,21 @@
   "webdavFormPasswordHintEdit": "留空则不修改",
   "webdavFormRootPath": "根路径",
   "webdavFormClientApp": "客户端应用",
-  "webdavFormClientAppHint": "数据胶囊 WebDAV 仅支持 Zotero（8 及以上），请使用控制台创建的凭证",
+  "webdavFormClientAppHint": "数据胶囊 WebDAV 仅供 Zotero 同步；在虾传中仅支持浏览和下载，不支持上传",
   "webdavClientAppZotero": "Zotero（8 及以上）",
   "webdavPasswordRequired": "请输入密码",
   "webdavTestConnection": "测试连接",
+  "webdavDiagnoseUpload": "诊断上传",
+  "webdavDiagnoseUploadRunning": "正在诊断上传…",
+  "webdavDiagnoseUploadTitle": "上传诊断结果",
+  "webdavDiagnoseUploadFailed": "诊断失败：{error}",
+  "@webdavDiagnoseUploadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavCstCloudReadOnlyBanner": "数据胶囊 WebDAV 不支持上传，仅可浏览和下载已有文件。如需上传，请使用 设置 → S3。",
+  "webdavCstCloudUploadNotSupported": "数据胶囊 WebDAV 不支持上传，仅可浏览和下载。",
   "webdavTestSuccess": "连接成功",
   "webdavTestFailed": "连接测试失败：{error}",
   "@webdavTestFailed": {

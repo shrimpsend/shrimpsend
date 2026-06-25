@@ -3073,7 +3073,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webdavFormClientAppHint =>
-      '数据胶囊 WebDAV 仅支持 Zotero（8 及以上），请使用控制台创建的凭证';
+      '数据胶囊 WebDAV 仅供 Zotero 同步；在虾传中仅支持浏览和下载，不支持上传';
 
   @override
   String get webdavClientAppZotero => 'Zotero（8 及以上）';
@@ -3083,6 +3083,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webdavTestConnection => '测试连接';
+
+  @override
+  String get webdavDiagnoseUpload => '诊断上传';
+
+  @override
+  String get webdavDiagnoseUploadRunning => '正在诊断上传…';
+
+  @override
+  String get webdavDiagnoseUploadTitle => '上传诊断结果';
+
+  @override
+  String webdavDiagnoseUploadFailed(String error) {
+    return '诊断失败：$error';
+  }
+
+  @override
+  String get webdavCstCloudReadOnlyBanner =>
+      '数据胶囊 WebDAV 不支持上传，仅可浏览和下载已有文件。如需上传，请使用 设置 → S3。';
+
+  @override
+  String get webdavCstCloudUploadNotSupported => '数据胶囊 WebDAV 不支持上传，仅可浏览和下载。';
 
   @override
   String get webdavTestSuccess => '连接成功';

@@ -5691,7 +5691,7 @@ abstract class AppLocalizations {
   /// No description provided for @webdavFormClientAppHint.
   ///
   /// In en, this message translates to:
-  /// **'Data Capsule WebDAV only supports Zotero (8+); use credentials from the console'**
+  /// **'Data Capsule WebDAV is for Zotero sync. In ShrimpSend you can browse and download only — not upload.'**
   String get webdavFormClientAppHint;
 
   /// No description provided for @webdavClientAppZotero.
@@ -5711,6 +5711,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Test connection'**
   String get webdavTestConnection;
+
+  /// No description provided for @webdavDiagnoseUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnose upload'**
+  String get webdavDiagnoseUpload;
+
+  /// No description provided for @webdavDiagnoseUploadRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Running upload diagnostics…'**
+  String get webdavDiagnoseUploadRunning;
+
+  /// No description provided for @webdavDiagnoseUploadTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload diagnostic results'**
+  String get webdavDiagnoseUploadTitle;
+
+  /// No description provided for @webdavDiagnoseUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic failed: {error}'**
+  String webdavDiagnoseUploadFailed(String error);
+
+  /// No description provided for @webdavCstCloudReadOnlyBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Capsule WebDAV does not support uploads — browse and download only. To upload files, use Settings → S3.'**
+  String get webdavCstCloudReadOnlyBanner;
+
+  /// No description provided for @webdavCstCloudUploadNotSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Capsule WebDAV does not support uploads. You can only browse and download files here.'**
+  String get webdavCstCloudUploadNotSupported;
 
   /// No description provided for @webdavTestSuccess.
   ///

@@ -7,6 +7,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../providers/webdav_provider.dart';
 import '../../screens/webdav_connection_screen.dart';
 import '../../services/webdav_credential_store.dart';
+import '../../services/webdav_session.dart';
 import '../../ui/app_ui.dart';
 import '../../utils/toast.dart';
 import '../app_confirm_dialog.dart';
@@ -58,6 +59,59 @@ Future<void> showWebDavConnectionMenu(
               } catch (e) {
                 if (!context.mounted) return;
                 AppToast.show(context, message: l10n.webdavTestFailed('$e'));
+              }
+            },
+          ),
+          ListTile(
+            leading: Icon(LucideIcons.stethoscope, color: theme.colorScheme.primary),
+            title: Text(l10n.webdavDiagnoseUpload),
+            onTap: () async {
+              Navigator.pop(ctx);
+              if (!context.mounted) return;
+              showDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (dialogCtx) => AlertDialog(
+                  content: Row(
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(width: 16),
+                      Expanded(child: Text(l10n.webdavDiagnoseUploadRunning)),
+                    ],
+                  ),
+                ),
+              );
+              try {
+                final creds = await resolveWebDavCredentials(
+                  conn.id,
+                  forceRefresh: true,
+                );
+                final client = WebDavClient(creds);
+                final lines = await client.diagnoseUpload();
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                await showDialog<void>(
+                  context: context,
+                  builder: (resultCtx) => AlertDialog(
+                    title: Text(l10n.webdavDiagnoseUploadTitle),
+                    content: SingleChildScrollView(
+                      child: SelectableText(lines.join('\n\n')),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(resultCtx),
+                        child: Text(l10n.confirm),
+                      ),
+                    ],
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                AppToast.show(
+                  context,
+                  message: l10n.webdavDiagnoseUploadFailed('$e'),
+                );
               }
             },
           ),

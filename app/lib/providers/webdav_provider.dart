@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api.dart';
 import '../services/webdav_credential_store.dart';
+import '../services/webdav_cstcloud.dart';
 import '../services/webdav_favorite_dao.dart';
 import '../services/webdav_recent_dao.dart';
 import '../services/webdav_transfer_service.dart';
@@ -124,7 +125,9 @@ Future<WebDavCredentials> resolveWebDavCredentials(
 }) async {
   if (!forceRefresh) {
     final cached = await WebDavCredentialStore.instance.read(connectionId);
-    if (cached != null) return cached;
+    if (cached != null && !cstCloudNeedsCredentialRefresh(cached)) {
+      return cached;
+    }
   }
   final creds = await fetchWebDavCredentials(connectionId);
   await WebDavCredentialStore.instance.write(connectionId, creds);
