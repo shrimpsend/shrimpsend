@@ -8,6 +8,7 @@ import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/pending_files_provider.dart';
 import '../providers/webdav_provider.dart';
+import '../services/webdav_cstcloud.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
@@ -16,7 +17,7 @@ import '../widgets/pending_files_bar.dart';
 import 'webdav/webdav_browsable_tab.dart';
 import 'webdav_files_tab.dart';
 import 'webdav_recent_favorites_tab.dart';
-import 'webdav_settings_tab.dart';
+import 'webdav_connection_screen.dart';
 import 'webdav_transfer_list_screen.dart';
 
 class WebDavShellScreen extends ConsumerStatefulWidget {
@@ -49,7 +50,9 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   final _favoritesTabKey = GlobalKey<WebDavVirtualEntryTabState>();
   String _currentPath = '';
 
-  bool get _showOutboxButton => !_selectionMode;
+  bool get _showOutboxButton =>
+      !_selectionMode &&
+      !cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl);
 
   WebDavBrowsableTabController? _activeTabController() {
     return switch (_tabIndex) {
@@ -119,6 +122,15 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       );
       if (!mounted) return;
       setState(() => _loading = false);
+      if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          AppToast.show(
+            context,
+            message: AppLocalizations.of(context).webdavCstCloudReadOnlyToast,
+          );
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -152,8 +164,10 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     final connectionId = widget.connection.id;
     if (index == 1) {
       ref.invalidate(webDavRecentProvider(connectionId));
+      _recentTabKey.currentState?.refreshEntries();
     } else if (index == 2) {
       ref.invalidate(webDavFavoritesProvider(connectionId));
+      _favoritesTabKey.currentState?.refreshEntries();
     }
   }
 
@@ -200,12 +214,22 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     );
   }
 
-  void _openSettings() {
-    showWebDavSettingsSheet(
+  Color _contentBackground(BuildContext context) =>
+      Theme.of(context).scaffoldBackgroundColor;
+
+  void _openSettings() async {
+    final ok = await Navigator.push<bool>(
       context,
-      connection: widget.connection,
-      onSwitchConnection: () => Navigator.pop(context),
+      MaterialPageRoute(
+        builder: (_) => WebDavConnectionScreen(
+          connectionId: widget.connection.id,
+        ),
+      ),
     );
+    if (ok == true && mounted) {
+      await ref.read(webDavConnectionsProvider.notifier).refresh();
+      await _init();
+    }
   }
 
   String _uploadTargetLabel(AppLocalizations l10n) {
@@ -229,6 +253,14 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         onExecute: (queued) async {
           final filesTab = _filesTabKey.currentState;
           if (filesTab == null) return;
+          if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
+            if (!mounted) return;
+            AppToast.show(
+              context,
+              message: l10n.webdavCstCloudUploadNotSupported,
+            );
+            return;
+          }
           filesTab.queuePlatformFileUploads(queued);
           if (!mounted) return;
           AppToast.show(
@@ -244,6 +276,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
+    final contentBg = _contentBackground(context);
     final pendingCount = ref.watch(pendingFilesProvider).length;
 
     Widget tab({
@@ -295,16 +328,15 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       );
     }
 
-    return Material(
-      color: colors.surface,
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.12),
+    return ColoredBox(
+      color: contentBg,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Divider(height: 1, thickness: 1, color: colors.border),
           SafeArea(
             top: false,
+            minimum: EdgeInsets.zero,
             child: SizedBox(
               height: AppLayout.webDavBottomBarHeight,
               child: Row(
@@ -429,43 +461,47 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     final client = _client!;
     final transferUi = ref.watch(webDavTransferUiProvider(widget.connection.id));
     final activeTransfers = transferUi.activeCount;
+    final contentBg = _contentBackground(context);
 
-    final body = Column(
-      children: [
-        Expanded(
-          child: IndexedStack(
-            index: _tabIndex,
-            children: [
-              WebDavFilesTab(
-                key: _filesTabKey,
-                connection: widget.connection,
-                client: client,
-                initialPath: _currentPath,
-                onPathChanged: (p) => _currentPath = p,
-                onSelectionChanged: _onTabSelectionChanged,
-                onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-              ),
-              WebDavRecentTab(
-                key: _recentTabKey,
-                connection: widget.connection,
-                client: client,
-                onOpenFolder: (path) => _switchToFilesTab(path: path),
-                onSelectionChanged: _onTabSelectionChanged,
-                onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-              ),
-              WebDavFavoritesTab(
-                key: _favoritesTabKey,
-                connection: widget.connection,
-                client: client,
-                onOpenFolder: (path) => _switchToFilesTab(path: path),
-                onSelectionChanged: _onTabSelectionChanged,
-                onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-              ),
-            ],
+    final body = ColoredBox(
+      color: contentBg,
+      child: Column(
+        children: [
+          Expanded(
+            child: IndexedStack(
+              index: _tabIndex,
+              children: [
+                WebDavFilesTab(
+                  key: _filesTabKey,
+                  connection: widget.connection,
+                  client: client,
+                  initialPath: _currentPath,
+                  onPathChanged: (p) => _currentPath = p,
+                  onSelectionChanged: _onTabSelectionChanged,
+                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                ),
+                WebDavRecentTab(
+                  key: _recentTabKey,
+                  connection: widget.connection,
+                  client: client,
+                  onOpenFolder: (path) => _switchToFilesTab(path: path),
+                  onSelectionChanged: _onTabSelectionChanged,
+                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                ),
+                WebDavFavoritesTab(
+                  key: _favoritesTabKey,
+                  connection: widget.connection,
+                  client: client,
+                  onOpenFolder: (path) => _switchToFilesTab(path: path),
+                  onSelectionChanged: _onTabSelectionChanged,
+                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                ),
+              ],
+            ),
           ),
-        ),
-        _buildWebDavBottomBar(context),
-      ],
+          _buildWebDavBottomBar(context),
+        ],
+      ),
     );
 
     return PopScope(
@@ -502,11 +538,16 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   }
 
   Widget _wrapShell(BuildContext context, PreferredSizeWidget appBar, Widget body) {
-    return Scaffold(
-      primary: !widget.embedded,
-      resizeToAvoidBottomInset: false,
-      appBar: appBar,
-      body: body,
+    final contentBg = _contentBackground(context);
+    return ColoredBox(
+      color: contentBg,
+      child: Scaffold(
+        primary: !widget.embedded,
+        resizeToAvoidBottomInset: false,
+        backgroundColor: contentBg,
+        appBar: appBar,
+        body: body,
+      ),
     );
   }
 
@@ -579,7 +620,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       IconButton(
         icon: const Icon(LucideIcons.settings),
         onPressed: _openSettings,
-        tooltip: l10n.webdavTabSettings,
+        tooltip: l10n.webdavEditConnection,
       ),
     ];
   }

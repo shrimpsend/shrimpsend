@@ -10,6 +10,7 @@ class WebDavConnectionSummary {
   final String name;
   final String baseUrl;
   final String rootPath;
+  final String? clientApp;
   final DateTime? updatedAt;
 
   const WebDavConnectionSummary({
@@ -17,6 +18,7 @@ class WebDavConnectionSummary {
     required this.name,
     required this.baseUrl,
     required this.rootPath,
+    this.clientApp,
     this.updatedAt,
   });
 
@@ -26,6 +28,7 @@ class WebDavConnectionSummary {
       name: j['name'] as String? ?? '',
       baseUrl: j['baseUrl'] as String? ?? '',
       rootPath: j['rootPath'] as String? ?? '/',
+      clientApp: j['clientApp'] as String?,
       updatedAt: j['updatedAt'] != null
           ? DateTime.tryParse(j['updatedAt'].toString())
           : null,
@@ -38,12 +41,16 @@ class WebDavCredentials {
   final String password;
   final String baseUrl;
   final String rootPath;
+  final String? clientApp;
+  final String? userAgent;
 
   const WebDavCredentials({
     required this.username,
     required this.password,
     required this.baseUrl,
     required this.rootPath,
+    this.clientApp,
+    this.userAgent,
   });
 
   factory WebDavCredentials.fromJson(Map<String, dynamic> j) {
@@ -52,6 +59,8 @@ class WebDavCredentials {
       password: j['password'] as String? ?? '',
       baseUrl: j['baseUrl'] as String? ?? '',
       rootPath: j['rootPath'] as String? ?? '/',
+      clientApp: j['clientApp'] as String?,
+      userAgent: j['userAgent'] as String?,
     );
   }
 
@@ -60,6 +69,8 @@ class WebDavCredentials {
     'password': password,
     'baseUrl': baseUrl,
     'rootPath': rootPath,
+    if (clientApp != null) 'clientApp': clientApp,
+    if (userAgent != null) 'userAgent': userAgent,
   };
 }
 
@@ -83,6 +94,7 @@ class WebDavConnectionRequest {
   final String? username;
   final String? password;
   final String? rootPath;
+  final String? clientApp;
 
   const WebDavConnectionRequest({
     required this.name,
@@ -90,6 +102,7 @@ class WebDavConnectionRequest {
     this.username,
     this.password,
     this.rootPath,
+    this.clientApp,
   });
 
   Map<String, dynamic> toJson() => {
@@ -98,6 +111,7 @@ class WebDavConnectionRequest {
     if (username != null && username!.isNotEmpty) 'username': username,
     if (password != null && password!.isNotEmpty) 'password': password,
     if (rootPath != null) 'rootPath': rootPath,
+    if (clientApp != null && clientApp!.isNotEmpty) 'clientApp': clientApp,
   };
 }
 

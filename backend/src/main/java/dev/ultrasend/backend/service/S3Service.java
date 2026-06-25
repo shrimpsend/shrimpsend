@@ -5,9 +5,10 @@ import dev.ultrasend.backend.entity.S3Config;
 import dev.ultrasend.backend.entity.User;
 import dev.ultrasend.backend.repository.S3ConfigRepository;
 import dev.ultrasend.backend.repository.UserRepository;
-import dev.ultrasend.backend.s3.S3ClientAppSupport;
+import dev.ultrasend.backend.cstcloud.CstCloudClientAppSupport;
 import dev.ultrasend.backend.s3.S3ProviderCatalog;
 import dev.ultrasend.backend.s3.S3ProviderId;
+import dev.ultrasend.backend.tls.CstCloudTlsSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,9 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.*;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
+
+import javax.net.ssl.TrustManager;
 
 import java.net.URI;
 import java.net.URLDecoder;
@@ -106,7 +110,7 @@ public class S3Service {
     @Transactional
     public void saveConfig(Long userId, S3ConfigRequest req) {
         String providerId = resolveProviderIdForSave(req);
-        S3ClientAppSupport.validateClientAppForProvider(providerId, req.getClientApp());
+        CstCloudClientAppSupport.validateS3ClientAppForProvider(providerId, req.getClientApp());
         User user = userRepository.findById(userId).orElseThrow();
         S3Config config = s3ConfigRepository.findByUserId(userId)
                 .orElse(S3Config.builder().user(user).build());
@@ -272,9 +276,16 @@ public class S3Service {
             log.warn("s3 serverProbe failed userId={} bucket={} httpStatus={} error={}",
                     userId, config.getBucket(), e.statusCode(), serverError);
         } catch (Exception e) {
-            serverProbe = "failed";
             serverError = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            log.warn("s3 serverProbe failed userId={} bucket={} error={}", userId, config.getBucket(), serverError, e);
+            if (CstCloudTlsSupport.isSslProbeError(serverError, e)) {
+                serverProbe = "ssl_failed";
+                log.warn("s3 serverProbe ssl_failed userId={} bucket={} error={}", userId, config.getBucket(),
+                        serverError);
+            } else {
+                serverProbe = "failed";
+                log.warn("s3 serverProbe failed userId={} bucket={} error={}", userId, config.getBucket(), serverError,
+                        e);
+            }
         }
 
         try (PresignerSession session = openPresigner(userId, config)) {
@@ -581,13 +592,13 @@ public class S3Service {
     }
 
     private static String resolveByoUserAgent(S3Config config) {
-        return S3ClientAppSupport.resolveUserAgent(config.getClientApp());
+        return CstCloudClientAppSupport.resolveS3UserAgent(config.getClientApp());
     }
 
     private S3Client buildS3Client(Long userId, S3Config config) {
         String secretAccessKey = resolveSecretAccessKey(userId, config);
         String userAgent = resolveByoUserAgent(config);
-        return S3Client.builder()
+        var builder = S3Client.builder()
                 .region(Region.of(resolveConfigRegion(config)))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(config.getAccessKeyId(), secretAccessKey)))
@@ -599,8 +610,13 @@ public class S3Service {
                         .pathStyleAccessEnabled(resolvePathStyle(config.getPathStyleAccessEnabled()))
                         .build())
                 .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
-                .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
-                .build();
+                .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED);
+        TrustManager[] trustManagers = CstCloudTlsSupport.trustManagersFor(config.getEndpoint());
+        if (trustManagers != null) {
+            builder.httpClientBuilder(UrlConnectionHttpClient.builder()
+                    .tlsTrustManagersProvider(() -> trustManagers));
+        }
+        return builder.build();
     }
 
     /**

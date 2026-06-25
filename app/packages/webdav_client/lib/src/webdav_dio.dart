@@ -28,6 +28,9 @@ class WdDio with DioMixin implements Dio {
   // 探测出来的授权类型，确保不用每次请求都要重试2次，提前记录授权类型
   AuthType? detectedAuthType;
 
+  /// Applied to [HttpClient.userAgent] and every request header.
+  String? userAgent;
+
   WdDio({
     BaseOptions? options,
     this.interceptorList,
@@ -42,8 +45,13 @@ class WdDio with DioMixin implements Dio {
     this.options.validateStatus = (status) => true;
 
     httpClientAdapter = getAdapter();
+    final dio = this;
     (httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
       HttpClient client = HttpClient();
+      final ua = dio.userAgent;
+      if (ua != null && ua.isNotEmpty) {
+        client.userAgent = ua;
+      }
       client.badCertificateCallback = (X509Certificate cert, String host, int port) {
         return true;
       };
@@ -60,6 +68,15 @@ class WdDio with DioMixin implements Dio {
     // debug
     if (debug == true) {
       this.interceptors.add(LogInterceptor(responseBody: true));
+    }
+  }
+
+  void configureUserAgent(String? ua) {
+    final trimmed = ua?.trim();
+    userAgent = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+    options.headers ??= {};
+    if (userAgent != null) {
+      options.headers!['User-Agent'] = userAgent;
     }
   }
 
@@ -86,8 +103,29 @@ class WdDio with DioMixin implements Dio {
       optionsHandler(options);
     }
 
-    if (detectedAuthType == AuthType.BasicAuth) {
-      self.auth = BasicAuth(user: self.auth.user, pwd: self.auth.pwd); // Basic Auth
+    if (userAgent != null && userAgent!.isNotEmpty) {
+      options.headers ??= {};
+      options.headers!['User-Agent'] = userAgent;
+    }
+
+    final baseHeaders = this.options.headers;
+    if (baseHeaders != null && baseHeaders.isNotEmpty) {
+      options.headers ??= {};
+      for (final entry in baseHeaders.entries) {
+        final exists = options.headers!.keys.any(
+          (k) => k.toLowerCase() == entry.key.toLowerCase(),
+        );
+        if (!exists) {
+          options.headers![entry.key] = entry.value;
+        }
+      }
+    }
+
+    if (detectedAuthType == AuthType.BasicAuth ||
+        (detectedAuthType == null &&
+            self.auth.user.isNotEmpty &&
+            self.auth.pwd.isNotEmpty)) {
+      self.auth = BasicAuth(user: self.auth.user, pwd: self.auth.pwd);
     }
     // authorization
     String? str = self.auth.authorize(method, path);
@@ -471,6 +509,7 @@ class WdDio with DioMixin implements Dio {
       Client self,
       String path,
       Uint8List data, {
+        required String contentType,
         void Function(int count, int total)? onProgress,
         CancelToken? cancelToken,
       }) async {
@@ -488,8 +527,10 @@ class WdDio with DioMixin implements Dio {
       'PUT',
       path,
       data: Stream.fromIterable(data.map((e) => [e])),
-      optionsHandler: (options) =>
-      options.headers?['content-length'] = data.length,
+      optionsHandler: (options) {
+        options.headers?['content-length'] = data.length;
+        options.headers?['content-type'] = contentType;
+      },
       onSendProgress: onProgress,
       cancelToken: cancelToken,
     );
@@ -506,6 +547,7 @@ class WdDio with DioMixin implements Dio {
       String path,
       Stream<List<int>> data,
       int length, {
+        required String contentType,
         void Function(int count, int total)? onProgress,
         CancelToken? cancelToken,
       }) async {
@@ -523,7 +565,10 @@ class WdDio with DioMixin implements Dio {
       'PUT',
       path,
       data: data,
-      optionsHandler: (options) => options.headers?['content-length'] = length,
+      optionsHandler: (options) {
+        options.headers?['content-length'] = length;
+        options.headers?['content-type'] = contentType;
+      },
       onSendProgress: onProgress,
       cancelToken: cancelToken,
     );

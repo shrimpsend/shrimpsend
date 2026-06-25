@@ -12,6 +12,7 @@ import '../providers/webdav_provider.dart';
 import '../services/local_received_file_resolver.dart';
 import '../services/received_file_dao.dart';
 import '../services/webdav_favorite_dao.dart';
+import '../services/webdav_cstcloud.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
@@ -60,6 +61,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
   final _searchFocusNode = FocusNode();
   WebDavViewMode _viewMode = WebDavViewMode.list;
   Map<String, String?> _localPathByRemotePath = {};
+  int _localPathRefreshGen = 0;
 
   @override
   bool get isSearchVisible => _showSearch;
@@ -74,18 +76,22 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
     unawaited(_loadViewModePref());
     unawaited(_loadDirectory(_relativePath));
     ReceivedFileDao.addChangedListener(_onReceivedFilesChanged);
-    WebDavTransferService.instance.addListener(_onTransferChanged);
     WebDavTransferService.instance.addUploadCompletedListener(
       _onUploadCompleted,
+    );
+    WebDavTransferService.instance.addDownloadCompletedListener(
+      _onDownloadCompleted,
     );
   }
 
   @override
   void dispose() {
     ReceivedFileDao.removeChangedListener(_onReceivedFilesChanged);
-    WebDavTransferService.instance.removeListener(_onTransferChanged);
     WebDavTransferService.instance.removeUploadCompletedListener(
       _onUploadCompleted,
+    );
+    WebDavTransferService.instance.removeDownloadCompletedListener(
+      _onDownloadCompleted,
     );
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -116,17 +122,27 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
     unawaited(_loadDirectory(_relativePath));
   }
 
+  void _onDownloadCompleted({
+    required int connectionId,
+    required String remotePath,
+    required String localPath,
+  }) {
+    if (connectionId != widget.connection.id || !mounted) return;
+    setState(() {
+      _localPathByRemotePath = {
+        ..._localPathByRemotePath,
+        remotePath: localPath,
+      };
+    });
+  }
+
   void _onReceivedFilesChanged() {
     if (!mounted) return;
     unawaited(_refreshLocalPaths());
   }
 
-  void _onTransferChanged() {
-    if (!mounted) return;
-    unawaited(_refreshLocalPaths());
-  }
-
   Future<void> _refreshLocalPaths([List<WebDavEntry>? entries]) async {
+    final gen = ++_localPathRefreshGen;
     final targets = entries ?? _entries;
     if (targets.isEmpty) {
       if (!mounted) return;
@@ -138,7 +154,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
           connectionId: widget.connection.id,
           entries: targets,
         );
-    if (!mounted) return;
+    if (!mounted || gen != _localPathRefreshGen) return;
     setState(() => _localPathByRemotePath = map);
   }
 
@@ -234,6 +250,12 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
   }
 
   void queuePlatformFileUploads(List<PlatformFile> files) {
+    if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      AppToast.show(context, message: l10n.webdavCstCloudUploadNotSupported);
+      return;
+    }
     final uploads = <({String name, String localPath, int size})>[];
     for (final file in files) {
       final path = file.path;
@@ -408,7 +430,8 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
                       ),
                     ),
                   ),
-                  if (!_selectionMode) ...[
+                  if (!_selectionMode &&
+                      !cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) ...[
                     IconButton(
                       icon: Icon(
                         _viewMode == WebDavViewMode.list
@@ -427,6 +450,20 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
                       visualDensity: VisualDensity.compact,
                       tooltip: l10n.webdavActionNewFolder,
                       onPressed: _createFolder,
+                    ),
+                  ] else if (!_selectionMode) ...[
+                    IconButton(
+                      icon: Icon(
+                        _viewMode == WebDavViewMode.list
+                            ? LucideIcons.layoutGrid
+                            : LucideIcons.list,
+                        size: 18,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: _viewMode == WebDavViewMode.list
+                          ? l10n.webdavViewGrid
+                          : l10n.webdavViewList,
+                      onPressed: _toggleViewMode,
                     ),
                   ],
                 ],
@@ -470,11 +507,21 @@ class _BreadcrumbChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ActionChip(
-      label: Text(label),
-      onPressed: onTap,
-      visualDensity: VisualDensity.compact,
-      labelStyle: theme.textTheme.bodySmall,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.small,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xxs,
+          vertical: 2,
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }

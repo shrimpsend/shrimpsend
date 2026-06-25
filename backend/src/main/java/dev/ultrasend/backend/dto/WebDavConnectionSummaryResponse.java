@@ -16,4 +16,5 @@ public class WebDavConnectionSummaryResponse {
     private String baseUrl;
     private String rootPath;
     private Instant updatedAt;
+    private String clientApp;
 }

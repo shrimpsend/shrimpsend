@@ -79,8 +79,46 @@ String? mimeFromExtension(String ext) {
   if (e == 'png') return 'image/png';
   if (e == 'gif') return 'image/gif';
   if (e == 'webp') return 'image/webp';
+  if (e == 'heic') return 'image/heic';
+  if (e == 'bmp') return 'image/bmp';
   if (e == 'pdf') return 'application/pdf';
+  if (e == 'txt') return 'text/plain';
+  if (e == 'html' || e == 'htm') return 'text/html';
+  if (e == 'json') return 'application/json';
+  if (e == 'xml') return 'application/xml';
+  if (e == 'doc') return 'application/msword';
+  if (e == 'docx') {
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  if (e == 'xls') return 'application/vnd.ms-excel';
+  if (e == 'xlsx') {
+    return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  }
+  if (e == 'ppt') return 'application/vnd.ms-powerpoint';
+  if (e == 'pptx') {
+    return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+  }
+  if (e == 'zip') return 'application/zip';
+  if (e == 'rar') return 'application/vnd.rar';
+  if (e == '7z') return 'application/x-7z-compressed';
+  if (e == 'mp4') return 'video/mp4';
+  if (e == 'mov') return 'video/quicktime';
+  if (e == 'avi') return 'video/x-msvideo';
+  if (e == 'mkv') return 'video/x-matroska';
+  if (e == 'webm') return 'video/webm';
+  if (e == 'mp3') return 'audio/mpeg';
+  if (e == 'wav') return 'audio/wav';
   return null;
+}
+
+/// MIME type for WebDAV PUT from a file name or path; defaults to octet-stream.
+String mimeFromFileName(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) return 'application/octet-stream';
+  final base = trimmed.split('/').last.split('\\').last;
+  if (!base.contains('.')) return 'application/octet-stream';
+  final ext = base.split('.').last;
+  return mimeFromExtension(ext) ?? 'application/octet-stream';
 }
 
 bool isImageOrVideoFileName(String name) {

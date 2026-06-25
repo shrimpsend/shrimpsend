@@ -13,6 +13,7 @@ import 'speed_tracker.dart';
 import 'transfer_record.dart';
 import 'transfer_state_manager.dart';
 import 'transfer_status.dart';
+import 'webdav_cstcloud.dart';
 import 'webdav_session.dart';
 import 'visible_export_target.dart';
 
@@ -36,6 +37,12 @@ String webDavRemoteParentPath(String remotePath) {
 typedef WebDavUploadCompleted = void Function({
   required int connectionId,
   required String remotePath,
+});
+
+typedef WebDavDownloadCompleted = void Function({
+  required int connectionId,
+  required String remotePath,
+  required String localPath,
 });
 
 class WebDavTransferSnapshot {
@@ -78,6 +85,7 @@ class WebDavTransferService extends ChangeNotifier {
   final Map<String, DateTime> _lastProgressPersist = {};
   static const _progressPersistInterval = Duration(milliseconds: 500);
   final Set<WebDavUploadCompleted> _uploadCompletedListeners = {};
+  final Set<WebDavDownloadCompleted> _downloadCompletedListeners = {};
 
   List<WebDavTransferSnapshot> snapshotsFor(String connectionId) {
     return _snapshots.values
@@ -112,6 +120,28 @@ class WebDavTransferService extends ChangeNotifier {
     }
   }
 
+  void addDownloadCompletedListener(WebDavDownloadCompleted listener) {
+    _downloadCompletedListeners.add(listener);
+  }
+
+  void removeDownloadCompletedListener(WebDavDownloadCompleted listener) {
+    _downloadCompletedListeners.remove(listener);
+  }
+
+  void _notifyDownloadCompleted({
+    required int connectionId,
+    required String remotePath,
+    required String localPath,
+  }) {
+    for (final listener in _downloadCompletedListeners) {
+      listener(
+        connectionId: connectionId,
+        remotePath: remotePath,
+        localPath: localPath,
+      );
+    }
+  }
+
   Future<String?> _resolveUserId() async {
     final uid = await getStoredUserId();
     if (uid != null && uid.isNotEmpty) return uid;
@@ -141,6 +171,9 @@ class WebDavTransferService extends ChangeNotifier {
     required String relativeDir,
     required List<({String name, String localPath, int size})> files,
   }) async {
+    if (cstCloudWebDavBlocksGeneralUpload(connection.baseUrl)) {
+      return;
+    }
     for (final file in files) {
       final remote = relativeDir.isEmpty
           ? file.name
@@ -239,6 +272,11 @@ class WebDavTransferService extends ChangeNotifier {
       await TransferStateManager.instance.markStatus(
         transferId,
         TransferStatus.completed,
+      );
+      _notifyDownloadCompleted(
+        connectionId: connection.id,
+        remotePath: entry.path,
+        localPath: savePath,
       );
       _snapshots.remove(transferId);
       _cancelTokens.remove(transferId);

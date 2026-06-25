@@ -1,7 +1,10 @@
 package dev.ultrasend.backend.webdav;
 
+import dev.ultrasend.backend.cstcloud.CstCloudClientAppSupport;
+import dev.ultrasend.backend.tls.CstCloudTlsSupport;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.net.ssl.SSLContext;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -29,23 +32,36 @@ public final class WebDavPropfindClient {
     private WebDavPropfindClient() {
     }
 
-    public static void propfindDepth0(String baseUrl, String rootPath, String username, String password)
+    public static void propfindDepth0(
+            String baseUrl,
+            String rootPath,
+            String username,
+            String password,
+            String userAgent)
             throws Exception {
         String url = buildListUrl(baseUrl, rootPath);
         String auth = Base64.getEncoder().encodeToString(
                 (username + ":" + password).getBytes(StandardCharsets.UTF_8));
 
-        HttpClient client = HttpClient.newBuilder()
+        HttpClient.Builder clientBuilder = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(15))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
+                .followRedirects(HttpClient.Redirect.NORMAL);
+        SSLContext sslContext = CstCloudTlsSupport.sslContextFor(baseUrl);
+        if (sslContext != null) {
+            clientBuilder.sslContext(sslContext);
+        }
+        HttpClient client = clientBuilder.build();
 
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .timeout(Duration.ofSeconds(30))
                 .header("Authorization", "Basic " + auth)
                 .header("Depth", "0")
-                .header("Content-Type", "application/xml; charset=utf-8")
+                .header("Content-Type", "application/xml; charset=utf-8");
+        if (userAgent != null && !userAgent.isBlank()) {
+            requestBuilder.header("User-Agent", userAgent);
+        }
+        HttpRequest request = requestBuilder
                 .method("PROPFIND", HttpRequest.BodyPublishers.ofString(PROPFIND_BODY))
                 .build();
 
@@ -55,6 +71,11 @@ public final class WebDavPropfindClient {
             return;
         }
         if (code == 401 || code == 403) {
+            if (CstCloudClientAppSupport.needsClientAppBinding(baseUrl)) {
+                throw new IllegalArgumentException(
+                        "Authentication failed (HTTP " + code
+                                + "). Select the client application that matches your Data Capsule WebDAV credential.");
+            }
             throw new IllegalArgumentException("Authentication failed (HTTP " + code + ")");
         }
         throw new IllegalArgumentException("WebDAV server returned HTTP " + code);

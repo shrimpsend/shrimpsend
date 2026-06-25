@@ -99,6 +99,19 @@
   "settingsNavMyDevicesSubtitleOnline": "Bound devices",
   "settingsNavS3": "S3",
   "settingsNavS3Subtitle": "Wide-area file transfer",
+  "settingsNavWebDav": "WebDAV",
+  "settingsNavWebDavSubtitle": "Remote file storage",
+  "settingsWebDavStatusNone": "Not configured",
+  "settingsWebDavStatusCount": "{count, plural, =1{1 connection} other{{count} connections}}",
+  "@settingsWebDavStatusCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsWebDavListTitle": "WebDAV connections",
+  "settingsWebDavListEmpty": "No WebDAV connections yet",
   "settingsNavShortcuts": "Shortcuts",
   "settingsNavShortcutsSubtitle": "Keyboard actions such as sending messages",
   "settingsNavFonts": "Fonts",
@@ -1797,8 +1810,22 @@
   "webdavFormPassword": "Password",
   "webdavFormPasswordHintEdit": "Leave blank to keep current",
   "webdavFormRootPath": "Root path",
+  "webdavFormClientApp": "Client application",
+  "webdavFormClientAppHint": "Data Capsule WebDAV is for Zotero sync. In ShrimpSend you can browse and download only — not upload.",
+  "webdavClientAppZotero": "Zotero (8+)",
   "webdavPasswordRequired": "Enter password",
   "webdavTestConnection": "Test connection",
+  "webdavDiagnoseUpload": "Diagnose upload",
+  "webdavDiagnoseUploadRunning": "Running upload diagnostics…",
+  "webdavDiagnoseUploadTitle": "Upload diagnostic results",
+  "webdavDiagnoseUploadFailed": "Diagnostic failed: {error}",
+  "@webdavDiagnoseUploadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "webdavCstCloudReadOnlyToast": "Data Capsule WebDAV does not support uploads — browse and download only. To upload files, use Settings → S3.",
+  "webdavCstCloudUploadNotSupported": "Data Capsule WebDAV does not support uploads. You can only browse and download files here.",
   "webdavTestSuccess": "Connection successful",
   "webdavTestFailed": "Connection test failed: {error}",
   "@webdavTestFailed": {

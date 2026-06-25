@@ -233,6 +233,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsNavS3Subtitle => '广域网文件传输';
 
   @override
+  String get settingsNavWebDav => 'WebDAV';
+
+  @override
+  String get settingsNavWebDavSubtitle => '远程文件存储';
+
+  @override
+  String get settingsWebDavStatusNone => '未配置';
+
+  @override
+  String settingsWebDavStatusCount(int count) {
+    return '$count 个连接';
+  }
+
+  @override
+  String get settingsWebDavListTitle => 'WebDAV 连接';
+
+  @override
+  String get settingsWebDavListEmpty => '尚未添加 WebDAV 连接';
+
+  @override
   String get settingsNavShortcuts => '快捷键';
 
   @override
@@ -3049,10 +3069,41 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webdavFormRootPath => '根路径';
 
   @override
+  String get webdavFormClientApp => '客户端应用';
+
+  @override
+  String get webdavFormClientAppHint =>
+      '数据胶囊 WebDAV 仅供 Zotero 同步；在虾传中仅支持浏览和下载，不支持上传';
+
+  @override
+  String get webdavClientAppZotero => 'Zotero（8 及以上）';
+
+  @override
   String get webdavPasswordRequired => '请输入密码';
 
   @override
   String get webdavTestConnection => '测试连接';
+
+  @override
+  String get webdavDiagnoseUpload => '诊断上传';
+
+  @override
+  String get webdavDiagnoseUploadRunning => '正在诊断上传…';
+
+  @override
+  String get webdavDiagnoseUploadTitle => '上传诊断结果';
+
+  @override
+  String webdavDiagnoseUploadFailed(String error) {
+    return '诊断失败：$error';
+  }
+
+  @override
+  String get webdavCstCloudReadOnlyToast =>
+      '数据胶囊 WebDAV 不支持上传，仅可浏览和下载已有文件。如需上传，请使用 设置 → S3。';
+
+  @override
+  String get webdavCstCloudUploadNotSupported => '数据胶囊 WebDAV 不支持上传，仅可浏览和下载。';
 
   @override
   String get webdavTestSuccess => '连接成功';

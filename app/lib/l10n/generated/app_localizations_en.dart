@@ -241,6 +241,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsNavS3Subtitle => 'Wide-area file transfer';
 
   @override
+  String get settingsNavWebDav => 'WebDAV';
+
+  @override
+  String get settingsNavWebDavSubtitle => 'Remote file storage';
+
+  @override
+  String get settingsWebDavStatusNone => 'Not configured';
+
+  @override
+  String settingsWebDavStatusCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count connections',
+      one: '1 connection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsWebDavListTitle => 'WebDAV connections';
+
+  @override
+  String get settingsWebDavListEmpty => 'No WebDAV connections yet';
+
+  @override
   String get settingsNavShortcuts => 'Shortcuts';
 
   @override
@@ -3189,10 +3215,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webdavFormRootPath => 'Root path';
 
   @override
+  String get webdavFormClientApp => 'Client application';
+
+  @override
+  String get webdavFormClientAppHint =>
+      'Data Capsule WebDAV is for Zotero sync. In ShrimpSend you can browse and download only — not upload.';
+
+  @override
+  String get webdavClientAppZotero => 'Zotero (8+)';
+
+  @override
   String get webdavPasswordRequired => 'Enter password';
 
   @override
   String get webdavTestConnection => 'Test connection';
+
+  @override
+  String get webdavDiagnoseUpload => 'Diagnose upload';
+
+  @override
+  String get webdavDiagnoseUploadRunning => 'Running upload diagnostics…';
+
+  @override
+  String get webdavDiagnoseUploadTitle => 'Upload diagnostic results';
+
+  @override
+  String webdavDiagnoseUploadFailed(String error) {
+    return 'Diagnostic failed: $error';
+  }
+
+  @override
+  String get webdavCstCloudReadOnlyToast =>
+      'Data Capsule WebDAV does not support uploads — browse and download only. To upload files, use Settings → S3.';
+
+  @override
+  String get webdavCstCloudUploadNotSupported =>
+      'Data Capsule WebDAV does not support uploads. You can only browse and download files here.';
 
   @override
   String get webdavTestSuccess => 'Connection successful';

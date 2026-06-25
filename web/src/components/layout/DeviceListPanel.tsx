@@ -138,7 +138,7 @@ export function DeviceListPanel({
 
       {/* Device list */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {sortedDevices.length === 0 && !(s3Configured || s3Checking) ? (
+        {sortedDevices.length === 0 && !s3Configured ? (
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center text-muted-foreground">
             <p className="text-sm">{t('deviceList.emptyTitle')}</p>
             <p className="text-xs text-muted-foreground/70">
@@ -148,7 +148,7 @@ export function DeviceListPanel({
         ) : (
           <div className="space-y-1 px-1 py-1">
             {/* S3 virtual device — pinned to top */}
-            {(s3Configured || s3Checking) && (
+            {s3Configured && (
               <button
                 type="button"
                 onClick={() => setSelectedDeviceId(S3_VIRTUAL_DEVICE_ID)}

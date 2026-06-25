@@ -7,6 +7,7 @@ import 'package:webdav_client/webdav_client.dart' as wd;
 import '../api/webdav.dart';
 import '../logger.dart';
 import 'webdav_credential_store.dart';
+import 'webdav_cstcloud.dart';
 
 final logWebDav = logSettings;
 
@@ -41,6 +42,10 @@ class WebDavClient {
     client.setConnectTimeout(15000);
     client.setSendTimeout(60000);
     client.setReceiveTimeout(60000);
+    final userAgent = resolveWebDavUserAgent(creds);
+    if (userAgent != null && userAgent.isNotEmpty) {
+      client.c.configureUserAgent(userAgent);
+    }
     return client;
   }
 
@@ -184,19 +189,137 @@ class WebDavClient {
     return parts.last;
   }
 
+  /// Probe PUT to root / zotero paths for upload permission diagnosis.
+  Future<List<String>> diagnoseUpload() async {
+    const probeBody = 'ultrasend-probe';
+    const probes = <({String target, String path})>[
+      (target: 'root', path: '/__ultrasend_probe.txt'),
+      (target: 'zotero_dir', path: '/zotero/__ultrasend_probe.txt'),
+      (target: 'zotero_prop', path: '/zotero/UTPROBE0.prop'),
+    ];
+
+    final results = <String>[];
+
+    try {
+      await _client.c.wdMkcol(_client, '/zotero/');
+    } catch (_) {
+      // zotero/ may already exist or MKCOL may be denied; probes still run.
+    }
+
+    for (final probe in probes) {
+      try {
+        final resp = await _client.c.req(
+          _client,
+          'PUT',
+          probe.path,
+          data: Uint8List.fromList(probeBody.codeUnits),
+          optionsHandler: (options) {
+            options.headers ??= {};
+            options.headers!['content-length'] = probeBody.length;
+            options.headers!['content-type'] = 'text/plain';
+          },
+        );
+        final status = resp.statusCode ?? 0;
+        final body = _truncateResponseBody(resp.data);
+        final url = redactWebDavSecrets(resp.requestOptions.uri.toString());
+        final line =
+            '${probe.target} path=${probe.path} status=$status url=$url body=$body';
+        results.add(line);
+        logWebDav.info('webdav upload probe $line');
+
+        if (status == 200 || status == 201 || status == 204) {
+          try {
+            await _client.c.wdDelete(_client, probe.path);
+          } catch (_) {}
+        }
+      } catch (e) {
+        final status = _extractHttpStatus(e);
+        final detail = _formatWebDavErrorDetail(e, status);
+        final line =
+            '${probe.target} path=${probe.path} error status=$status$detail';
+        results.add(line);
+        logWebDav.info('webdav upload probe $line');
+      }
+    }
+
+    return results;
+  }
+
   Future<T> _guard<T>(Future<T> Function() action) async {
     try {
       return await action();
     } catch (e) {
       final status = _extractHttpStatus(e);
+      final detail = _formatWebDavErrorDetail(e, status);
       logWebDav.warning(
-        'webdav request failed status=$status message=${redactWebDavSecrets('$e')}',
+        'webdav request failed status=$status$detail message=${redactWebDavSecrets('$e')}',
       );
       if (status != null) {
+        final body = _responseBodyFromError(e);
+        if (status == 403 &&
+            body.toLowerCase().contains('client type mismatch')) {
+          throw Exception('WebDAV 操作失败：$kCstCloudWebDavUploadBlockedMessage');
+        }
         throw Exception('WebDAV 操作失败 (HTTP $status)');
       }
       throw Exception('WebDAV 操作失败');
     }
+  }
+}
+
+String _responseBodyFromError(Object error) {
+  try {
+    return _truncateResponseBody((error as dynamic).response?.data);
+  } catch (_) {
+    return '';
+  }
+}
+
+String _truncateResponseBody(dynamic data, {int maxLen = 300}) {
+  if (data == null) return '';
+  String text;
+  if (data is List<int>) {
+    text = String.fromCharCodes(data);
+  } else if (data is Uint8List) {
+    text = String.fromCharCodes(data);
+  } else {
+    text = data.toString();
+  }
+  text = redactWebDavSecrets(text.trim());
+  if (text.isEmpty) return '';
+  if (text.length > maxLen) {
+    return '${text.substring(0, maxLen)}...';
+  }
+  return text;
+}
+
+String _formatWebDavErrorDetail(Object error, int? status) {
+  if (status == null) return '';
+  try {
+    final dio = error as dynamic;
+    final method = dio.requestOptions?.method as String?;
+    final statusMessage = dio.response?.statusMessage as String?;
+    final uri = dio.requestOptions?.uri?.toString();
+    final parts = <String>[];
+    if (method != null && method.isNotEmpty) parts.add(' method=$method');
+    if (uri != null && uri.isNotEmpty) {
+      parts.add(' url=${redactWebDavSecrets(uri)}');
+    }
+    if (statusMessage != null && statusMessage.isNotEmpty) {
+      parts.add(' reason=$statusMessage');
+    }
+    if (status == 403) {
+      final body = _truncateResponseBody(dio.response?.data);
+      if (body.toLowerCase().contains('client type mismatch')) {
+        parts.add(' hint=cstcloud_zotero_sync_only');
+      } else {
+        parts.add(' hint=check_auth_and_user_agent');
+      }
+      if (body.isNotEmpty) parts.add(' body=$body');
+    }
+    return parts.join();
+  } catch (_) {
+    return status == 403 ? ' hint=check_auth_and_user_agent' : '';
   }
 }
 
