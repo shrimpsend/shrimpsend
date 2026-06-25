@@ -17,4 +17,21 @@ void main() {
     await Future.wait(List.generate(6, (_) => task()));
     expect(maxInFlight, lessThanOrEqualTo(2));
   });
+
+  test('updateMaxConcurrent applies to new acquires', () async {
+    final semaphore = AsyncSemaphore(4);
+    var inFlight = 0;
+    var maxInFlight = 0;
+
+    Future<void> task() => semaphore.run(() async {
+          inFlight++;
+          maxInFlight = inFlight > maxInFlight ? inFlight : maxInFlight;
+          await Future<void>.delayed(const Duration(milliseconds: 30));
+          inFlight--;
+        });
+
+    semaphore.updateMaxConcurrent(1);
+    await Future.wait(List.generate(4, (_) => task()));
+    expect(maxInFlight, lessThanOrEqualTo(1));
+  });
 }

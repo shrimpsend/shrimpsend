@@ -10,6 +10,7 @@ import '../l10n/generated/app_localizations.dart';
 import '../models/pending_file_entry.dart';
 import '../providers/pending_files_provider.dart';
 import '../services/attachment_picker_service.dart';
+import '../services/webdav_upload_concurrency_pref.dart';
 import '../services/webdav_upload_layout.dart';
 import '../ui/app_ui.dart';
 import '../utils/file_utils.dart';
@@ -298,16 +299,30 @@ class _PendingOutboxSheet extends ConsumerStatefulWidget {
 
 class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
   WebDavUploadLayout? _uploadLayout;
+  int? _uploadConcurrency;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadUploadLayoutPref());
+    unawaited(_loadUploadPrefs());
   }
 
-  Future<void> _loadUploadLayoutPref() async {
-    final layout = await loadWebDavUploadLayoutPref();
-    if (mounted) setState(() => _uploadLayout = layout);
+  Future<void> _loadUploadPrefs() async {
+    final results = await Future.wait([
+      loadWebDavUploadLayoutPref(),
+      loadWebDavUploadConcurrencyPref(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _uploadLayout = results[0] as WebDavUploadLayout;
+      _uploadConcurrency = results[1] as int;
+    });
+  }
+
+  Future<void> _onUploadConcurrencyChanged(double value) async {
+    final rounded = value.round();
+    setState(() => _uploadConcurrency = rounded);
+    await saveWebDavUploadConcurrencyPref(rounded);
   }
 
   bool _hasFolderStructure(List<PendingFileEntry> entries) {
@@ -344,6 +359,8 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
 
     final layout = _uploadLayout ?? WebDavUploadLayout.flat;
     await saveWebDavUploadLayoutPref(layout);
+    final concurrency = _uploadConcurrency ?? webDavUploadConcurrencyDefault;
+    await saveWebDavUploadConcurrencyPref(concurrency);
     if (!mounted) return;
 
     final rootContext = context;
@@ -363,7 +380,10 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
     final notifier = ref.read(pendingFilesProvider.notifier);
     final primaryAction = widget.primaryAction;
     final showUploadLayout = primaryAction != null && _hasFolderStructure(entries);
+    final showUploadConcurrency = primaryAction != null;
     final uploadLayout = _uploadLayout ?? WebDavUploadLayout.flat;
+    final uploadConcurrency =
+        _uploadConcurrency ?? webDavUploadConcurrencyDefault;
 
     void removeAt(int index) {
       final entry = entries[index];
@@ -539,6 +559,58 @@ class _PendingOutboxSheetState extends ConsumerState<_PendingOutboxSheet> {
                         setState(() => _uploadLayout = selected.first);
                       },
                     ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  if (showUploadConcurrency) ...[
+                    Text(
+                      l10n.webdavUploadConcurrencyTitle,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: colors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      l10n.webdavUploadConcurrencyHint,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    if (_uploadConcurrency == null)
+                      const LinearProgressIndicator(minHeight: 2)
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Slider(
+                              value: uploadConcurrency.toDouble(),
+                              min: webDavUploadConcurrencyMin.toDouble(),
+                              max: webDavUploadConcurrencyMax.toDouble(),
+                              divisions: webDavUploadConcurrencyMax -
+                                  webDavUploadConcurrencyMin,
+                              label: l10n.webdavUploadConcurrencyValue(
+                                uploadConcurrency,
+                              ),
+                              onChanged: _onUploadConcurrencyChanged,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 40,
+                            child: Text(
+                              l10n.webdavUploadConcurrencyValue(
+                                uploadConcurrency,
+                              ),
+                              textAlign: TextAlign.end,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: colors.onSurface,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     const SizedBox(height: AppSpacing.sm),
                   ],
                   if (primaryAction != null)

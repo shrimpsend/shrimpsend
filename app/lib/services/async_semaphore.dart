@@ -4,9 +4,14 @@ import 'dart:async';
 final class AsyncSemaphore {
   AsyncSemaphore(this.maxConcurrent) : assert(maxConcurrent > 0);
 
-  final int maxConcurrent;
+  int maxConcurrent;
   int _inUse = 0;
   final _waiters = <Completer<void>>[];
+
+  void updateMaxConcurrent(int value) {
+    assert(value > 0);
+    maxConcurrent = value;
+  }
 
   Future<T> run<T>(Future<T> Function() action) async {
     await _acquire();

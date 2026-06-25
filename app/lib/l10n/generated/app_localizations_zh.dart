@@ -3345,6 +3345,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webdavSettingsSwitchConnection => '切换连接';
 
   @override
+  String get webdavUploadConcurrencyTitle => '最大并发上传数';
+
+  @override
+  String get webdavUploadConcurrencyHint =>
+      '同时上传的文件数量。云盘（如 123 云盘）建议 2–4，本地 NAS 可适当提高。';
+
+  @override
+  String webdavUploadConcurrencyValue(int count) {
+    return '$count 个';
+  }
+
+  @override
   String get webdavViewList => '列表视图';
 
   @override

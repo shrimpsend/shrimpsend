@@ -6150,6 +6150,24 @@ abstract class AppLocalizations {
   /// **'Switch connection'**
   String get webdavSettingsSwitchConnection;
 
+  /// No description provided for @webdavUploadConcurrencyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Max concurrent uploads'**
+  String get webdavUploadConcurrencyTitle;
+
+  /// No description provided for @webdavUploadConcurrencyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'How many files upload at the same time. For cloud drives (e.g. 123pan), 2–4 is recommended; local NAS can be higher.'**
+  String get webdavUploadConcurrencyHint;
+
+  /// No description provided for @webdavUploadConcurrencyValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}'**
+  String webdavUploadConcurrencyValue(int count);
+
   /// No description provided for @webdavViewList.
   ///
   /// In en, this message translates to:

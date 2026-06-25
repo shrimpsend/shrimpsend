@@ -1989,6 +1989,14 @@
   "webdavFavoritesEmpty": "No favorites yet",
   "webdavSettingsCurrentConnection": "Current connection",
   "webdavSettingsSwitchConnection": "Switch connection",
+  "webdavUploadConcurrencyTitle": "Max concurrent uploads",
+  "webdavUploadConcurrencyHint": "How many files upload at the same time. For cloud drives (e.g. 123pan), 2–4 is recommended; local NAS can be higher.",
+  "webdavUploadConcurrencyValue": "{count}",
+  "@webdavUploadConcurrencyValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "webdavViewList": "List view",
   "webdavViewGrid": "Grid view",
   "webdavDetailType": "Type",

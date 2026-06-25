@@ -220,17 +220,38 @@ class Client {
         CancelToken? cancelToken,
         bool ensureParent = true,
       }) async {
-    var file = io.File(localFilePath);
-    return this.c.wdWriteWithStream(
-      this,
-      path,
-      file.openRead(),
-      file.lengthSync(),
-      contentType: contentTypeForFileName(localFilePath),
-      onProgress: onProgress,
-      cancelToken: cancelToken,
-      ensureParent: ensureParent,
-    );
+    final file = io.File(localFilePath);
+    const retryDelays = <Duration>[
+      Duration.zero,
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+    ];
+    DioException? lastError;
+    for (final delay in retryDelays) {
+      if (delay > Duration.zero) {
+        await Future<void>.delayed(delay);
+      }
+      try {
+        await this.c.wdWriteWithStream(
+          this,
+          path,
+          file.openRead(),
+          file.lengthSync(),
+          contentType: contentTypeForFileName(localFilePath),
+          onProgress: onProgress,
+          cancelToken: cancelToken,
+          ensureParent: ensureParent,
+        );
+        return;
+      } on DioException catch (e) {
+        final status = e.response?.statusCode;
+        if (status != 502 && status != 503 && status != 429) {
+          rethrow;
+        }
+        lastError = e;
+      }
+    }
+    throw lastError!;
   }
 }
 

@@ -3493,6 +3493,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webdavSettingsSwitchConnection => 'Switch connection';
 
   @override
+  String get webdavUploadConcurrencyTitle => 'Max concurrent uploads';
+
+  @override
+  String get webdavUploadConcurrencyHint =>
+      'How many files upload at the same time. For cloud drives (e.g. 123pan), 2–4 is recommended; local NAS can be higher.';
+
+  @override
+  String webdavUploadConcurrencyValue(int count) {
+    return '$count';
+  }
+
+  @override
   String get webdavViewList => 'List view';
 
   @override

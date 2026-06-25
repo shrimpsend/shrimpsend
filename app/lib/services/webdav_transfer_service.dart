@@ -19,6 +19,7 @@ import 'webdav_cstcloud.dart';
 import 'webdav_path_preparer.dart';
 import 'webdav_session.dart';
 import 'webdav_transfer_progress_summary.dart';
+import 'webdav_upload_concurrency_pref.dart';
 import 'webdav_upload_local_resolver.dart';
 import 'visible_export_target.dart';
 
@@ -83,8 +84,8 @@ class WebDavTransferService extends ChangeNotifier {
   final Map<String, int> _lastPersistedBytes = {};
   final Map<String, DateTime> _lastProgressPersist = {};
   static const _progressPersistInterval = Duration(milliseconds: 500);
-  static const _uploadConcurrency = 6;
-  final _uploadSemaphore = AsyncSemaphore(_uploadConcurrency);
+  final _uploadSemaphore =
+      AsyncSemaphore(webDavUploadConcurrencyDefault);
   final Set<WebDavUploadCompleted> _uploadCompletedListeners = {};
   final Set<WebDavDownloadCompleted> _downloadCompletedListeners = {};
   final Map<int, int> _uploadBatchTotal = {};
@@ -277,6 +278,9 @@ class WebDavTransferService extends ChangeNotifier {
       return 0;
     }
     if (files.isEmpty) return 0;
+
+    final maxConcurrency = await loadWebDavUploadConcurrencyPref();
+    _uploadSemaphore.updateMaxConcurrent(maxConcurrency);
 
     _uploadBatchTotal[connection.id] =
         (_uploadBatchTotal[connection.id] ?? 0) + files.length;

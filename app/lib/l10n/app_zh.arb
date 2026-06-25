@@ -1536,6 +1536,14 @@
   "webdavFavoritesEmpty": "暂无收藏",
   "webdavSettingsCurrentConnection": "当前连接",
   "webdavSettingsSwitchConnection": "切换连接",
+  "webdavUploadConcurrencyTitle": "最大并发上传数",
+  "webdavUploadConcurrencyHint": "同时上传的文件数量。云盘（如 123 云盘）建议 2–4，本地 NAS 可适当提高。",
+  "webdavUploadConcurrencyValue": "{count} 个",
+  "@webdavUploadConcurrencyValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "webdavViewList": "列表视图",
   "webdavViewGrid": "网格视图",
   "webdavDetailType": "类型",

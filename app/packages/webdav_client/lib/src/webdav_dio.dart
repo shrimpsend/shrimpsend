@@ -504,6 +504,71 @@ class WdDio with DioMixin implements Dio {
     await DioMixin.listenCancelForAsyncTask(cancelToken, future);
   }
 
+  bool _isTransientGatewayStatus(int? status) =>
+      status == 502 || status == 503 || status == 429;
+
+  static const _transientRetryDelays = <Duration>[
+    Duration.zero,
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+  ];
+
+  Future<void> _probeAuthBeforeWrite(
+    Client self,
+    String path, {
+    CancelToken? cancelToken,
+  }) async {
+    if (detectedAuthType != null) return;
+
+    Response? lastResp;
+    for (final delay in _transientRetryDelays) {
+      if (delay > Duration.zero) {
+        await Future<void>.delayed(delay);
+      }
+      final pResp = await wdOptions(self, path, cancelToken: cancelToken);
+      if (pResp.statusCode == 200) return;
+      if (!_isTransientGatewayStatus(pResp.statusCode)) {
+        throw newResponseError(pResp);
+      }
+      lastResp = pResp;
+    }
+    throw newResponseError(lastResp!);
+  }
+
+  Future<Response<dynamic>> _putWithTransientRetry(
+    Client self,
+    String path, {
+    Stream<List<int>>? data,
+    void Function(Options options)? optionsHandler,
+    void Function(int count, int total)? onSendProgress,
+    CancelToken? cancelToken,
+  }) async {
+    Response<dynamic>? lastResp;
+    for (final delay in _transientRetryDelays) {
+      if (delay > Duration.zero) {
+        await Future<void>.delayed(delay);
+      }
+      final resp = await this.req(
+        self,
+        'PUT',
+        path,
+        data: data,
+        optionsHandler: optionsHandler,
+        onSendProgress: onSendProgress,
+        cancelToken: cancelToken,
+      );
+      final status = resp.statusCode;
+      if (status == 200 || status == 201 || status == 204) {
+        return resp;
+      }
+      if (!_isTransientGatewayStatus(status)) {
+        throw newResponseError(resp);
+      }
+      lastResp = resp;
+    }
+    throw newResponseError(lastResp!);
+  }
+
   /// write a file with bytes
   Future<void> wdWriteWithBytes(
       Client self,
@@ -514,19 +579,14 @@ class WdDio with DioMixin implements Dio {
         CancelToken? cancelToken,
         bool ensureParent = true,
       }) async {
-    // fix auth error
-    var pResp = await this.wdOptions(self, path, cancelToken: cancelToken);
-    if (pResp.statusCode != 200) {
-      throw newResponseError(pResp);
-    }
+    await _probeAuthBeforeWrite(self, path, cancelToken: cancelToken);
 
     if (ensureParent) {
       await this._createParent(self, path, cancelToken: cancelToken);
     }
 
-    var resp = await this.req(
+    await _putWithTransientRetry(
       self,
-      'PUT',
       path,
       data: Stream.fromIterable(data.map((e) => [e])),
       optionsHandler: (options) {
@@ -536,11 +596,6 @@ class WdDio with DioMixin implements Dio {
       onSendProgress: onProgress,
       cancelToken: cancelToken,
     );
-    var status = resp.statusCode;
-    if (status == 200 || status == 201 || status == 204) {
-      return;
-    }
-    throw newResponseError(resp);
   }
 
   /// write a file with stream
@@ -554,11 +609,7 @@ class WdDio with DioMixin implements Dio {
         CancelToken? cancelToken,
         bool ensureParent = true,
       }) async {
-    // fix auth error
-    var pResp = await this.wdOptions(self, path, cancelToken: cancelToken);
-    if (pResp.statusCode != 200) {
-      throw newResponseError(pResp);
-    }
+    await _probeAuthBeforeWrite(self, path, cancelToken: cancelToken);
 
     if (ensureParent) {
       await this._createParent(self, path, cancelToken: cancelToken);
