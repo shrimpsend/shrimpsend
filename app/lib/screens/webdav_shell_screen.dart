@@ -15,6 +15,7 @@ import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
 import '../utils/toast.dart';
 import '../widgets/pending_files_bar.dart';
+import '../widgets/webdav_transfer_progress_banner.dart';
 import 'webdav/webdav_browsable_tab.dart';
 import 'webdav_files_tab.dart';
 import 'webdav_recent_favorites_tab.dart';
@@ -509,33 +510,46 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       child: Column(
         children: [
           Expanded(
-            child: IndexedStack(
-              index: _tabIndex,
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                WebDavFilesTab(
-                  key: _filesTabKey,
-                  connection: widget.connection,
-                  client: client,
-                  initialPath: _currentPath,
-                  onPathChanged: (p) => _currentPath = p,
-                  onSelectionChanged: _onTabSelectionChanged,
-                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                IndexedStack(
+                  index: _tabIndex,
+                  children: [
+                    WebDavFilesTab(
+                      key: _filesTabKey,
+                      connection: widget.connection,
+                      client: client,
+                      initialPath: _currentPath,
+                      onPathChanged: (p) => _currentPath = p,
+                      onSelectionChanged: _onTabSelectionChanged,
+                      onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                    ),
+                    WebDavRecentTab(
+                      key: _recentTabKey,
+                      connection: widget.connection,
+                      client: client,
+                      onOpenFolder: (path) => _switchToFilesTab(path: path),
+                      onSelectionChanged: _onTabSelectionChanged,
+                      onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                    ),
+                    WebDavFavoritesTab(
+                      key: _favoritesTabKey,
+                      connection: widget.connection,
+                      client: client,
+                      onOpenFolder: (path) => _switchToFilesTab(path: path),
+                      onSelectionChanged: _onTabSelectionChanged,
+                      onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                    ),
+                  ],
                 ),
-                WebDavRecentTab(
-                  key: _recentTabKey,
-                  connection: widget.connection,
-                  client: client,
-                  onOpenFolder: (path) => _switchToFilesTab(path: path),
-                  onSelectionChanged: _onTabSelectionChanged,
-                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-                ),
-                WebDavFavoritesTab(
-                  key: _favoritesTabKey,
-                  connection: widget.connection,
-                  client: client,
-                  onOpenFolder: (path) => _switchToFilesTab(path: path),
-                  onSelectionChanged: _onTabSelectionChanged,
-                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                Positioned(
+                  right: AppSpacing.md,
+                  bottom: AppSpacing.sm,
+                  child: WebDavTransferProgressBanner(
+                    connectionId: widget.connection.id,
+                    onTap: _openTransferList,
+                  ),
                 ),
               ],
             ),

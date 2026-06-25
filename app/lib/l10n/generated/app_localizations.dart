@@ -6000,6 +6000,48 @@ abstract class AppLocalizations {
   /// **'Preparing {count} file(s) for upload…'**
   String webdavBulkUploadPreparing(int count);
 
+  /// No description provided for @webdavTransferProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload {done}/{total}'**
+  String webdavTransferProgressTitle(int done, int total);
+
+  /// No description provided for @webdavTransferProgressActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active {count}'**
+  String webdavTransferProgressActive(int count);
+
+  /// No description provided for @webdavTransferProgressQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued {count}'**
+  String webdavTransferProgressQueued(int count);
+
+  /// No description provided for @webdavTransferProgressSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Done {count}'**
+  String webdavTransferProgressSucceeded(int count);
+
+  /// No description provided for @webdavTransferProgressFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed {count}'**
+  String webdavTransferProgressFailed(int count);
+
+  /// No description provided for @webdavTransferProgressDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading {count}'**
+  String webdavTransferProgressDownloading(int count);
+
+  /// No description provided for @webdavTransferProgressComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload complete'**
+  String get webdavTransferProgressComplete;
+
   /// No description provided for @webdavOutboxUpload.
   ///
   /// In en, this message translates to:

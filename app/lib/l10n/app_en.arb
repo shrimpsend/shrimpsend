@@ -1928,6 +1928,44 @@
       "count": { "type": "int" }
     }
   },
+  "webdavTransferProgressTitle": "Upload {done}/{total}",
+  "@webdavTransferProgressTitle": {
+    "placeholders": {
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressActive": "Active {count}",
+  "@webdavTransferProgressActive": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressQueued": "Queued {count}",
+  "@webdavTransferProgressQueued": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressSucceeded": "Done {count}",
+  "@webdavTransferProgressSucceeded": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressFailed": "Failed {count}",
+  "@webdavTransferProgressFailed": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressDownloading": "Downloading {count}",
+  "@webdavTransferProgressDownloading": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressComplete": "Upload complete",
   "webdavOutboxUpload": "Upload to WebDAV",
   "webdavOutboxUploadTarget": "Upload to {path}",
   "@webdavOutboxUploadTarget": {

@@ -3403,6 +3403,39 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String webdavTransferProgressTitle(int done, int total) {
+    return 'Upload $done/$total';
+  }
+
+  @override
+  String webdavTransferProgressActive(int count) {
+    return 'Active $count';
+  }
+
+  @override
+  String webdavTransferProgressQueued(int count) {
+    return 'Queued $count';
+  }
+
+  @override
+  String webdavTransferProgressSucceeded(int count) {
+    return 'Done $count';
+  }
+
+  @override
+  String webdavTransferProgressFailed(int count) {
+    return 'Failed $count';
+  }
+
+  @override
+  String webdavTransferProgressDownloading(int count) {
+    return 'Downloading $count';
+  }
+
+  @override
+  String get webdavTransferProgressComplete => 'Upload complete';
+
+  @override
   String get webdavOutboxUpload => 'Upload to WebDAV';
 
   @override

@@ -3256,6 +3256,39 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String webdavTransferProgressTitle(int done, int total) {
+    return '上传 $done/$total';
+  }
+
+  @override
+  String webdavTransferProgressActive(int count) {
+    return '传输中 $count';
+  }
+
+  @override
+  String webdavTransferProgressQueued(int count) {
+    return '等待 $count';
+  }
+
+  @override
+  String webdavTransferProgressSucceeded(int count) {
+    return '已完成 $count';
+  }
+
+  @override
+  String webdavTransferProgressFailed(int count) {
+    return '失败 $count';
+  }
+
+  @override
+  String webdavTransferProgressDownloading(int count) {
+    return '下载中 $count';
+  }
+
+  @override
+  String get webdavTransferProgressComplete => '上传完成';
+
+  @override
   String get webdavOutboxUpload => '上传到 WebDAV';
 
   @override

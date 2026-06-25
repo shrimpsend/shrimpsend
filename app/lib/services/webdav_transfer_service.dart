@@ -18,6 +18,7 @@ import 'transfer_status.dart';
 import 'webdav_cstcloud.dart';
 import 'webdav_path_preparer.dart';
 import 'webdav_session.dart';
+import 'webdav_transfer_progress_summary.dart';
 import 'webdav_upload_local_resolver.dart';
 import 'visible_export_target.dart';
 
@@ -86,6 +87,9 @@ class WebDavTransferService extends ChangeNotifier {
   final _uploadSemaphore = AsyncSemaphore(_uploadConcurrency);
   final Set<WebDavUploadCompleted> _uploadCompletedListeners = {};
   final Set<WebDavDownloadCompleted> _downloadCompletedListeners = {};
+  final Map<int, int> _uploadBatchTotal = {};
+  final Map<int, int> _uploadBatchSucceeded = {};
+  final Map<int, int> _uploadBatchFailed = {};
 
   List<WebDavTransferSnapshot> snapshotsFor(String connectionId) {
     return _snapshots.values
@@ -101,6 +105,99 @@ class WebDavTransferService extends ChangeNotifier {
     return _snapshots.values
         .where((s) => s.isActive && s.transferId.startsWith(prefix))
         .length;
+  }
+
+  WebDavTransferProgressSummary progressSummaryFor(int connectionId) {
+    final prefix = 'webdav_${webDavConnectionKey(connectionId)}_';
+    final connSnapshots = _snapshots.values
+        .where((s) => s.transferId.startsWith(prefix))
+        .toList();
+
+    final uploadSnapshots =
+        connSnapshots.where((s) => s.direction == 'upload').toList();
+    final downloadSnapshots =
+        connSnapshots.where((s) => s.direction == 'download').toList();
+
+    final uploadActive = uploadSnapshots
+        .where((s) => s.status == TransferStatus.inProgress)
+        .length;
+    final downloadActive = downloadSnapshots
+        .where((s) => s.status == TransferStatus.inProgress)
+        .length;
+
+    final uploadSpeed = uploadSnapshots.fold<double>(
+      0,
+      (sum, s) => sum + s.bytesPerSecond,
+    );
+    final downloadSpeed = downloadSnapshots.fold<double>(
+      0,
+      (sum, s) => sum + s.bytesPerSecond,
+    );
+
+    final batchTotal = _uploadBatchTotal[connectionId] ?? 0;
+    final succeeded = _uploadBatchSucceeded[connectionId] ?? 0;
+    final failed = _uploadBatchFailed[connectionId] ?? 0;
+    final settled = succeeded + failed;
+    final queued = (batchTotal - settled - uploadActive).clamp(0, batchTotal);
+
+    final transferredBytes = uploadSnapshots.fold<int>(
+      0,
+      (sum, s) => sum + s.transferredBytes,
+    );
+    final totalBytes = uploadSnapshots.fold<int>(
+      0,
+      (sum, s) => sum + s.fileSize,
+    );
+
+    return WebDavTransferProgressSummary(
+      uploadBatchTotal: batchTotal,
+      uploadSucceeded: succeeded,
+      uploadFailed: failed,
+      uploadActive: uploadActive,
+      uploadQueued: queued,
+      uploadSpeedBps: uploadSpeed,
+      uploadTransferredBytes: transferredBytes,
+      uploadTotalBytes: totalBytes,
+      downloadActive: downloadActive,
+      downloadSpeedBps: downloadSpeed,
+    );
+  }
+
+  void clearUploadBatchProgress(int connectionId) {
+    _uploadBatchTotal.remove(connectionId);
+    _uploadBatchSucceeded.remove(connectionId);
+    _uploadBatchFailed.remove(connectionId);
+    notifyListeners();
+  }
+
+  void _recordUploadBatchSuccess(int connectionId) {
+    _uploadBatchSucceeded[connectionId] =
+        (_uploadBatchSucceeded[connectionId] ?? 0) + 1;
+    _maybeFinishUploadBatch(connectionId);
+    notifyListeners();
+  }
+
+  void _recordUploadBatchFailure(int connectionId) {
+    _uploadBatchFailed[connectionId] =
+        (_uploadBatchFailed[connectionId] ?? 0) + 1;
+    _maybeFinishUploadBatch(connectionId);
+    notifyListeners();
+  }
+
+  void _maybeFinishUploadBatch(int connectionId) {
+    final total = _uploadBatchTotal[connectionId] ?? 0;
+    if (total <= 0) return;
+    final settled = (_uploadBatchSucceeded[connectionId] ?? 0) +
+        (_uploadBatchFailed[connectionId] ?? 0);
+    if (settled < total) return;
+    final prefix = 'webdav_${webDavConnectionKey(connectionId)}_';
+    final uploadActive = _snapshots.values.where(
+      (s) =>
+          s.transferId.startsWith(prefix) &&
+          s.direction == 'upload' &&
+          s.status == TransferStatus.inProgress,
+    );
+    if (uploadActive.isNotEmpty) return;
   }
 
   void addUploadCompletedListener(WebDavUploadCompleted listener) {
@@ -180,6 +277,10 @@ class WebDavTransferService extends ChangeNotifier {
       return 0;
     }
     if (files.isEmpty) return 0;
+
+    _uploadBatchTotal[connection.id] =
+        (_uploadBatchTotal[connection.id] ?? 0) + files.length;
+    notifyListeners();
 
     for (final file in files) {
       unawaited(
@@ -353,6 +454,7 @@ class WebDavTransferService extends ChangeNotifier {
     );
     if (resolved == null) {
       PendingDispatchBridge.notifySettled(heldPath, success: false);
+      _recordUploadBatchFailure(connection.id);
       return;
     }
 
@@ -369,6 +471,7 @@ class WebDavTransferService extends ChangeNotifier {
         st,
       );
       PendingDispatchBridge.notifySettled(heldPath, success: false);
+      _recordUploadBatchFailure(connection.id);
       return;
     }
 
@@ -441,6 +544,7 @@ class WebDavTransferService extends ChangeNotifier {
       _snapshots.remove(transferId);
       notifyListeners();
       PendingDispatchBridge.notifySettled(heldPath, success: true);
+      _recordUploadBatchSuccess(connection.id);
     } on DioException catch (e) {
       await _flushProgressPersist(transferId);
       if (CancelToken.isCancel(e)) {
@@ -459,6 +563,7 @@ class WebDavTransferService extends ChangeNotifier {
           remotePath: remotePath,
         );
         PendingDispatchBridge.notifySettled(heldPath, success: false);
+        _recordUploadBatchFailure(connection.id);
       } else {
         await TransferStateManager.instance.markStatus(
           transferId,
@@ -467,6 +572,7 @@ class WebDavTransferService extends ChangeNotifier {
         _snapshots.remove(transferId);
         notifyListeners();
         PendingDispatchBridge.notifySettled(heldPath, success: false);
+        _recordUploadBatchFailure(connection.id);
       }
     } catch (_) {
       if (_snapshots.containsKey(transferId)) {
@@ -478,6 +584,7 @@ class WebDavTransferService extends ChangeNotifier {
         notifyListeners();
       }
       PendingDispatchBridge.notifySettled(heldPath, success: false);
+      _recordUploadBatchFailure(connection.id);
     } finally {
       _cancelTokens.remove(transferId);
       _speedTrackers.remove(transferId);
