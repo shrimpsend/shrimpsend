@@ -1,5 +1,6 @@
-package dev.ultrasend.backend.s3;
+package dev.ultrasend.backend.tls;
 
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import java.io.InputStream;
@@ -12,10 +13,11 @@ import java.security.cert.CertificateFactory;
 import java.util.Locale;
 
 /**
- * Supplemental TLS trust for S3 endpoints whose servers omit intermediate CAs
- * (e.g. CSTCloud Data Capsule {@code *.cstcloud.cn} signed by CFCA, absent from JVM cacerts).
+ * Supplemental TLS trust for CSTCloud Data Capsule hosts ({@code *.cstcloud.cn})
+ * whose servers omit intermediate CAs (CFCA chain absent from JVM cacerts).
+ * Used by S3 and WebDAV backend connectivity probes.
  */
-public final class S3TlsSupport {
+public final class CstCloudTlsSupport {
 
     private static final String INTERMEDIATE_PEM = "/tls/cfca-tls-ov-oca.pem";
     private static final String ROOT_PEM = "/tls/cfca-ev-root.pem";
@@ -23,15 +25,15 @@ public final class S3TlsSupport {
 
     private static volatile TrustManager[] cstcloudTrustManagers;
 
-    private S3TlsSupport() {
+    private CstCloudTlsSupport() {
     }
 
-    public static boolean needsSupplementalTrust(String endpoint) {
-        if (endpoint == null || endpoint.isBlank()) {
+    public static boolean needsSupplementalTrust(String url) {
+        if (url == null || url.isBlank()) {
             return false;
         }
         try {
-            String host = URI.create(endpoint.trim()).getHost();
+            String host = URI.create(url.trim()).getHost();
             return host != null && host.toLowerCase(Locale.ROOT).endsWith("cstcloud.cn");
         } catch (Exception ignored) {
             return false;
@@ -39,21 +41,38 @@ public final class S3TlsSupport {
     }
 
     /**
-     * Returns merged JVM + CFCA trust managers for {@code *.cstcloud.cn}, or {@code null} to use SDK defaults.
+     * Returns merged JVM + CFCA trust managers for {@code *.cstcloud.cn}, or {@code null} for defaults.
      */
-    public static TrustManager[] trustManagersFor(String endpoint) {
-        if (!needsSupplementalTrust(endpoint)) {
+    public static TrustManager[] trustManagersFor(String url) {
+        if (!needsSupplementalTrust(url)) {
             return null;
         }
         TrustManager[] cached = cstcloudTrustManagers;
         if (cached != null) {
             return cached;
         }
-        synchronized (S3TlsSupport.class) {
+        synchronized (CstCloudTlsSupport.class) {
             if (cstcloudTrustManagers == null) {
                 cstcloudTrustManagers = buildMergedTrustManagers();
             }
             return cstcloudTrustManagers;
+        }
+    }
+
+    /**
+     * Builds an {@link SSLContext} with supplemental trust for {@code *.cstcloud.cn}, or {@code null}.
+     */
+    public static SSLContext sslContextFor(String url) {
+        TrustManager[] trustManagers = trustManagersFor(url);
+        if (trustManagers == null) {
+            return null;
+        }
+        try {
+            SSLContext ctx = SSLContext.getInstance("TLS");
+            ctx.init(null, trustManagers, null);
+            return ctx;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to build SSL context for CSTCloud host", e);
         }
     }
 
@@ -107,7 +126,7 @@ public final class S3TlsSupport {
     }
 
     private static void addPemCertificate(KeyStore ks, String alias, String resourcePath) throws Exception {
-        try (InputStream in = S3TlsSupport.class.getResourceAsStream(resourcePath)) {
+        try (InputStream in = CstCloudTlsSupport.class.getResourceAsStream(resourcePath)) {
             if (in == null) {
                 throw new IllegalStateException("Missing classpath resource: " + resourcePath);
             }

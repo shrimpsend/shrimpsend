@@ -19,4 +19,7 @@ public class WebDavConnectionRequest {
     private String password;
 
     private String rootPath;
+
+    /** Required for CSTCloud Data Capsule ({@code *.cstcloud.cn}). */
+    private String clientApp;
 }

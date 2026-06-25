@@ -5682,6 +5682,36 @@ abstract class AppLocalizations {
   /// **'Root path'**
   String get webdavFormRootPath;
 
+  /// No description provided for @webdavFormClientApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Client application'**
+  String get webdavFormClientApp;
+
+  /// No description provided for @webdavFormClientAppHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Must match the app selected when creating WebDAV credentials in Data Capsule'**
+  String get webdavFormClientAppHint;
+
+  /// No description provided for @webdavClientAppZotero.
+  ///
+  /// In en, this message translates to:
+  /// **'Zotero (8+)'**
+  String get webdavClientAppZotero;
+
+  /// No description provided for @webdavClientAppObsidian.
+  ///
+  /// In en, this message translates to:
+  /// **'Obsidian'**
+  String get webdavClientAppObsidian;
+
+  /// No description provided for @webdavClientAppRclone.
+  ///
+  /// In en, this message translates to:
+  /// **'Rclone'**
+  String get webdavClientAppRclone;
+
   /// No description provided for @webdavPasswordRequired.
   ///
   /// In en, this message translates to:

@@ -41,6 +41,10 @@ class WebDavClient {
     client.setConnectTimeout(15000);
     client.setSendTimeout(60000);
     client.setReceiveTimeout(60000);
+    final userAgent = creds.userAgent?.trim();
+    if (userAgent != null && userAgent.isNotEmpty) {
+      client.setHeaders({'User-Agent': userAgent});
+    }
     return client;
   }
 

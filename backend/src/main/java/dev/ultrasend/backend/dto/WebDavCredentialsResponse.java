@@ -13,4 +13,7 @@ public class WebDavCredentialsResponse {
     private String password;
     private String baseUrl;
     private String rootPath;
+    private String clientApp;
+    /** Resolved User-Agent for direct WebDAV HTTP from clients. */
+    private String userAgent;
 }

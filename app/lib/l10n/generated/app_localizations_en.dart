@@ -3215,6 +3215,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webdavFormRootPath => 'Root path';
 
   @override
+  String get webdavFormClientApp => 'Client application';
+
+  @override
+  String get webdavFormClientAppHint =>
+      'Must match the app selected when creating WebDAV credentials in Data Capsule';
+
+  @override
+  String get webdavClientAppZotero => 'Zotero (8+)';
+
+  @override
+  String get webdavClientAppObsidian => 'Obsidian';
+
+  @override
+  String get webdavClientAppRclone => 'Rclone';
+
+  @override
   String get webdavPasswordRequired => 'Enter password';
 
   @override

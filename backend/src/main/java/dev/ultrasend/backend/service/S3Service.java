@@ -5,10 +5,10 @@ import dev.ultrasend.backend.entity.S3Config;
 import dev.ultrasend.backend.entity.User;
 import dev.ultrasend.backend.repository.S3ConfigRepository;
 import dev.ultrasend.backend.repository.UserRepository;
-import dev.ultrasend.backend.s3.S3ClientAppSupport;
+import dev.ultrasend.backend.cstcloud.CstCloudClientAppSupport;
 import dev.ultrasend.backend.s3.S3ProviderCatalog;
 import dev.ultrasend.backend.s3.S3ProviderId;
-import dev.ultrasend.backend.s3.S3TlsSupport;
+import dev.ultrasend.backend.tls.CstCloudTlsSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -110,7 +110,7 @@ public class S3Service {
     @Transactional
     public void saveConfig(Long userId, S3ConfigRequest req) {
         String providerId = resolveProviderIdForSave(req);
-        S3ClientAppSupport.validateClientAppForProvider(providerId, req.getClientApp());
+        CstCloudClientAppSupport.validateS3ClientAppForProvider(providerId, req.getClientApp());
         User user = userRepository.findById(userId).orElseThrow();
         S3Config config = s3ConfigRepository.findByUserId(userId)
                 .orElse(S3Config.builder().user(user).build());
@@ -277,7 +277,7 @@ public class S3Service {
                     userId, config.getBucket(), e.statusCode(), serverError);
         } catch (Exception e) {
             serverError = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            if (S3TlsSupport.isSslProbeError(serverError, e)) {
+            if (CstCloudTlsSupport.isSslProbeError(serverError, e)) {
                 serverProbe = "ssl_failed";
                 log.warn("s3 serverProbe ssl_failed userId={} bucket={} error={}", userId, config.getBucket(),
                         serverError);
@@ -592,7 +592,7 @@ public class S3Service {
     }
 
     private static String resolveByoUserAgent(S3Config config) {
-        return S3ClientAppSupport.resolveUserAgent(config.getClientApp());
+        return CstCloudClientAppSupport.resolveS3UserAgent(config.getClientApp());
     }
 
     private S3Client buildS3Client(Long userId, S3Config config) {
@@ -611,7 +611,7 @@ public class S3Service {
                         .build())
                 .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
                 .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED);
-        TrustManager[] trustManagers = S3TlsSupport.trustManagersFor(config.getEndpoint());
+        TrustManager[] trustManagers = CstCloudTlsSupport.trustManagersFor(config.getEndpoint());
         if (trustManagers != null) {
             builder.httpClientBuilder(UrlConnectionHttpClient.builder()
                     .tlsTrustManagersProvider(() -> trustManagers));

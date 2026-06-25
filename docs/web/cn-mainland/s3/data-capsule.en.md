@@ -27,6 +27,12 @@ If it fails, verify endpoint, path-style, region, bucket name, and keys. Check l
 
 Some providers (including Data Capsule) validate **User-Agent**. ShrimpSend sets `ShrimpSend/1.0 S3Compat` on direct S3 requests.
 
+## WebDAV (remote storage)
+
+Data Capsule also offers WebDAV at `https://data.cstcloud.cn/dav`. Create WebDAV credentials in the console, then add a connection under **Settings → WebDAV** in ShrimpSend.
+
+WebDAV uses the same `*.cstcloud.cn` hosts and CFCA certificate chain as S3. Backend connection tests need the same supplemental trust; upgraded servers handle this automatically.
+
 ## CORS (Web)
 
 For browser uploads, configure bucket CORS to allow your ShrimpSend Web origin with at least `GET`, `PUT`, and `HEAD`.

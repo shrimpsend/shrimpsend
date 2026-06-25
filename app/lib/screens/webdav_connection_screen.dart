@@ -33,8 +33,19 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
   bool _testing = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+  String _clientApp = 'zotero';
 
   bool get _isEdit => widget.connectionId != null;
+
+  bool _needsClientApp(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return false;
+    try {
+      return Uri.parse(trimmed).host.toLowerCase().endsWith('cstcloud.cn');
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   void initState() {
@@ -64,6 +75,7 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
         _urlController.text = meta.baseUrl;
         _usernameController.text = creds.username;
         _rootPathController.text = meta.rootPath;
+        _clientApp = meta.clientApp ?? creds.clientApp ?? 'zotero';
         _loading = false;
       });
     } catch (e) {
@@ -86,14 +98,16 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
   }
 
   WebDavConnectionRequest _buildRequest() {
+    final baseUrl = _urlController.text.trim();
     return WebDavConnectionRequest(
       name: _nameController.text.trim(),
-      baseUrl: _urlController.text.trim(),
+      baseUrl: baseUrl,
       username: _usernameController.text.trim(),
       password: _passwordController.text,
       rootPath: _rootPathController.text.trim().isEmpty
           ? '/'
           : _rootPathController.text.trim(),
+      clientApp: _needsClientApp(baseUrl) ? _clientApp : null,
     );
   }
 
@@ -187,6 +201,7 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
                       controller: _urlController,
                       decoration: InputDecoration(labelText: l10n.webdavFormUrl),
                       keyboardType: TextInputType.url,
+                      onChanged: (_) => setState(() {}),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return l10n.webdavFormUrlRequired;
@@ -198,6 +213,34 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
                         return null;
                       },
                     ),
+                    if (_needsClientApp(_urlController.text)) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      DropdownButtonFormField<String>(
+                        value: _clientApp,
+                        decoration: InputDecoration(
+                          labelText: l10n.webdavFormClientApp,
+                          helperText: l10n.webdavFormClientAppHint,
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'zotero',
+                            child: Text(l10n.webdavClientAppZotero),
+                          ),
+                          DropdownMenuItem(
+                            value: 'obsidian',
+                            child: Text(l10n.webdavClientAppObsidian),
+                          ),
+                          DropdownMenuItem(
+                            value: 'rclone',
+                            child: Text(l10n.webdavClientAppRclone),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() => _clientApp = v);
+                        },
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.md),
                     TextFormField(
                       controller: _usernameController,

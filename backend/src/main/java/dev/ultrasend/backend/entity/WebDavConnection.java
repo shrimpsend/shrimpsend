@@ -40,6 +40,10 @@ public class WebDavConnection {
     @Builder.Default
     private String rootPath = "/";
 
+    /** CSTCloud Data Capsule client app id (e.g. zotero); binds User-Agent for WebDAV. */
+    @Column(name = "client_app", length = 64)
+    private String clientApp;
+
     @Column(name = "sort_order", nullable = false)
     @Builder.Default
     private Integer sortOrder = 0;
