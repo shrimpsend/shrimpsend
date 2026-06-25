@@ -375,6 +375,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     }
 
     return WebDavShellScreen(
+      key: ValueKey('webdav_shell_${connection.id}'),
       connection: connection,
       embedded: embedded,
       onBack: onBack,

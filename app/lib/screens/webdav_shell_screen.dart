@@ -49,6 +49,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   final _recentTabKey = GlobalKey<WebDavVirtualEntryTabState>();
   final _favoritesTabKey = GlobalKey<WebDavVirtualEntryTabState>();
   String _currentPath = '';
+  int _initGeneration = 0;
 
   bool get _showOutboxButton =>
       !_selectionMode &&
@@ -110,21 +111,23 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   }
 
   Future<void> _init() async {
+    final generation = ++_initGeneration;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final creds = await resolveWebDavCredentials(widget.connection.id);
+      if (!mounted || generation != _initGeneration) return;
       _client = WebDavClient(creds);
       await WebDavTransferService.instance.restorePersistedSnapshots(
         widget.connection.id,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _initGeneration) return;
       setState(() => _loading = false);
       if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
+          if (!mounted || generation != _initGeneration) return;
           AppToast.show(
             context,
             message: AppLocalizations.of(context).webdavCstCloudReadOnlyToast,
@@ -132,7 +135,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         });
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _initGeneration) return;
       setState(() {
         _error = '$e';
         _loading = false;
