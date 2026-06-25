@@ -61,6 +61,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
   final _searchFocusNode = FocusNode();
   WebDavViewMode _viewMode = WebDavViewMode.list;
   Map<String, String?> _localPathByRemotePath = {};
+  int _localPathRefreshGen = 0;
 
   @override
   bool get isSearchVisible => _showSearch;
@@ -75,18 +76,22 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
     unawaited(_loadViewModePref());
     unawaited(_loadDirectory(_relativePath));
     ReceivedFileDao.addChangedListener(_onReceivedFilesChanged);
-    WebDavTransferService.instance.addListener(_onTransferChanged);
     WebDavTransferService.instance.addUploadCompletedListener(
       _onUploadCompleted,
+    );
+    WebDavTransferService.instance.addDownloadCompletedListener(
+      _onDownloadCompleted,
     );
   }
 
   @override
   void dispose() {
     ReceivedFileDao.removeChangedListener(_onReceivedFilesChanged);
-    WebDavTransferService.instance.removeListener(_onTransferChanged);
     WebDavTransferService.instance.removeUploadCompletedListener(
       _onUploadCompleted,
+    );
+    WebDavTransferService.instance.removeDownloadCompletedListener(
+      _onDownloadCompleted,
     );
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -117,17 +122,27 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
     unawaited(_loadDirectory(_relativePath));
   }
 
+  void _onDownloadCompleted({
+    required int connectionId,
+    required String remotePath,
+    required String localPath,
+  }) {
+    if (connectionId != widget.connection.id || !mounted) return;
+    setState(() {
+      _localPathByRemotePath = {
+        ..._localPathByRemotePath,
+        remotePath: localPath,
+      };
+    });
+  }
+
   void _onReceivedFilesChanged() {
     if (!mounted) return;
     unawaited(_refreshLocalPaths());
   }
 
-  void _onTransferChanged() {
-    if (!mounted) return;
-    unawaited(_refreshLocalPaths());
-  }
-
   Future<void> _refreshLocalPaths([List<WebDavEntry>? entries]) async {
+    final gen = ++_localPathRefreshGen;
     final targets = entries ?? _entries;
     if (targets.isEmpty) {
       if (!mounted) return;
@@ -139,7 +154,7 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
           connectionId: widget.connection.id,
           entries: targets,
         );
-    if (!mounted) return;
+    if (!mounted || gen != _localPathRefreshGen) return;
     setState(() => _localPathByRemotePath = map);
   }
 

@@ -8,6 +8,7 @@ import '../../ui/app_ui.dart';
 import '../../ui/platform_performance.dart';
 import '../../utils/file_utils.dart';
 import '../../widgets/file_icon_widget.dart';
+import '../file_preview_screen.dart';
 import '../webdav_file_detail_screen.dart';
 import 'webdav_entry_actions.dart';
 import 'webdav_view_mode.dart';
@@ -211,6 +212,27 @@ WebDavEntrySubtitleBuilder webDavDefaultFileSubtitleBuilder() {
   };
 }
 
+/// Local path for list/grid thumbnail when the downloaded file is a previewable image.
+String? webDavLocalImageThumbnailPath(String fileName, String? localPath) {
+  if (localPath == null || localPath.isEmpty) return null;
+  final category = getFileCategory(fileName);
+  if (category != FileCategory.image || !isPreviewable(category, fileName)) {
+    return null;
+  }
+  final ext = fileName.split('.').last.toLowerCase();
+  const rasterThumbnailExts = {
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp',
+    'bmp',
+    'ico',
+  };
+  if (!rasterThumbnailExts.contains(ext)) return null;
+  return localPath;
+}
+
 class WebDavEntryTile extends StatelessWidget {
   final WebDavEntry entry;
   final bool grid;
@@ -218,6 +240,7 @@ class WebDavEntryTile extends StatelessWidget {
   final bool selected;
   final bool isFavorite;
   final bool isDownloaded;
+  final String? localFilePath;
   final Widget subtitle;
   final Widget? trailing;
   final VoidCallback onTap;
@@ -231,6 +254,7 @@ class WebDavEntryTile extends StatelessWidget {
     required this.selected,
     required this.isFavorite,
     required this.isDownloaded,
+    this.localFilePath,
     required this.subtitle,
     this.trailing,
     required this.onTap,
@@ -241,6 +265,11 @@ class WebDavEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final theme = Theme.of(context);
+
+    final category = getFileCategory(entry.name);
+    final iconFilePath = entry.isDirectory
+        ? null
+        : webDavLocalImageThumbnailPath(entry.name, localFilePath);
 
     if (grid) {
       return InkWell(
@@ -258,8 +287,9 @@ class WebDavEntryTile extends StatelessWidget {
                 entry.isDirectory
                     ? Icon(LucideIcons.folder, color: colors.warning, size: 32)
                     : FileIconWidget(
-                        category: getFileCategory(entry.name),
+                        category: category,
                         size: 32,
+                        filePath: iconFilePath,
                       ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
@@ -318,8 +348,9 @@ class WebDavEntryTile extends StatelessWidget {
                 child: entry.isDirectory
                     ? Icon(LucideIcons.folder, color: colors.warning, size: 22)
                     : FileIconWidget(
-                        category: getFileCategory(entry.name),
+                        category: category,
                         size: 28,
+                        filePath: iconFilePath,
                       ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -490,6 +521,7 @@ class WebDavEntryListBody extends StatelessWidget {
     Widget buildTile(WebDavEntry entry, {required bool grid}) {
       final isDownloaded =
           !entry.isDirectory && localPathByRemotePath[entry.path] != null;
+      final localPath = localPathByRemotePath[entry.path];
       final isFav = favoritePaths.contains(entry.path);
       final selected = selectedPaths.contains(entry.path);
       final subtitle = subtitleBuilder(
@@ -507,6 +539,7 @@ class WebDavEntryListBody extends StatelessWidget {
         selected: selected,
         isFavorite: isFav,
         isDownloaded: isDownloaded,
+        localFilePath: localPath,
         subtitle: subtitle,
         trailing: trailingBuilder?.call(entry),
         onTap: () => onEntryTap(entry),

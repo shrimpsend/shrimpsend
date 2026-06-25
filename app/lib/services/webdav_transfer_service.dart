@@ -39,6 +39,12 @@ typedef WebDavUploadCompleted = void Function({
   required String remotePath,
 });
 
+typedef WebDavDownloadCompleted = void Function({
+  required int connectionId,
+  required String remotePath,
+  required String localPath,
+});
+
 class WebDavTransferSnapshot {
   final String transferId;
   final String fileName;
@@ -79,6 +85,7 @@ class WebDavTransferService extends ChangeNotifier {
   final Map<String, DateTime> _lastProgressPersist = {};
   static const _progressPersistInterval = Duration(milliseconds: 500);
   final Set<WebDavUploadCompleted> _uploadCompletedListeners = {};
+  final Set<WebDavDownloadCompleted> _downloadCompletedListeners = {};
 
   List<WebDavTransferSnapshot> snapshotsFor(String connectionId) {
     return _snapshots.values
@@ -110,6 +117,28 @@ class WebDavTransferService extends ChangeNotifier {
   }) {
     for (final listener in _uploadCompletedListeners) {
       listener(connectionId: connectionId, remotePath: remotePath);
+    }
+  }
+
+  void addDownloadCompletedListener(WebDavDownloadCompleted listener) {
+    _downloadCompletedListeners.add(listener);
+  }
+
+  void removeDownloadCompletedListener(WebDavDownloadCompleted listener) {
+    _downloadCompletedListeners.remove(listener);
+  }
+
+  void _notifyDownloadCompleted({
+    required int connectionId,
+    required String remotePath,
+    required String localPath,
+  }) {
+    for (final listener in _downloadCompletedListeners) {
+      listener(
+        connectionId: connectionId,
+        remotePath: remotePath,
+        localPath: localPath,
+      );
     }
   }
 
@@ -243,6 +272,11 @@ class WebDavTransferService extends ChangeNotifier {
       await TransferStateManager.instance.markStatus(
         transferId,
         TransferStatus.completed,
+      );
+      _notifyDownloadCompleted(
+        connectionId: connection.id,
+        remotePath: entry.path,
+        localPath: savePath,
       );
       _snapshots.remove(transferId);
       _cancelTokens.remove(transferId);

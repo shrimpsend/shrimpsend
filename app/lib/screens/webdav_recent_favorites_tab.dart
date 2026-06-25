@@ -80,6 +80,7 @@ class WebDavVirtualEntryTabState extends ConsumerState<WebDavVirtualEntryTab>
   final _searchFocusNode = FocusNode();
   WebDavViewMode _viewMode = WebDavViewMode.list;
   Map<String, String?> _localPathByRemotePath = {};
+  int _localPathRefreshGen = 0;
 
   String get _connKey => webDavConnectionKey(widget.connection.id);
 
@@ -95,13 +96,17 @@ class WebDavVirtualEntryTabState extends ConsumerState<WebDavVirtualEntryTab>
     unawaited(_loadViewModePref());
     unawaited(_loadEntries());
     ReceivedFileDao.addChangedListener(_onReceivedFilesChanged);
-    WebDavTransferService.instance.addListener(_onTransferChanged);
+    WebDavTransferService.instance.addDownloadCompletedListener(
+      _onDownloadCompleted,
+    );
   }
 
   @override
   void dispose() {
     ReceivedFileDao.removeChangedListener(_onReceivedFilesChanged);
-    WebDavTransferService.instance.removeListener(_onTransferChanged);
+    WebDavTransferService.instance.removeDownloadCompletedListener(
+      _onDownloadCompleted,
+    );
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -119,12 +124,21 @@ class WebDavVirtualEntryTabState extends ConsumerState<WebDavVirtualEntryTab>
     );
   }
 
-  void _onReceivedFilesChanged() {
-    if (!mounted) return;
-    unawaited(_refreshLocalPaths());
+  void _onDownloadCompleted({
+    required int connectionId,
+    required String remotePath,
+    required String localPath,
+  }) {
+    if (connectionId != widget.connection.id || !mounted) return;
+    setState(() {
+      _localPathByRemotePath = {
+        ..._localPathByRemotePath,
+        remotePath: localPath,
+      };
+    });
   }
 
-  void _onTransferChanged() {
+  void _onReceivedFilesChanged() {
     if (!mounted) return;
     unawaited(_refreshLocalPaths());
   }
@@ -177,6 +191,7 @@ class WebDavVirtualEntryTabState extends ConsumerState<WebDavVirtualEntryTab>
   }
 
   Future<void> _refreshLocalPaths([List<WebDavEntry>? entries]) async {
+    final gen = ++_localPathRefreshGen;
     final targets = entries ?? _entries;
     if (targets.isEmpty) {
       if (!mounted) return;
@@ -188,7 +203,7 @@ class WebDavVirtualEntryTabState extends ConsumerState<WebDavVirtualEntryTab>
           connectionId: widget.connection.id,
           entries: targets,
         );
-    if (!mounted) return;
+    if (!mounted || gen != _localPathRefreshGen) return;
     setState(() => _localPathByRemotePath = map);
   }
 
