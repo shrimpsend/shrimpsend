@@ -34,6 +34,7 @@ import '../utils/save_as_feedback.dart';
 import '../utils/toast.dart';
 import '../widgets/app_confirm_dialog.dart';
 import '../widgets/desktop_file_drag_source.dart';
+import '../widgets/desktop_hover_action_bar.dart';
 import '../widgets/file_icon_widget.dart';
 import '../widgets/received_file_info_dialog.dart';
 import 'settings_screen.dart';
@@ -952,78 +953,59 @@ class _FileManagerScreenState extends State<FileManagerScreen>
   }
 
   Widget _buildFileHoverActions(ReceivedFileInfo file, AppThemeColors colors) {
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: colors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _fileHoverBtn(
-            LucideIcons.info,
-            colors.textSecondary,
-            () => _showFileInfo(file),
-          ),
-          _fileHoverBtn(LucideIcons.squareCheck, colors.textSecondary, () {
+    final l10n = AppLocalizations.of(context);
+    return DesktopHoverActionBar(
+      colors: colors,
+      actions: [
+        DesktopHoverAction(
+          icon: LucideIcons.info,
+          tooltip: l10n.fmFileInfoAction,
+          onTap: () => _showFileInfo(file),
+        ),
+        DesktopHoverAction(
+          icon: LucideIcons.squareCheck,
+          tooltip: l10n.fmMultiSelectMode,
+          onTap: () {
             setState(() {
               _isSelectionMode = true;
               _selectedFiles.add(file.path);
             });
-          }),
-          _fileHoverBtn(
-            LucideIcons.copy,
-            colors.textSecondary,
-            () => unawaited(_copyFilesToClipboard([file.path])),
+          },
+        ),
+        DesktopHoverAction(
+          icon: LucideIcons.copy,
+          tooltip: l10n.fileClipboardCopy,
+          onTap: () => unawaited(_copyFilesToClipboard([file.path])),
+        ),
+        DesktopHoverAction(
+          icon: LucideIcons.externalLink,
+          tooltip: l10n.chatMenuOpen,
+          onTap: () => _openFile(file),
+        ),
+        DesktopHoverAction(
+          icon: LucideIcons.folderOpen,
+          tooltip: l10n.fmRevealInFolder,
+          onTap: () => _revealInFolder(file),
+        ),
+        if (FileExportService.isSupported &&
+            !SaveFolderListingService.isSaveFolderEntry(file))
+          DesktopHoverAction(
+            icon: LucideIcons.download,
+            tooltip: _exportActionLabel(l10n),
+            onTap: () => unawaited(_exportFile(file)),
           ),
-          _fileHoverBtn(
-            LucideIcons.externalLink,
-            colors.textSecondary,
-            () => _openFile(file),
-          ),
-          _fileHoverBtn(
-            LucideIcons.folderOpen,
-            colors.textSecondary,
-            () => _revealInFolder(file),
-          ),
-          if (FileExportService.isSupported &&
-              !SaveFolderListingService.isSaveFolderEntry(file))
-            _fileHoverBtn(
-              LucideIcons.download,
-              colors.textSecondary,
-              () => unawaited(_exportFile(file)),
-            ),
-          _fileHoverBtn(
-            LucideIcons.plus,
-            colors.textSecondary,
-            () => _addToPending(file),
-          ),
-          _fileHoverBtn(
-            LucideIcons.trash2,
-            colors.danger,
-            () => _deleteFile(file),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _fileHoverBtn(IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xxs),
-        child: Icon(icon, size: 16, color: color),
-      ),
+        DesktopHoverAction(
+          icon: LucideIcons.plus,
+          tooltip: l10n.fmTooltipAddPending,
+          onTap: () => _addToPending(file),
+        ),
+        DesktopHoverAction(
+          icon: LucideIcons.trash2,
+          tooltip: l10n.fmDeleteConfirm,
+          color: colors.danger,
+          onTap: () => _deleteFile(file),
+        ),
+      ],
     );
   }
 

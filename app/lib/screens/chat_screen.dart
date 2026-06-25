@@ -59,6 +59,7 @@ import '../network/connection_orchestrator.dart';
 import '../network/connection_resolution.dart';
 import '../network/probe_priority.dart';
 import '../widgets/desktop_file_drag_source.dart';
+import '../widgets/desktop_hover_action_bar.dart';
 import '../widgets/file_card_bubble.dart';
 import 'file_manager_screen.dart';
 import 'message_search_screen.dart';
@@ -9900,6 +9901,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     bool isFileMessage,
     AppThemeColors appColors,
   ) {
+    final loc = AppLocalizations.of(context);
     final fileMeta = _fileMetaByMessageId[message.id];
     final localPath = fileMeta?.localPath;
     final fileExists = localPath != null && File(localPath).existsSync();
@@ -9907,41 +9909,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final canS3Download = s3Key != null && s3Key.isNotEmpty && !fileExists;
     final existingLocalPath = fileExists ? localPath : null;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: appColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: appColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _msgHoverBtn(LucideIcons.squareCheck, appColors.textSecondary, () {
+    return DesktopHoverActionBar(
+      colors: appColors,
+      actions: [
+        DesktopHoverAction(
+          icon: LucideIcons.squareCheck,
+          tooltip: loc.fmMultiSelectMode,
+          onTap: () {
             setState(() {
               _isSelectionMode = true;
               _selectedMessages.add(message.id);
             });
-          }),
-          if (!isFileMessage)
-            _msgHoverBtn(LucideIcons.copy, appColors.textSecondary, () {
+          },
+        ),
+        if (!isFileMessage)
+          DesktopHoverAction(
+            icon: LucideIcons.copy,
+            tooltip: loc.chatMenuCopyText,
+            onTap: () {
               Clipboard.setData(ClipboardData(text: message.text));
-              AppToast.show(
-                context,
-                message: AppLocalizations.of(context).chatCopied,
-              );
-            }),
-          if (isFileMessage && existingLocalPath != null) ...[
-            _msgHoverBtn(LucideIcons.copy, appColors.textSecondary, () {
-              unawaited(_copyChatFileToClipboard(existingLocalPath));
-            }),
-            _msgHoverBtn(LucideIcons.externalLink, appColors.textSecondary, () {
+              AppToast.show(context, message: loc.chatCopied);
+            },
+          ),
+        if (isFileMessage && existingLocalPath != null) ...[
+          DesktopHoverAction(
+            icon: LucideIcons.copy,
+            tooltip: loc.chatMenuCopyFile,
+            onTap: () => unawaited(_copyChatFileToClipboard(existingLocalPath)),
+          ),
+          DesktopHoverAction(
+            icon: LucideIcons.externalLink,
+            tooltip: loc.chatMenuOpen,
+            onTap: () {
               final meta = _fileMetaByMessageId[message.id];
               if (meta == null) {
                 unawaited(_tryOpenLocalFilePath(existingLocalPath));
@@ -9954,52 +9953,54 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   ),
                 );
               }
-            }),
-            _msgHoverBtn(LucideIcons.folderOpen, appColors.textSecondary, () {
-              unawaited(revealFileInFolder(existingLocalPath));
-            }),
-            if (FileExportService.isSupported)
-              _msgHoverBtn(LucideIcons.download, appColors.textSecondary, () {
+            },
+          ),
+          DesktopHoverAction(
+            icon: LucideIcons.folderOpen,
+            tooltip: loc.fmRevealInFolder,
+            onTap: () => unawaited(revealFileInFolder(existingLocalPath)),
+          ),
+          if (FileExportService.isSupported)
+            DesktopHoverAction(
+              icon: LucideIcons.download,
+              tooltip: _exportActionLabel(loc),
+              onTap: () {
                 final meta = _fileMetaByMessageId[message.id];
                 if (meta != null) {
                   unawaited(_exportChatFile(existingLocalPath, meta.fileName));
                 }
-              }),
-            _msgHoverBtn(LucideIcons.plus, appColors.textSecondary, () {
+              },
+            ),
+          DesktopHoverAction(
+            icon: LucideIcons.plus,
+            tooltip: loc.fmTooltipAddPending,
+            onTap: () {
               final meta = _fileMetaByMessageId[message.id];
               if (meta != null) {
                 _addFileMessageToPending(meta, existingLocalPath);
               }
-            }),
-          ],
-          if (isFileMessage && canS3Download)
-            _msgHoverBtn(LucideIcons.download, appColors.textSecondary, () {
-              unawaited(
-                _downloadS3File(
-                  s3Key,
-                  messageId: message.id,
-                  fileName: _fileFileNameByMessageId[message.id],
-                ),
-              );
-            }),
-          _msgHoverBtn(
-            LucideIcons.trash2,
-            appColors.danger,
-            () => _confirmDeleteMessage(message),
+            },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _msgHoverBtn(IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xxs),
-        child: Icon(icon, size: 16, color: color),
-      ),
+        if (isFileMessage && canS3Download)
+          DesktopHoverAction(
+            icon: LucideIcons.download,
+            tooltip: loc.chatMenuDownloadFromCloud,
+            onTap: () => unawaited(
+              _downloadS3File(
+                s3Key,
+                messageId: message.id,
+                fileName: _fileFileNameByMessageId[message.id],
+              ),
+            ),
+          ),
+        DesktopHoverAction(
+          icon: LucideIcons.trash2,
+          tooltip: loc.chatMenuDeleteMessage,
+          color: appColors.danger,
+          onTap: () => _confirmDeleteMessage(message),
+        ),
+      ],
     );
   }
 

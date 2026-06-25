@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -7,6 +9,9 @@ import '../../services/webdav_session.dart';
 import '../../ui/app_ui.dart';
 import '../../ui/platform_performance.dart';
 import '../../utils/file_utils.dart';
+import '../../utils/reveal_file_in_folder.dart';
+import '../../utils/runtime_platform.dart';
+import '../../widgets/desktop_hover_action_bar.dart';
 import '../../widgets/file_icon_widget.dart';
 import '../file_preview_screen.dart';
 import '../webdav_file_detail_screen.dart';
@@ -45,110 +50,136 @@ class WebDavEntryContextMenu {
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-            ListTile(
-              leading: const Icon(LucideIcons.checkSquare),
-              title: Text(l10n.fmMultiSelectMode),
-              onTap: () {
-                Navigator.pop(ctx);
-                onEnterSelectionMode();
-              },
+            children: _sheetTiles(
+              context: context,
+              sheetContext: ctx,
+              l10n: l10n,
+              entry: entry,
+              isFavorite: isFavorite,
+              actions: actions,
+              connection: connection,
+              client: client,
+              onEnterSelectionMode: onEnterSelectionMode,
+              onDeleted: onDeleted,
             ),
-            if (!entry.isDirectory) ...[
-              ListTile(
-                leading: const Icon(LucideIcons.download),
-                title: Text(l10n.webdavActionDownload),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  actions.downloadEntries([entry]);
-                },
-              ),
-              ListTile(
-                leading: const Icon(LucideIcons.externalLink),
-                title: Text(l10n.webdavActionOpenWith),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  actions.openLocalCopy(entry);
-                },
-              ),
-              ListTile(
-                leading: const Icon(LucideIcons.share2),
-                title: Text(l10n.webdavActionShare),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  actions.shareEntries([entry]);
-                },
-              ),
-            ],
-            ListTile(
-              leading: Icon(isFavorite ? LucideIcons.starOff : LucideIcons.star),
-              title: Text(
-                isFavorite ? l10n.webdavActionUnfavorite : l10n.webdavActionFavorite,
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                actions.toggleFavorite(entry);
-              },
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.pencil),
-              title: Text(l10n.webdavActionRename),
-              onTap: () {
-                Navigator.pop(ctx);
-                actions.renameEntry(entry);
-              },
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.copy),
-              title: Text(l10n.webdavActionCopy),
-              onTap: () {
-                Navigator.pop(ctx);
-                actions.copyEntry(entry);
-              },
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.folderInput),
-              title: Text(l10n.webdavActionMove),
-              onTap: () {
-                Navigator.pop(ctx);
-                actions.moveEntry(entry);
-              },
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.info),
-              title: Text(l10n.webdavActionDetails),
-              onTap: () {
-                Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => WebDavFileDetailScreen(
-                      connection: connection,
-                      client: client,
-                      entry: entry,
-                      isFavorite: isFavorite,
-                      onDeleted: onDeleted,
-                    ),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(LucideIcons.trash2, color: context.appColors.danger),
-              title: Text(
-                l10n.webdavActionDelete,
-                style: TextStyle(color: context.appColors.danger),
-              ),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await actions.deleteEntries([entry]);
-              },
-            ),
-          ],
-        ),
+          ),
         ),
       ),
     );
+  }
+
+  static List<Widget> _sheetTiles({
+    required BuildContext context,
+    required BuildContext sheetContext,
+    required AppLocalizations l10n,
+    required WebDavEntry entry,
+    required bool isFavorite,
+    required WebDavEntryActions actions,
+    required WebDavConnectionSummary connection,
+    required WebDavClient client,
+    required VoidCallback onEnterSelectionMode,
+    required Future<void> Function() onDeleted,
+  }) {
+    return [
+      ListTile(
+        leading: const Icon(LucideIcons.checkSquare),
+        title: Text(l10n.fmMultiSelectMode),
+        onTap: () {
+          Navigator.pop(sheetContext);
+          onEnterSelectionMode();
+        },
+      ),
+      if (!entry.isDirectory) ...[
+        ListTile(
+          leading: const Icon(LucideIcons.download),
+          title: Text(l10n.webdavActionDownload),
+          onTap: () {
+            Navigator.pop(sheetContext);
+            actions.downloadEntries([entry]);
+          },
+        ),
+        ListTile(
+          leading: const Icon(LucideIcons.externalLink),
+          title: Text(l10n.webdavActionOpenWith),
+          onTap: () {
+            Navigator.pop(sheetContext);
+            actions.openLocalCopy(entry);
+          },
+        ),
+        ListTile(
+          leading: const Icon(LucideIcons.share2),
+          title: Text(l10n.webdavActionShare),
+          onTap: () {
+            Navigator.pop(sheetContext);
+            actions.shareEntries([entry]);
+          },
+        ),
+      ],
+      ListTile(
+        leading: Icon(isFavorite ? LucideIcons.starOff : LucideIcons.star),
+        title: Text(
+          isFavorite ? l10n.webdavActionUnfavorite : l10n.webdavActionFavorite,
+        ),
+        onTap: () {
+          Navigator.pop(sheetContext);
+          actions.toggleFavorite(entry);
+        },
+      ),
+      ListTile(
+        leading: const Icon(LucideIcons.pencil),
+        title: Text(l10n.webdavActionRename),
+        onTap: () {
+          Navigator.pop(sheetContext);
+          actions.renameEntry(entry);
+        },
+      ),
+      ListTile(
+        leading: const Icon(LucideIcons.copy),
+        title: Text(l10n.webdavActionCopy),
+        onTap: () {
+          Navigator.pop(sheetContext);
+          actions.copyEntry(entry);
+        },
+      ),
+      ListTile(
+        leading: const Icon(LucideIcons.folderInput),
+        title: Text(l10n.webdavActionMove),
+        onTap: () {
+          Navigator.pop(sheetContext);
+          actions.moveEntry(entry);
+        },
+      ),
+      ListTile(
+        leading: const Icon(LucideIcons.info),
+        title: Text(l10n.webdavActionDetails),
+        onTap: () {
+          Navigator.pop(sheetContext);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => WebDavFileDetailScreen(
+                connection: connection,
+                client: client,
+                entry: entry,
+                isFavorite: isFavorite,
+                onDeleted: onDeleted,
+              ),
+            ),
+          );
+        },
+      ),
+      ListTile(
+        leading: Icon(LucideIcons.trash2, color: context.appColors.danger),
+        title: Text(
+          l10n.webdavActionDelete,
+          style: TextStyle(color: context.appColors.danger),
+        ),
+        onTap: () async {
+          Navigator.pop(sheetContext);
+          await actions.deleteEntries([entry]);
+        },
+      ),
+    ];
   }
 }
 
@@ -244,7 +275,7 @@ class WebDavEntryTile extends StatelessWidget {
   final Widget subtitle;
   final Widget? trailing;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  final VoidCallback? onLongPress;
 
   const WebDavEntryTile({
     super.key,
@@ -258,7 +289,7 @@ class WebDavEntryTile extends StatelessWidget {
     required this.subtitle,
     this.trailing,
     required this.onTap,
-    required this.onLongPress,
+    this.onLongPress,
   });
 
   @override
@@ -441,7 +472,7 @@ class WebDavSearchField extends StatelessWidget {
   }
 }
 
-class WebDavEntryListBody extends StatelessWidget {
+class WebDavEntryListBody extends StatefulWidget {
   final bool loading;
   final String? error;
   final String emptyMessage;
@@ -491,40 +522,157 @@ class WebDavEntryListBody extends StatelessWidget {
   });
 
   @override
+  State<WebDavEntryListBody> createState() => _WebDavEntryListBodyState();
+}
+
+class _WebDavEntryListBodyState extends State<WebDavEntryListBody> {
+  String? _hoveredEntryPath;
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
+    final isDesktop = RuntimePlatform.isDesktop;
 
-    if (loading) {
+    if (widget.loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (error != null) {
+    if (widget.error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(error!, textAlign: TextAlign.center),
+              Text(widget.error!, textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.md),
-              OutlinedButton(onPressed: onRetry, child: Text(retryLabel)),
+              OutlinedButton(
+                onPressed: widget.onRetry,
+                child: Text(widget.retryLabel),
+              ),
             ],
           ),
         ),
       );
     }
-    if (entries.isEmpty) {
-      return Center(child: Text(emptyMessage));
+    if (widget.entries.isEmpty) {
+      return Center(child: Text(widget.emptyMessage));
+    }
+
+    void showContextMenu(WebDavEntry entry, bool isFav) {
+      WebDavEntryContextMenu.show(
+        context: context,
+        entry: entry,
+        isFavorite: isFav,
+        actions: widget.actions,
+        connection: widget.connection,
+        client: widget.client,
+        onEnterSelectionMode: () => widget.onEnterSelectionMode(entry),
+        onDeleted: widget.onDeleted,
+      );
+    }
+
+    void openEntryDetails(WebDavEntry entry, bool isFav) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WebDavFileDetailScreen(
+            connection: widget.connection,
+            client: widget.client,
+            entry: entry,
+            isFavorite: isFav,
+            onDeleted: widget.onDeleted,
+          ),
+        ),
+      );
+    }
+
+    Widget buildEntryHoverActions(
+      WebDavEntry entry,
+      bool isFav,
+      bool isDownloaded,
+      String? localPath,
+    ) {
+      return DesktopHoverActionBar(
+        colors: colors,
+        actions: [
+          DesktopHoverAction(
+            icon: LucideIcons.squareCheck,
+            tooltip: l10n.fmMultiSelectMode,
+            onTap: () => widget.onEnterSelectionMode(entry),
+          ),
+          if (!entry.isDirectory) ...[
+            DesktopHoverAction(
+              icon: LucideIcons.download,
+              tooltip: l10n.webdavActionDownload,
+              onTap: () => widget.actions.downloadEntries([entry]),
+            ),
+            if (isDownloaded)
+              DesktopHoverAction(
+                icon: LucideIcons.externalLink,
+                tooltip: l10n.webdavActionOpenWith,
+                onTap: () => widget.actions.openLocalCopy(entry),
+              ),
+            if (isDownloaded && localPath != null)
+              DesktopHoverAction(
+                icon: LucideIcons.folderOpen,
+                tooltip: l10n.fmRevealInFolder,
+                onTap: () => unawaited(revealFileInFolder(localPath)),
+              ),
+            DesktopHoverAction(
+              icon: LucideIcons.share2,
+              tooltip: l10n.webdavActionShare,
+              onTap: () => widget.actions.shareEntries([entry]),
+            ),
+          ],
+          DesktopHoverAction(
+            icon: isFav ? LucideIcons.starOff : LucideIcons.star,
+            tooltip: isFav
+                ? l10n.webdavActionUnfavorite
+                : l10n.webdavActionFavorite,
+            onTap: () => widget.actions.toggleFavorite(entry),
+          ),
+          DesktopHoverAction(
+            icon: LucideIcons.pencil,
+            tooltip: l10n.webdavActionRename,
+            onTap: () => widget.actions.renameEntry(entry),
+          ),
+          DesktopHoverAction(
+            icon: LucideIcons.copy,
+            tooltip: l10n.webdavActionCopy,
+            onTap: () => widget.actions.copyEntry(entry),
+          ),
+          DesktopHoverAction(
+            icon: LucideIcons.folderInput,
+            tooltip: l10n.webdavActionMove,
+            onTap: () => widget.actions.moveEntry(entry),
+          ),
+          DesktopHoverAction(
+            icon: LucideIcons.info,
+            tooltip: l10n.webdavActionDetails,
+            onTap: () => openEntryDetails(entry, isFav),
+          ),
+          DesktopHoverAction(
+            icon: LucideIcons.trash2,
+            tooltip: l10n.webdavActionDelete,
+            color: colors.danger,
+            onTap: () => unawaited(widget.actions.deleteEntries([entry])),
+          ),
+        ],
+      );
     }
 
     Widget buildTile(WebDavEntry entry, {required bool grid}) {
-      final isDownloaded =
-          !entry.isDirectory && localPathByRemotePath[entry.path] != null;
-      final localPath = localPathByRemotePath[entry.path];
-      final isFav = favoritePaths.contains(entry.path);
-      final selected = selectedPaths.contains(entry.path);
-      final subtitle = subtitleBuilder(
+      final isDownloaded = !entry.isDirectory &&
+          widget.localPathByRemotePath[entry.path] != null;
+      final localPath = widget.localPathByRemotePath[entry.path];
+      final isFav = widget.favoritePaths.contains(entry.path);
+      final selected = widget.selectedPaths.contains(entry.path);
+      final isHovered = isDesktop &&
+          !widget.selectionMode &&
+          _hoveredEntryPath == entry.path;
+      final subtitle = widget.subtitleBuilder(
         context,
         entry,
         l10n,
@@ -532,39 +680,66 @@ class WebDavEntryListBody extends StatelessWidget {
         colors,
         isDownloaded,
       );
-      return WebDavEntryTile(
+      final tile = WebDavEntryTile(
         entry: entry,
         grid: grid,
-        selectionMode: selectionMode,
+        selectionMode: widget.selectionMode,
         selected: selected,
         isFavorite: isFav,
         isDownloaded: isDownloaded,
         localFilePath: localPath,
         subtitle: subtitle,
-        trailing: trailingBuilder?.call(entry),
-        onTap: () => onEntryTap(entry),
-        onLongPress: () => WebDavEntryContextMenu.show(
-          context: context,
-          entry: entry,
-          isFavorite: isFav,
-          actions: actions,
-          connection: connection,
-          client: client,
-          onEnterSelectionMode: () => onEnterSelectionMode(entry),
-          onDeleted: onDeleted,
+        trailing: widget.trailingBuilder?.call(entry),
+        onTap: () => widget.onEntryTap(entry),
+        onLongPress: isDesktop
+            ? null
+            : () => showContextMenu(entry, isFav),
+      );
+
+      if (!isDesktop) return tile;
+
+      final desktopTile = MouseRegion(
+        onEnter: (_) {
+          if (!widget.selectionMode) {
+            setState(() => _hoveredEntryPath = entry.path);
+          }
+        },
+        onExit: (_) {
+          if (_hoveredEntryPath == entry.path) {
+            setState(() => _hoveredEntryPath = null);
+          }
+        },
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            tile,
+            if (isHovered)
+              Positioned(
+                right: AppSpacing.xs,
+                bottom: AppSpacing.xxs,
+                child: buildEntryHoverActions(
+                  entry,
+                  isFav,
+                  isDownloaded,
+                  localPath,
+                ),
+              ),
+          ],
         ),
       );
+
+      return desktopTile;
     }
 
     return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: viewMode == WebDavViewMode.grid
+      onRefresh: widget.onRefresh,
+      child: widget.viewMode == WebDavViewMode.grid
           ? GridView.builder(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.xs,
                 AppSpacing.xs,
                 AppSpacing.xs,
-                scrollBottom,
+                widget.scrollBottom,
               ),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
@@ -572,20 +747,20 @@ class WebDavEntryListBody extends StatelessWidget {
                 crossAxisSpacing: AppSpacing.xs,
                 mainAxisSpacing: AppSpacing.xs,
               ),
-              itemCount: entries.length,
+              itemCount: widget.entries.length,
               itemBuilder: (context, index) =>
-                  buildTile(entries[index], grid: true),
+                  buildTile(widget.entries[index], grid: true),
             )
           : ListView.separated(
-              padding: EdgeInsets.only(bottom: scrollBottom),
-              itemCount: entries.length,
+              padding: EdgeInsets.only(bottom: widget.scrollBottom),
+              itemCount: widget.entries.length,
               separatorBuilder: (_, __) => Divider(
                 height: 1,
                 thickness: 1,
                 color: colors.border,
               ),
               itemBuilder: (context, index) =>
-                  buildTile(entries[index], grid: false),
+                  buildTile(widget.entries[index], grid: false),
             ),
     );
   }
