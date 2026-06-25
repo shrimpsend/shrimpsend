@@ -620,7 +620,6 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     if (_selectionMode) {
       final tab = _activeTabController();
       final hasSelection = _selectedCount > 0;
-      final canMove = _selectedCount == 1;
       final colors = context.appColors;
 
       return [
@@ -633,11 +632,6 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
           icon: const Icon(LucideIcons.share2),
           onPressed: hasSelection ? () => tab?.shareSelected() : null,
           tooltip: l10n.webdavActionShare,
-        ),
-        IconButton(
-          icon: const Icon(LucideIcons.folderInput),
-          onPressed: canMove ? () => tab?.moveSelected() : null,
-          tooltip: l10n.webdavActionMove,
         ),
         IconButton(
           icon: Icon(LucideIcons.trash2, color: colors.danger),

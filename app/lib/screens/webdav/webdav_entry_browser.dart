@@ -142,14 +142,6 @@ class WebDavEntryContextMenu {
         },
       ),
       ListTile(
-        leading: const Icon(LucideIcons.folderInput),
-        title: Text(l10n.webdavActionMove),
-        onTap: () {
-          Navigator.pop(sheetContext);
-          actions.moveEntry(entry);
-        },
-      ),
-      ListTile(
         leading: const Icon(LucideIcons.info),
         title: Text(l10n.webdavActionDetails),
         onTap: () {
@@ -642,11 +634,6 @@ class _WebDavEntryListBodyState extends State<WebDavEntryListBody> {
             icon: LucideIcons.copy,
             tooltip: l10n.webdavActionCopy,
             onTap: () => widget.actions.copyEntry(entry),
-          ),
-          DesktopHoverAction(
-            icon: LucideIcons.folderInput,
-            tooltip: l10n.webdavActionMove,
-            onTap: () => widget.actions.moveEntry(entry),
           ),
           DesktopHoverAction(
             icon: LucideIcons.info,
