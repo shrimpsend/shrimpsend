@@ -247,6 +247,13 @@ export async function testS3Config(): Promise<void> {
       const detailMsg = serverError?.trim() ? serverError : 'HTTP 401';
       throw new Error(`S3 server probe failed: ${detailMsg}${hint}`);
     }
+    if (serverProbe === 'ssl_failed') {
+      logger.warn(
+        TAG,
+        'testS3Config serverProbe ssl_failed, continuing client HEAD probe',
+        serverError ?? '',
+      );
+    }
     logPresignedUrlSummary(url, cfg.bucket);
     await headPresignedUrl(url, undefined, cfg.userAgent);
     logger.info(TAG, 'testS3Config success');

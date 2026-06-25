@@ -60,16 +60,26 @@
 1. 由服务端对你的桶执行 HeadBucket（`serverProbe`）。
 2. 签发预签名 URL，由本机 HEAD 探测（验证客户端网络可达性）。
 
+若服务端 SSL 探测失败但客户端 HEAD 成功，测试仍可通过（日志中 `serverProbe=ssl_failed` 表示服务端 TLS 校验问题，不影响客户端直连）。
+
 若失败，请按顺序检查：
 
-1. Endpoint 是否为 `https://s3.data.cstcloud.cn`（不要加路径后缀）。
+1. Endpoint 优先使用 `https://s3.cstcloud.cn`（`s3.data.cstcloud.cn` 部分环境 DNS 无法解析；不要加路径后缀）。
 2. Path-style 是否**已开启**。
 3. Region 是否为 `us-east-1`。
 4. Bucket 名是否与「客户端访问」页一致。
 5. AccessKey 是否复制完整；必要时重新创建一组 Key。
 6. 查看日志中的 `serverProbe` 与 S3 响应 XML（`SignatureDoesNotMatch`、`InvalidAccessKeyId` 等）。
 
-部分 S3 兼容服务（含数据胶囊）会校验 HTTP **User-Agent**。虾传客户端直连 S3 时已使用统一 UA（`ShrimpSend/1.0 S3Compat`）。
+**常见错误：**
+
+| 日志 / 错误 | 含义 | 处理 |
+| --- | --- | --- |
+| `PKIX path building failed` / `SunCertPathBuilderException` | Java 后端无法验证 CFCA 证书链（与 AccessKey 无关） | 升级至已修复版本；旧版可依赖客户端 HEAD 探测继续测试 |
+| `SignatureDoesNotMatch` / HTTP 401 | 凭证或签名参数不匹配 | 核对 Endpoint、Path-style、Region、客户端应用绑定 |
+| `InvalidAccessKeyId` | Access Key 错误或已删除 | 在「客户端访问」重新创建 Key |
+
+部分 S3 兼容服务（含数据胶囊）会校验 HTTP **User-Agent**。创建 AccessKey 时选择的**客户端应用**须与虾传设置一致；客户端直连 S3 时使用对应 UA。
 
 ## CORS（Web 端）
 

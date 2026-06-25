@@ -213,6 +213,12 @@ Future<void> testS3Config() async {
           : 'HTTP 401';
       throw Exception('S3 服务端连接失败: $detailMsg$hint');
     }
+    if (serverProbe == 'ssl_failed') {
+      logApi.warning(
+        'testS3Config serverProbe ssl_failed, continuing client HEAD probe'
+        '${serverError != null && serverError.isNotEmpty ? ': $serverError' : ''}',
+      );
+    }
     logPresignedUrlSummary(url, bucket: detail.bucket);
     await headPresignedUrl(url, userAgent: detail.userAgent);
     logApi.info('testS3Config success');
