@@ -3219,16 +3219,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webdavFormClientAppHint =>
-      'Must match the app selected when creating WebDAV credentials in Data Capsule';
+      'Data Capsule WebDAV only supports Zotero (8+); use credentials from the console';
 
   @override
   String get webdavClientAppZotero => 'Zotero (8+)';
-
-  @override
-  String get webdavClientAppObsidian => 'Obsidian';
-
-  @override
-  String get webdavClientAppRclone => 'Rclone';
 
   @override
   String get webdavPasswordRequired => 'Enter password';

@@ -21,14 +21,12 @@ public final class CstCloudClientAppSupport {
             "obsidian", "obsidian",
             "cherry_studio", "Cherry Studio");
 
-    /** Zotero 8+ UA used by Data Capsule WebDAV when "Zotero" app is selected at credential creation. */
+    /** Data Capsule WebDAV only supports Zotero 8+ credentials. */
+    private static final String WEBDAV_CLIENT_APP = "zotero";
+
+    /** Zotero 8+ UA used by Data Capsule WebDAV. */
     private static final String ZOTERO_8_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0 Zotero/8.0.3";
-
-    private static final Map<String, String> WEBDAV_USER_AGENTS = Map.of(
-            "zotero", ZOTERO_8_USER_AGENT,
-            "obsidian", "obsidian",
-            "rclone", "rclone/v1.67.0");
 
     private CstCloudClientAppSupport() {
     }
@@ -54,9 +52,13 @@ public final class CstCloudClientAppSupport {
 
     public static boolean isKnownWebDavApp(String clientApp) {
         if (clientApp == null || clientApp.isBlank()) {
-            return false;
+            return true;
         }
-        return WEBDAV_USER_AGENTS.containsKey(clientApp.trim().toLowerCase(Locale.ROOT));
+        return WEBDAV_CLIENT_APP.equals(clientApp.trim().toLowerCase(Locale.ROOT));
+    }
+
+    public static String defaultWebDavClientApp() {
+        return WEBDAV_CLIENT_APP;
     }
 
     public static String resolveS3UserAgent(String clientApp) {
@@ -67,11 +69,7 @@ public final class CstCloudClientAppSupport {
     }
 
     public static String resolveWebDavUserAgent(String clientApp) {
-        if (clientApp == null || clientApp.isBlank()) {
-            return ZOTERO_8_USER_AGENT;
-        }
-        return WEBDAV_USER_AGENTS.getOrDefault(
-                clientApp.trim().toLowerCase(Locale.ROOT), ZOTERO_8_USER_AGENT);
+        return ZOTERO_8_USER_AGENT;
     }
 
     public static void validateS3ClientAppForProvider(String providerId, String clientApp) {
@@ -89,11 +87,11 @@ public final class CstCloudClientAppSupport {
             return;
         }
         String normalized = clientApp == null || clientApp.isBlank()
-                ? "zotero"
+                ? WEBDAV_CLIENT_APP
                 : clientApp.trim().toLowerCase(Locale.ROOT);
-        if (!isKnownWebDavApp(normalized)) {
+        if (!WEBDAV_CLIENT_APP.equals(normalized)) {
             throw new IllegalArgumentException(
-                    "中国科技云数据胶囊 WebDAV 需选择客户端应用（须与控制台创建 WebDAV 凭证时绑定的应用一致）");
+                    "中国科技云数据胶囊 WebDAV 仅支持 Zotero（8 及以上）客户端应用");
         }
     }
 }

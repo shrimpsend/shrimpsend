@@ -3072,16 +3072,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webdavFormClientApp => '客户端应用';
 
   @override
-  String get webdavFormClientAppHint => '须与数据胶囊控制台创建 WebDAV 凭证时选择的应用一致';
+  String get webdavFormClientAppHint =>
+      '数据胶囊 WebDAV 仅支持 Zotero（8 及以上），请使用控制台创建的凭证';
 
   @override
   String get webdavClientAppZotero => 'Zotero（8 及以上）';
-
-  @override
-  String get webdavClientAppObsidian => 'Obsidian';
-
-  @override
-  String get webdavClientAppRclone => 'Rclone';
 
   @override
   String get webdavPasswordRequired => '请输入密码';

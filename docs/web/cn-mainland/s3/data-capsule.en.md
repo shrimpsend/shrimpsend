@@ -33,6 +33,8 @@ Data Capsule also offers WebDAV at `https://data.cstcloud.cn/dav`. Create WebDAV
 
 WebDAV uses the same `*.cstcloud.cn` hosts and CFCA certificate chain as S3. Backend connection tests need the same supplemental trust; upgraded servers handle this automatically.
 
+The console only supports **Zotero (8+)** for WebDAV credentials. ShrimpSend sends the matching Zotero User-Agent automatically; use the WebDAV username and password from the console (not your login password).
+
 ## CORS (Web)
 
 For browser uploads, configure bucket CORS to allow your ShrimpSend Web origin with at least `GET`, `PUT`, and `HEAD`.

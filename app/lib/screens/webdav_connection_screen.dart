@@ -215,30 +215,15 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
                     ),
                     if (_needsClientApp(_urlController.text)) ...[
                       const SizedBox(height: AppSpacing.md),
-                      DropdownButtonFormField<String>(
-                        value: _clientApp,
+                      InputDecorator(
                         decoration: InputDecoration(
                           labelText: l10n.webdavFormClientApp,
                           helperText: l10n.webdavFormClientAppHint,
                         ),
-                        items: [
-                          DropdownMenuItem(
-                            value: 'zotero',
-                            child: Text(l10n.webdavClientAppZotero),
-                          ),
-                          DropdownMenuItem(
-                            value: 'obsidian',
-                            child: Text(l10n.webdavClientAppObsidian),
-                          ),
-                          DropdownMenuItem(
-                            value: 'rclone',
-                            child: Text(l10n.webdavClientAppRclone),
-                          ),
-                        ],
-                        onChanged: (v) {
-                          if (v == null) return;
-                          setState(() => _clientApp = v);
-                        },
+                        child: Text(
+                          l10n.webdavClientAppZotero,
+                          style: theme.textTheme.bodyLarge,
+                        ),
                       ),
                     ],
                     const SizedBox(height: AppSpacing.md),

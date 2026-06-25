@@ -5691,7 +5691,7 @@ abstract class AppLocalizations {
   /// No description provided for @webdavFormClientAppHint.
   ///
   /// In en, this message translates to:
-  /// **'Must match the app selected when creating WebDAV credentials in Data Capsule'**
+  /// **'Data Capsule WebDAV only supports Zotero (8+); use credentials from the console'**
   String get webdavFormClientAppHint;
 
   /// No description provided for @webdavClientAppZotero.
@@ -5699,18 +5699,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Zotero (8+)'**
   String get webdavClientAppZotero;
-
-  /// No description provided for @webdavClientAppObsidian.
-  ///
-  /// In en, this message translates to:
-  /// **'Obsidian'**
-  String get webdavClientAppObsidian;
-
-  /// No description provided for @webdavClientAppRclone.
-  ///
-  /// In en, this message translates to:
-  /// **'Rclone'**
-  String get webdavClientAppRclone;
 
   /// No description provided for @webdavPasswordRequired.
   ///
