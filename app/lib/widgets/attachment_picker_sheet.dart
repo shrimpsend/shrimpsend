@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../config/env.dart';
 import '../ui/app_ui.dart';
+import '../utils/runtime_platform.dart';
 
 enum AttachmentPickerChoice { imageVideo, file, folder, apk }
 
@@ -45,15 +46,16 @@ class AttachmentPickerSheet extends StatelessWidget {
                 ),
               ),
             ),
-            _OptionTile(
-              icon: LucideIcons.images,
-              iconColor: colors.success,
-              label: l10n.composerAttachImageVideo,
-              subtitle: l10n.composerAttachImageVideoDesc,
-              onTap: () =>
-                  Navigator.pop(context, AttachmentPickerChoice.imageVideo),
-              subtitleColor: colors.textSecondary,
-            ),
+            if (!RuntimePlatform.isDesktop)
+              _OptionTile(
+                icon: LucideIcons.images,
+                iconColor: colors.success,
+                label: l10n.composerAttachImageVideo,
+                subtitle: l10n.composerAttachImageVideoDesc,
+                onTap: () =>
+                    Navigator.pop(context, AttachmentPickerChoice.imageVideo),
+                subtitleColor: colors.textSecondary,
+              ),
             _OptionTile(
               icon: LucideIcons.file,
               iconColor: theme.colorScheme.primary,

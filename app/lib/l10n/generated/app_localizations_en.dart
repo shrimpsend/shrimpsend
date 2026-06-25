@@ -3390,12 +3390,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webdavTransferPauseAll => 'Pause all';
 
   @override
+  String get webdavTransferTerminateAll => 'Terminate all';
+
+  @override
+  String get webdavTransferTerminateConfirmTitle => 'Terminate all transfers?';
+
+  @override
+  String get webdavTransferTerminateConfirmBody =>
+      'Active uploads will stop and return to the outbox. Downloads will be cancelled.';
+
+  @override
   String get webdavTransferEmpty => 'No active transfers';
 
   @override
   String webdavTransferQueued(int count) {
     return 'Queued $count transfer(s)';
   }
+
+  @override
+  String webdavBulkUploadPreparing(int count) {
+    return 'Preparing $count file(s) for upload…';
+  }
+
+  @override
+  String webdavTransferProgressTitle(int done, int total) {
+    return 'Upload $done/$total';
+  }
+
+  @override
+  String webdavTransferProgressActive(int count) {
+    return 'Active $count';
+  }
+
+  @override
+  String webdavTransferProgressQueued(int count) {
+    return 'Queued $count';
+  }
+
+  @override
+  String webdavTransferProgressSucceeded(int count) {
+    return 'Done $count';
+  }
+
+  @override
+  String webdavTransferProgressFailed(int count) {
+    return 'Failed $count';
+  }
+
+  @override
+  String webdavTransferProgressDownloading(int count) {
+    return 'Downloading $count';
+  }
+
+  @override
+  String get webdavTransferProgressComplete => 'Upload complete';
+
+  @override
+  String get webdavTransferFailedStatus => 'Failed';
+
+  @override
+  String get webdavTransferViewError => 'View error';
+
+  @override
+  String get webdavTransferErrorTitle => 'Transfer failed';
+
+  @override
+  String get webdavTransferErrorUnknown => 'Unknown error';
 
   @override
   String get webdavOutboxUpload => 'Upload to WebDAV';
@@ -3411,6 +3471,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get webdavOutboxEmpty =>
       'No pending files. Add files or share from another app.';
+
+  @override
+  String get webdavUploadLayoutTitle => 'Upload layout';
+
+  @override
+  String get webdavUploadLayoutFlat => 'Flat in current folder';
+
+  @override
+  String get webdavUploadLayoutPreserve => 'Keep folder structure';
 
   @override
   String get webdavActionFavorite => 'Favorite';
@@ -3444,6 +3513,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webdavSettingsSwitchConnection => 'Switch connection';
+
+  @override
+  String get webdavUploadConcurrencyTitle => 'Max concurrent uploads';
+
+  @override
+  String get webdavUploadConcurrencyHint =>
+      'How many files upload at the same time. For cloud drives (e.g. 123pan), 2–4 is recommended; local NAS can be higher.';
+
+  @override
+  String webdavUploadConcurrencyValue(int count) {
+    return '$count';
+  }
 
   @override
   String get webdavViewList => 'List view';

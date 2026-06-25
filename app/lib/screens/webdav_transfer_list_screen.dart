@@ -87,6 +87,59 @@ class _WebDavTransferListScreenState extends State<WebDavTransferListScreen>
     await _refresh();
   }
 
+  Future<void> _terminateAll() async {
+    final l10n = AppLocalizations.of(context);
+    final colors = context.appColors;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.webdavTransferTerminateConfirmTitle),
+        content: Text(l10n.webdavTransferTerminateConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: colors.danger),
+            child: Text(l10n.webdavTransferTerminateAll),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await WebDavTransferService.instance.terminateAllUploads(
+      widget.connection.id,
+    );
+    await _refresh();
+  }
+
+  Future<void> _showTransferError(
+    WebDavTransferSnapshot item,
+    TransferRecord? record,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final message = item.errorMessage ??
+        record?.errorMessage ??
+        l10n.webdavTransferErrorUnknown;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.webdavTransferErrorTitle),
+        content: SelectableText(
+          '$message\n\n${item.fileName}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.confirm),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _resume(TransferRecord record) async {
     final client = _client;
     if (client == null) return;
@@ -145,9 +198,26 @@ class _WebDavTransferListScreenState extends State<WebDavTransferListScreen>
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
-          child: OutlinedButton(
-            onPressed: _pauseAll,
-            child: Text(l10n.webdavTransferPauseAll),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _pauseAll,
+                  child: Text(l10n.webdavTransferPauseAll),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _terminateAll,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colors.danger,
+                    side: BorderSide(color: colors.danger),
+                  ),
+                  child: Text(l10n.webdavTransferTerminateAll),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -177,6 +247,7 @@ class _WebDavTransferListScreenState extends State<WebDavTransferListScreen>
               status: r.status,
               bytesPerSecond: 0,
               webdavRemotePath: r.webdavRemotePath,
+              errorMessage: r.errorMessage,
             ),
           ),
     ];
@@ -197,6 +268,7 @@ class _WebDavTransferListScreenState extends State<WebDavTransferListScreen>
               ? SpeedTracker.formatSpeed(item.bytesPerSecond)
               : '';
           final isPaused = TransferStatus.isUserPaused(item.status);
+          final isFailed = item.status == TransferStatus.failed;
           final record = persisted.cast<TransferRecord?>().firstWhere(
                 (r) => r?.transferId == item.transferId,
                 orElse: () => null,
@@ -212,12 +284,19 @@ class _WebDavTransferListScreenState extends State<WebDavTransferListScreen>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: AppSpacing.xs),
-                LinearProgressIndicator(value: pct / 100),
+                LinearProgressIndicator(
+                  value: pct / 100,
+                  color: isFailed ? colors.danger : null,
+                  backgroundColor:
+                      isFailed ? colors.dangerSurface : null,
+                ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '$pct%${speed.isNotEmpty ? ' · $speed' : ''}',
+                  isFailed
+                      ? l10n.webdavTransferFailedStatus
+                      : '$pct%${speed.isNotEmpty ? ' · $speed' : ''}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.textTertiary,
+                    color: isFailed ? colors.danger : colors.textTertiary,
                     fontSize: 11,
                   ),
                 ),
@@ -228,6 +307,25 @@ class _WebDavTransferListScreenState extends State<WebDavTransferListScreen>
                     icon: const Icon(LucideIcons.pause),
                     onPressed: () =>
                         WebDavTransferService.instance.pause(item.transferId),
+                  )
+                : isFailed
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: l10n.webdavTransferViewError,
+                        icon: Icon(
+                          LucideIcons.circleAlert,
+                          color: colors.danger,
+                        ),
+                        onPressed: () => _showTransferError(item, record),
+                      ),
+                      if (record != null)
+                        IconButton(
+                          icon: const Icon(LucideIcons.rotateCw),
+                          onPressed: () => _resume(record),
+                        ),
+                    ],
                   )
                 : isPaused && record != null
                 ? IconButton(

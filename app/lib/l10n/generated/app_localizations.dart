@@ -5982,6 +5982,24 @@ abstract class AppLocalizations {
   /// **'Pause all'**
   String get webdavTransferPauseAll;
 
+  /// No description provided for @webdavTransferTerminateAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Terminate all'**
+  String get webdavTransferTerminateAll;
+
+  /// No description provided for @webdavTransferTerminateConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Terminate all transfers?'**
+  String get webdavTransferTerminateConfirmTitle;
+
+  /// No description provided for @webdavTransferTerminateConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Active uploads will stop and return to the outbox. Downloads will be cancelled.'**
+  String get webdavTransferTerminateConfirmBody;
+
   /// No description provided for @webdavTransferEmpty.
   ///
   /// In en, this message translates to:
@@ -5993,6 +6011,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Queued {count} transfer(s)'**
   String webdavTransferQueued(int count);
+
+  /// No description provided for @webdavBulkUploadPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing {count} file(s) for upload…'**
+  String webdavBulkUploadPreparing(int count);
+
+  /// No description provided for @webdavTransferProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload {done}/{total}'**
+  String webdavTransferProgressTitle(int done, int total);
+
+  /// No description provided for @webdavTransferProgressActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active {count}'**
+  String webdavTransferProgressActive(int count);
+
+  /// No description provided for @webdavTransferProgressQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued {count}'**
+  String webdavTransferProgressQueued(int count);
+
+  /// No description provided for @webdavTransferProgressSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Done {count}'**
+  String webdavTransferProgressSucceeded(int count);
+
+  /// No description provided for @webdavTransferProgressFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed {count}'**
+  String webdavTransferProgressFailed(int count);
+
+  /// No description provided for @webdavTransferProgressDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading {count}'**
+  String webdavTransferProgressDownloading(int count);
+
+  /// No description provided for @webdavTransferProgressComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload complete'**
+  String get webdavTransferProgressComplete;
+
+  /// No description provided for @webdavTransferFailedStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get webdavTransferFailedStatus;
+
+  /// No description provided for @webdavTransferViewError.
+  ///
+  /// In en, this message translates to:
+  /// **'View error'**
+  String get webdavTransferViewError;
+
+  /// No description provided for @webdavTransferErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer failed'**
+  String get webdavTransferErrorTitle;
+
+  /// No description provided for @webdavTransferErrorUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown error'**
+  String get webdavTransferErrorUnknown;
 
   /// No description provided for @webdavOutboxUpload.
   ///
@@ -6017,6 +6107,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No pending files. Add files or share from another app.'**
   String get webdavOutboxEmpty;
+
+  /// No description provided for @webdavUploadLayoutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload layout'**
+  String get webdavUploadLayoutTitle;
+
+  /// No description provided for @webdavUploadLayoutFlat.
+  ///
+  /// In en, this message translates to:
+  /// **'Flat in current folder'**
+  String get webdavUploadLayoutFlat;
+
+  /// No description provided for @webdavUploadLayoutPreserve.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep folder structure'**
+  String get webdavUploadLayoutPreserve;
 
   /// No description provided for @webdavActionFavorite.
   ///
@@ -6083,6 +6191,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Switch connection'**
   String get webdavSettingsSwitchConnection;
+
+  /// No description provided for @webdavUploadConcurrencyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Max concurrent uploads'**
+  String get webdavUploadConcurrencyTitle;
+
+  /// No description provided for @webdavUploadConcurrencyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'How many files upload at the same time. For cloud drives (e.g. 123pan), 2–4 is recommended; local NAS can be higher.'**
+  String get webdavUploadConcurrencyHint;
+
+  /// No description provided for @webdavUploadConcurrencyValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}'**
+  String webdavUploadConcurrencyValue(int count);
 
   /// No description provided for @webdavViewList.
   ///

@@ -5,6 +5,7 @@ import '../services/webdav_credential_store.dart';
 import '../services/webdav_cstcloud.dart';
 import '../services/webdav_favorite_dao.dart';
 import '../services/webdav_recent_dao.dart';
+import '../services/webdav_transfer_progress_summary.dart';
 import '../services/webdav_transfer_service.dart';
 import 'auth_provider.dart';
 
@@ -89,9 +90,11 @@ final webDavRecentProvider = AutoDisposeAsyncNotifierProvider.family<
     int>(WebDavRecentNotifier.new);
 
 class WebDavTransferUiState {
-  final int activeCount;
+  final WebDavTransferProgressSummary progress;
 
-  const WebDavTransferUiState({required this.activeCount});
+  const WebDavTransferUiState({required this.progress});
+
+  int get activeCount => progress.uploadActive + progress.downloadActive;
 }
 
 class WebDavTransferUiNotifier
@@ -100,7 +103,9 @@ class WebDavTransferUiNotifier
   WebDavTransferUiState build(int connectionId) {
     void sync() {
       state = WebDavTransferUiState(
-        activeCount: WebDavTransferService.instance.activeCountFor(connectionId),
+        progress: WebDavTransferService.instance.progressSummaryFor(
+          connectionId,
+        ),
       );
     }
 

@@ -8,8 +8,11 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import '../models/pending_file_entry.dart';
 import '../screens/apk_picker_screen.dart';
+import '../utils/pending_folder_expand.dart';
 import '../utils/gallery_permission.dart';
+import '../utils/runtime_platform.dart';
 import '../utils/toast.dart';
 import '../widgets/app_confirm_dialog.dart';
 import '../widgets/attachment_picker_sheet.dart';
@@ -19,29 +22,52 @@ final Logger _log = Logger('虾传.attachment_picker');
 final class AttachmentPickerService {
   AttachmentPickerService._();
 
-  static Future<List<PlatformFile>> pick(
+  static Future<List<PendingFileEntry>> pick(
     AttachmentPickerChoice choice,
     BuildContext context,
   ) async {
     switch (choice) {
       case AttachmentPickerChoice.imageVideo:
-        return _pickImageVideo(context);
+        return _entriesFromPlatformFiles(await _pickImageVideo(context));
       case AttachmentPickerChoice.file:
-        return _pickFiles();
+        return _entriesFromPlatformFiles(await _pickFiles());
       case AttachmentPickerChoice.folder:
         return _pickFolder(context);
       case AttachmentPickerChoice.apk:
-        return _pickApk(context);
+        return _entriesFromPlatformFiles(await _pickApk(context));
     }
+  }
+
+  static List<PendingFileEntry> _entriesFromPlatformFiles(
+    List<PlatformFile> files,
+  ) {
+    return files.map((f) => PendingFileEntry.fromPlatformFile(f)).toList();
   }
 
   static Future<List<PlatformFile>> _pickFiles() async {
     final result = await FilePicker.platform.pickFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return [];
-    return result.files
+    return _validPlatformFiles(result.files);
+  }
+
+  static Future<List<PlatformFile>> _pickMediaFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.media,
+    );
+    if (result == null || result.files.isEmpty) return [];
+    return _validPlatformFiles(result.files);
+  }
+
+  static List<PlatformFile> _validPlatformFiles(List<PlatformFile> files) {
+    return files
         .where((f) => f.size > 0 && (f.bytes != null || f.path != null))
         .toList();
   }
+
+  /// Desktop uses the native file picker; mobile uses the gallery asset picker.
+  @visibleForTesting
+  static bool get imageVideoUsesDesktopFilePicker => RuntimePlatform.isDesktop;
 
   static Future<({bool proceed, bool hideLimitedOverlay})>
       _ensureGalleryReadForPicker(BuildContext context) async {
@@ -136,6 +162,14 @@ final class AttachmentPickerService {
 
   static Future<List<PlatformFile>> _pickImageVideo(BuildContext context) async {
     if (!context.mounted) return [];
+    if (imageVideoUsesDesktopFilePicker) {
+      try {
+        return await _pickMediaFiles();
+      } catch (e) {
+        _log.warning('pickImageVideo desktop failed: $e');
+        return [];
+      }
+    }
     try {
       final access = await _ensureGalleryReadForPicker(context);
       if (!access.proceed || !context.mounted) return [];
@@ -149,36 +183,20 @@ final class AttachmentPickerService {
     }
   }
 
-  static Future<List<PlatformFile>> _pickFolder(BuildContext context) async {
+  static Future<List<PendingFileEntry>> _pickFolder(BuildContext context) async {
     final dirPath = await FilePicker.platform.getDirectoryPath();
     if (dirPath == null) return [];
 
     final dir = Directory(dirPath);
     if (!await dir.exists()) return [];
 
-    final result = <PlatformFile>[];
     var listFailed = false;
+    List<PendingFileEntry> result;
     try {
-      await for (final entity in dir.list(
-        recursive: true,
-        followLinks: false,
-      )) {
-        if (entity is File) {
-          try {
-            final stat = await entity.stat();
-            if (stat.size <= 0) continue;
-            result.add(
-              PlatformFile(
-                name: entity.path.split(Platform.pathSeparator).last,
-                path: entity.path,
-                size: stat.size,
-              ),
-            );
-          } catch (_) {}
-        }
-      }
+      result = await expandDirectoryToPendingEntries(dirPath);
     } catch (e) {
       listFailed = true;
+      result = [];
       _log.warning('pickFolder list failed: $e');
     }
 

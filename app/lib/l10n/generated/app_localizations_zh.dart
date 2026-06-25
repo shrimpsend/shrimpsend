@@ -3243,12 +3243,72 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webdavTransferPauseAll => '全部暂停';
 
   @override
+  String get webdavTransferTerminateAll => '终止任务';
+
+  @override
+  String get webdavTransferTerminateConfirmTitle => '终止所有传输？';
+
+  @override
+  String get webdavTransferTerminateConfirmBody =>
+      '进行中的上传将停止，文件会回到待发文件箱。下载任务将被取消。';
+
+  @override
   String get webdavTransferEmpty => '暂无传输任务';
 
   @override
   String webdavTransferQueued(int count) {
     return '已加入传输队列（$count）';
   }
+
+  @override
+  String webdavBulkUploadPreparing(int count) {
+    return '正在准备上传 $count 个文件…';
+  }
+
+  @override
+  String webdavTransferProgressTitle(int done, int total) {
+    return '上传 $done/$total';
+  }
+
+  @override
+  String webdavTransferProgressActive(int count) {
+    return '传输中 $count';
+  }
+
+  @override
+  String webdavTransferProgressQueued(int count) {
+    return '等待 $count';
+  }
+
+  @override
+  String webdavTransferProgressSucceeded(int count) {
+    return '已完成 $count';
+  }
+
+  @override
+  String webdavTransferProgressFailed(int count) {
+    return '失败 $count';
+  }
+
+  @override
+  String webdavTransferProgressDownloading(int count) {
+    return '下载中 $count';
+  }
+
+  @override
+  String get webdavTransferProgressComplete => '上传完成';
+
+  @override
+  String get webdavTransferFailedStatus => '失败';
+
+  @override
+  String get webdavTransferViewError => '查看错误';
+
+  @override
+  String get webdavTransferErrorTitle => '传输失败';
+
+  @override
+  String get webdavTransferErrorUnknown => '未知错误';
 
   @override
   String get webdavOutboxUpload => '上传到 WebDAV';
@@ -3263,6 +3323,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webdavOutboxEmpty => '暂无待发文件，可添加文件或从其他应用分享到此';
+
+  @override
+  String get webdavUploadLayoutTitle => '上传方式';
+
+  @override
+  String get webdavUploadLayoutFlat => '平铺到当前目录';
+
+  @override
+  String get webdavUploadLayoutPreserve => '保留文件夹结构';
 
   @override
   String get webdavActionFavorite => '收藏';
@@ -3296,6 +3365,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webdavSettingsSwitchConnection => '切换连接';
+
+  @override
+  String get webdavUploadConcurrencyTitle => '最大并发上传数';
+
+  @override
+  String get webdavUploadConcurrencyHint =>
+      '同时上传的文件数量。云盘（如 123 云盘）建议 2–4，本地 NAS 可适当提高。';
+
+  @override
+  String webdavUploadConcurrencyValue(int count) {
+    return '$count 个';
+  }
 
   @override
   String get webdavViewList => '列表视图';

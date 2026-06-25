@@ -1462,6 +1462,9 @@
   "webdavTransferUploading": "上传中",
   "webdavTransferDownloading": "下载中",
   "webdavTransferPauseAll": "全部暂停",
+  "webdavTransferTerminateAll": "终止任务",
+  "webdavTransferTerminateConfirmTitle": "终止所有传输？",
+  "webdavTransferTerminateConfirmBody": "进行中的上传将停止，文件会回到待发文件箱。下载任务将被取消。",
   "webdavTransferEmpty": "暂无传输任务",
   "webdavTransferQueued": "已加入传输队列（{count}）",
   "@webdavTransferQueued": {
@@ -1469,6 +1472,54 @@
       "count": { "type": "int" }
     }
   },
+  "webdavBulkUploadPreparing": "正在准备上传 {count} 个文件…",
+  "@webdavBulkUploadPreparing": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressTitle": "上传 {done}/{total}",
+  "@webdavTransferProgressTitle": {
+    "placeholders": {
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressActive": "传输中 {count}",
+  "@webdavTransferProgressActive": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressQueued": "等待 {count}",
+  "@webdavTransferProgressQueued": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressSucceeded": "已完成 {count}",
+  "@webdavTransferProgressSucceeded": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressFailed": "失败 {count}",
+  "@webdavTransferProgressFailed": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressDownloading": "下载中 {count}",
+  "@webdavTransferProgressDownloading": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "webdavTransferProgressComplete": "上传完成",
+  "webdavTransferFailedStatus": "失败",
+  "webdavTransferViewError": "查看错误",
+  "webdavTransferErrorTitle": "传输失败",
+  "webdavTransferErrorUnknown": "未知错误",
   "webdavOutboxUpload": "上传到 WebDAV",
   "webdavOutboxUploadTarget": "上传至 {path}",
   "@webdavOutboxUploadTarget": {
@@ -1478,6 +1529,9 @@
   },
   "webdavOutboxAddFiles": "添加文件",
   "webdavOutboxEmpty": "暂无待发文件，可添加文件或从其他应用分享到此",
+  "webdavUploadLayoutTitle": "上传方式",
+  "webdavUploadLayoutFlat": "平铺到当前目录",
+  "webdavUploadLayoutPreserve": "保留文件夹结构",
   "webdavActionFavorite": "收藏",
   "webdavActionUnfavorite": "取消收藏",
   "webdavActionCopy": "复制",
@@ -1489,6 +1543,14 @@
   "webdavFavoritesEmpty": "暂无收藏",
   "webdavSettingsCurrentConnection": "当前连接",
   "webdavSettingsSwitchConnection": "切换连接",
+  "webdavUploadConcurrencyTitle": "最大并发上传数",
+  "webdavUploadConcurrencyHint": "同时上传的文件数量。云盘（如 123 云盘）建议 2–4，本地 NAS 可适当提高。",
+  "webdavUploadConcurrencyValue": "{count} 个",
+  "@webdavUploadConcurrencyValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "webdavViewList": "列表视图",
   "webdavViewGrid": "网格视图",
   "webdavDetailType": "类型",

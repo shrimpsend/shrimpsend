@@ -8,12 +8,14 @@ import '../api/webdav.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/pending_files_provider.dart';
 import '../providers/webdav_provider.dart';
+import '../services/webdav_credential_store.dart';
 import '../services/webdav_cstcloud.dart';
 import '../services/webdav_session.dart';
 import '../services/webdav_transfer_service.dart';
 import '../ui/app_ui.dart';
 import '../utils/toast.dart';
 import '../widgets/pending_files_bar.dart';
+import '../widgets/webdav_transfer_progress_banner.dart';
 import 'webdav/webdav_browsable_tab.dart';
 import 'webdav_files_tab.dart';
 import 'webdav_recent_favorites_tab.dart';
@@ -49,6 +51,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   final _recentTabKey = GlobalKey<WebDavVirtualEntryTabState>();
   final _favoritesTabKey = GlobalKey<WebDavVirtualEntryTabState>();
   String _currentPath = '';
+  int _initGeneration = 0;
 
   bool get _showOutboxButton =>
       !_selectionMode &&
@@ -110,21 +113,34 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   }
 
   Future<void> _init() async {
+    final generation = ++_initGeneration;
     setState(() {
       _loading = true;
       _error = null;
     });
+
+    final memoryCreds = WebDavCredentialStore.instance.getFromMemory(
+      widget.connection.id,
+    );
+    if (memoryCreds != null && !cstCloudNeedsCredentialRefresh(memoryCreds)) {
+      _client = WebDavClient(memoryCreds);
+      if (mounted && generation == _initGeneration) {
+        setState(() => _loading = false);
+      }
+      unawaited(_restoreTransferSnapshots(generation));
+      return;
+    }
+
     try {
       final creds = await resolveWebDavCredentials(widget.connection.id);
+      if (!mounted || generation != _initGeneration) return;
       _client = WebDavClient(creds);
-      await WebDavTransferService.instance.restorePersistedSnapshots(
-        widget.connection.id,
-      );
-      if (!mounted) return;
+      if (!mounted || generation != _initGeneration) return;
       setState(() => _loading = false);
+      unawaited(_restoreTransferSnapshots(generation));
       if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
+          if (!mounted || generation != _initGeneration) return;
           AppToast.show(
             context,
             message: AppLocalizations.of(context).webdavCstCloudReadOnlyToast,
@@ -132,12 +148,19 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         });
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _initGeneration) return;
       setState(() {
         _error = '$e';
         _loading = false;
       });
     }
+  }
+
+  Future<void> _restoreTransferSnapshots(int generation) async {
+    await WebDavTransferService.instance.restorePersistedSnapshots(
+      widget.connection.id,
+    );
+    if (!mounted || generation != _initGeneration) return;
   }
 
   void _onTabSelected(int index) {
@@ -250,7 +273,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
         label: l10n.webdavOutboxUpload,
         icon: LucideIcons.upload,
         destinationHint: _uploadTargetLabel(l10n),
-        onExecute: (queued) async {
+        onExecute: (entries, layout) async {
           final filesTab = _filesTabKey.currentState;
           if (filesTab == null) return;
           if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
@@ -261,12 +284,31 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
             );
             return;
           }
-          filesTab.queuePlatformFileUploads(queued);
-          if (!mounted) return;
-          AppToast.show(
-            context,
-            message: l10n.webdavTransferQueued(queued.length),
-          );
+          try {
+            final result = await filesTab.queuePlatformFileUploads(
+              entries,
+              layout: layout,
+            );
+            if (!mounted) return;
+            if (result.skipped > 0) {
+              AppToast.show(
+                context,
+                message: l10n.fmPendingDispatchPartialSkipped(result.skipped),
+              );
+            }
+            if (result.started > 0) {
+              AppToast.show(
+                context,
+                message: l10n.webdavTransferQueued(result.started),
+              );
+            }
+          } catch (e) {
+            if (!mounted) return;
+            AppToast.show(
+              context,
+              message: l10n.webdavUploadFailed('$e'),
+            );
+          }
         },
       ),
     );
@@ -377,7 +419,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
                               Badge(
                                 isLabelVisible: pendingCount > 0,
                                 label: Text(
-                                  pendingCount > 99 ? '99+' : '$pendingCount',
+                                  '$pendingCount',
                                   style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
@@ -468,33 +510,46 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       child: Column(
         children: [
           Expanded(
-            child: IndexedStack(
-              index: _tabIndex,
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                WebDavFilesTab(
-                  key: _filesTabKey,
-                  connection: widget.connection,
-                  client: client,
-                  initialPath: _currentPath,
-                  onPathChanged: (p) => _currentPath = p,
-                  onSelectionChanged: _onTabSelectionChanged,
-                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                IndexedStack(
+                  index: _tabIndex,
+                  children: [
+                    WebDavFilesTab(
+                      key: _filesTabKey,
+                      connection: widget.connection,
+                      client: client,
+                      initialPath: _currentPath,
+                      onPathChanged: (p) => _currentPath = p,
+                      onSelectionChanged: _onTabSelectionChanged,
+                      onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                    ),
+                    WebDavRecentTab(
+                      key: _recentTabKey,
+                      connection: widget.connection,
+                      client: client,
+                      onOpenFolder: (path) => _switchToFilesTab(path: path),
+                      onSelectionChanged: _onTabSelectionChanged,
+                      onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                    ),
+                    WebDavFavoritesTab(
+                      key: _favoritesTabKey,
+                      connection: widget.connection,
+                      client: client,
+                      onOpenFolder: (path) => _switchToFilesTab(path: path),
+                      onSelectionChanged: _onTabSelectionChanged,
+                      onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                    ),
+                  ],
                 ),
-                WebDavRecentTab(
-                  key: _recentTabKey,
-                  connection: widget.connection,
-                  client: client,
-                  onOpenFolder: (path) => _switchToFilesTab(path: path),
-                  onSelectionChanged: _onTabSelectionChanged,
-                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
-                ),
-                WebDavFavoritesTab(
-                  key: _favoritesTabKey,
-                  connection: widget.connection,
-                  client: client,
-                  onOpenFolder: (path) => _switchToFilesTab(path: path),
-                  onSelectionChanged: _onTabSelectionChanged,
-                  onSearchVisibilityChanged: _onTabSearchVisibilityChanged,
+                Positioned(
+                  right: AppSpacing.md,
+                  bottom: AppSpacing.sm,
+                  child: WebDavTransferProgressBanner(
+                    connectionId: widget.connection.id,
+                    onTap: _openTransferList,
+                  ),
                 ),
               ],
             ),
@@ -565,7 +620,6 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     if (_selectionMode) {
       final tab = _activeTabController();
       final hasSelection = _selectedCount > 0;
-      final canMove = _selectedCount == 1;
       final colors = context.appColors;
 
       return [
@@ -578,11 +632,6 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
           icon: const Icon(LucideIcons.share2),
           onPressed: hasSelection ? () => tab?.shareSelected() : null,
           tooltip: l10n.webdavActionShare,
-        ),
-        IconButton(
-          icon: const Icon(LucideIcons.folderInput),
-          onPressed: canMove ? () => tab?.moveSelected() : null,
-          tooltip: l10n.webdavActionMove,
         ),
         IconButton(
           icon: Icon(LucideIcons.trash2, color: colors.danger),

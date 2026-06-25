@@ -95,6 +95,19 @@ class TransferStateManager {
     );
   }
 
+  Future<void> markFailed(String transferId, String errorMessage) async {
+    await _db.update(
+      _table,
+      {
+        'status': TransferStatus.failed,
+        'error_message': errorMessage,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'transfer_id = ?',
+      whereArgs: [transferId],
+    );
+  }
+
   /// Persist filePath (used when the writer switches from one partial file to
   /// a different on-disk location, e.g. S3 download writing to `*.partial`).
   Future<void> updateFilePath(String transferId, String filePath) async {

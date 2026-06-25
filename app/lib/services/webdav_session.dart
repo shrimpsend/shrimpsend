@@ -8,8 +8,16 @@ import '../api/webdav.dart';
 import '../logger.dart';
 import 'webdav_credential_store.dart';
 import 'webdav_cstcloud.dart';
+import 'transfer_error_message.dart';
 
 final logWebDav = logSettings;
+
+/// TCP/TLS connect timeout for WebDAV requests.
+const webDavConnectTimeoutMs = 15000;
+
+/// Max time to send or receive an entire file body (PUT/GET).
+/// 60s was too short for large uploads on slow links (e.g. cloud WebDAV).
+const webDavTransferTimeoutMs = 30 * 60 * 1000;
 
 class WebDavEntry {
   final String name;
@@ -39,9 +47,9 @@ class WebDavClient {
       user: creds.username,
       password: creds.password,
     );
-    client.setConnectTimeout(15000);
-    client.setSendTimeout(60000);
-    client.setReceiveTimeout(60000);
+    client.setConnectTimeout(webDavConnectTimeoutMs);
+    client.setSendTimeout(webDavTransferTimeoutMs);
+    client.setReceiveTimeout(webDavTransferTimeoutMs);
     final userAgent = resolveWebDavUserAgent(creds);
     if (userAgent != null && userAgent.isNotEmpty) {
       client.c.configureUserAgent(userAgent);
@@ -96,6 +104,7 @@ class WebDavClient {
     String localFilePath, {
     void Function(int count, int total)? onProgress,
     CancelToken? cancelToken,
+    bool ensureParent = true,
   }) async {
     return _guard(() async {
       await _client.writeFromFile(
@@ -103,6 +112,7 @@ class WebDavClient {
         appRelativeToWebDavResourcePath(relativePath),
         onProgress: onProgress,
         cancelToken: cancelToken,
+        ensureParent: ensureParent,
       );
     });
   }
@@ -254,17 +264,29 @@ class WebDavClient {
       logWebDav.warning(
         'webdav request failed status=$status$detail message=${redactWebDavSecrets('$e')}',
       );
-      if (status != null) {
-        final body = _responseBodyFromError(e);
-        if (status == 403 &&
-            body.toLowerCase().contains('client type mismatch')) {
-          throw Exception('WebDAV 操作失败：$kCstCloudWebDavUploadBlockedMessage');
-        }
-        throw Exception('WebDAV 操作失败 (HTTP $status)');
-      }
-      throw Exception('WebDAV 操作失败');
+      throw Exception(userFacingWebDavError(e));
     }
   }
+}
+
+String userFacingWebDavError(Object error) {
+  if (error is DioException) {
+    final status = error.response?.statusCode;
+    if (status == 403) {
+      final body = _responseBodyFromError(error);
+      if (body.toLowerCase().contains('client type mismatch')) {
+        return 'WebDAV 操作失败：$kCstCloudWebDavUploadBlockedMessage';
+      }
+    }
+    return 'WebDAV 操作失败：${formatTransferErrorMessage(error)}';
+  }
+
+  final text = error.toString().trim();
+  if (text.isEmpty) return 'WebDAV 操作失败';
+  if (text.startsWith('Exception: ')) {
+    return text.substring('Exception: '.length);
+  }
+  return 'WebDAV 操作失败：$text';
 }
 
 String _responseBodyFromError(Object error) {

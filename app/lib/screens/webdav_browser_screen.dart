@@ -12,6 +12,9 @@ class WebDavBrowserScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return WebDavShellScreen(connection: connection);
+    return WebDavShellScreen(
+      key: ValueKey('webdav_shell_${connection.id}'),
+      connection: connection,
+    );
   }
 }

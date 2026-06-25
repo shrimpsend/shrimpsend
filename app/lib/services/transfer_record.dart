@@ -44,6 +44,7 @@ class TransferRecord {
   // WebDAV
   String? webdavConnectionId;
   String? webdavRemotePath;
+  String? errorMessage;
 
   TransferRecord({
     required this.transferId,
@@ -68,6 +69,7 @@ class TransferRecord {
     this.webrtcTargetDeviceId,
     this.webdavConnectionId,
     this.webdavRemotePath,
+    this.errorMessage,
   }) : createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now();
 
@@ -96,6 +98,7 @@ class TransferRecord {
       'webrtcTargetDeviceId': webrtcTargetDeviceId,
     if (webdavConnectionId != null) 'webdavConnectionId': webdavConnectionId,
     if (webdavRemotePath != null) 'webdavRemotePath': webdavRemotePath,
+    if (errorMessage != null) 'errorMessage': errorMessage,
   };
 
   factory TransferRecord.fromJson(Map<String, dynamic> j) => TransferRecord(
@@ -131,6 +134,7 @@ class TransferRecord {
     webrtcTargetDeviceId: j['webrtcTargetDeviceId'] as String?,
     webdavConnectionId: j['webdavConnectionId'] as String?,
     webdavRemotePath: j['webdavRemotePath'] as String?,
+    errorMessage: j['errorMessage'] as String?,
   );
 
   String toJsonString() => jsonEncode(toJson());
@@ -166,6 +170,7 @@ class TransferRecord {
     'webrtc_target_device_id': webrtcTargetDeviceId,
     'webdav_connection_id': webdavConnectionId,
     'webdav_remote_path': webdavRemotePath,
+    'error_message': errorMessage,
   };
 
   factory TransferRecord.fromMap(Map<String, dynamic> row) {
@@ -213,6 +218,7 @@ class TransferRecord {
       webrtcTargetDeviceId: row['webrtc_target_device_id'] as String?,
       webdavConnectionId: row['webdav_connection_id'] as String?,
       webdavRemotePath: row['webdav_remote_path'] as String?,
+      errorMessage: row['error_message'] as String?,
     );
   }
 

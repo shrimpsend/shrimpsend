@@ -1,4 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../ui/app_ui.dart';
 
 typedef WebDavSelectionChangedCallback = void Function(
   bool selectionMode,
@@ -71,23 +76,83 @@ class _WebDavTextInputDialogState extends State<_WebDavTextInputDialog> {
     super.dispose();
   }
 
+  void _submit() {
+    Navigator.pop(context, _controller.text.trim());
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final dialogWidth = math.min(
+      screenWidth - AppSpacing.md * 2,
+      AppSize.formMaxWidth,
+    );
+
     return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        decoration: InputDecoration(hintText: widget.hint),
+      backgroundColor: colors.surface,
+      insetPadding: AppDialog.insetPadding,
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.large),
+      titlePadding: AppDialog.titlePadding,
+      contentPadding: AppDialog.contentPadding,
+      actionsPadding: AppDialog.actionsPadding,
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              widget.title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.x, size: 20),
+            onPressed: () => Navigator.pop(context),
+            style: IconButton.styleFrom(
+              foregroundColor: colors.textTertiary,
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: dialogWidth - AppSpacing.md * 2,
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+          decoration: InputDecoration(hintText: widget.hint),
+        ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(widget.cancelLabel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, _controller.text.trim()),
-          child: Text(widget.confirmLabel),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                ),
+                child: Text(widget.cancelLabel),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: FilledButton(
+                onPressed: _submit,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                ),
+                child: Text(widget.confirmLabel),
+              ),
+            ),
+          ],
         ),
       ],
     );

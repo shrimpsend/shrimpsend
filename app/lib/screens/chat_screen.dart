@@ -15,8 +15,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
-import 'package:permission_handler/permission_handler.dart';
-import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../api/api.dart';
 import '../config/env.dart';
@@ -37,7 +35,6 @@ import '../lan/lan_receiver.dart';
 import '../lan/transfer_worker.dart';
 import '../logger.dart';
 import '../utils/file_utils.dart';
-import '../utils/gallery_permission.dart';
 import '../utils/helpers.dart';
 import '../utils/open_received_file.dart';
 import '../utils/received_file_actions.dart';
@@ -62,6 +59,7 @@ import '../network/connection_orchestrator.dart';
 import '../network/connection_resolution.dart';
 import '../network/probe_priority.dart';
 import '../widgets/desktop_file_drag_source.dart';
+import '../widgets/desktop_hover_action_bar.dart';
 import '../widgets/file_card_bubble.dart';
 import 'file_manager_screen.dart';
 import 'message_search_screen.dart';
@@ -78,6 +76,7 @@ import '../services/speed_tracker.dart';
 import '../services/transfer_protocol.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
+import '../services/attachment_picker_service.dart';
 import '../services/chat_message_dao.dart';
 import '../services/received_file_dao.dart';
 import '../services/received_file_index_pipeline.dart';
@@ -88,6 +87,7 @@ import '../services/desktop_file_clipboard.dart';
 import '../services/desktop_file_drop_dispatcher.dart';
 import '../services/share/share_pending_cache.dart';
 import '../services/pending_dispatch_bridge.dart';
+import '../models/pending_file_entry.dart';
 import '../providers/pending_files_provider.dart';
 import '../widgets/desktop_paste_shortcuts.dart';
 import '../services/transfer_record.dart';
@@ -98,7 +98,6 @@ import '../ui/app_ui.dart';
 import '../ui/platform_performance.dart';
 import '../webrtc/webrtc_manager.dart';
 import '../webrtc/signaling_channel.dart';
-import 'apk_picker_screen.dart';
 import 'qr_scanner_screen.dart';
 import '../services/native_tab_bar_service.dart';
 
@@ -237,6 +236,24 @@ class ChatScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _CachedChatTimeline {
+  const _CachedChatTimeline({
+    required this.messages,
+    required this.loadedMessageIds,
+    required this.serverIdByMessageId,
+    required this.oldestServerMessageId,
+    required this.hasNoMoreHistory,
+    required this.localMessageStatus,
+  });
+
+  final List<Message> messages;
+  final Set<String> loadedMessageIds;
+  final Map<String, int> serverIdByMessageId;
+  final int? oldestServerMessageId;
+  final bool hasNoMoreHistory;
+  final Map<String, String> localMessageStatus;
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen>
@@ -431,6 +448,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   int? _oldestServerMessageId;
   final Map<String, int> _serverIdByMessageId = {};
   final Set<String> _loadedMessageIds = {};
+  final Map<String, _CachedChatTimeline> _chatTimelineCache = {};
 
   /// Current user id for local message cache; set on first _loadHistory.
   String? _userId;
@@ -624,9 +642,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (prev != next) {
         ref.read(selectedSendModeProvider.notifier).activateDevice(next);
         ref.read(connectionSwitchProbeProvider.notifier).state = null;
-        if (!isWebDavSelection(next)) {
-          unawaited(_reloadThreadForSelectionChange());
-        }
         if (isPeerSelection(next)) {
           ref.read(chatSendModeAutoProvider.notifier).state = true;
           ref.read(connectionManualOverrideProvider.notifier).state = false;
@@ -638,25 +653,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         } else {
           _clearSelectedPeerReachabilitySnapshot();
         }
-        if (next != null) {
-          Analytics.track(AnalyticsEvents.chatSessionOpen, {
-            'session_type': next == s3VirtualDeviceId
-                ? 's3'
-                : isWebDavSelection(next)
-                ? 'webdav'
-                : 'peer',
-          });
-        }
       }
       if (isPeerSelection(next)) {
         final peerId = next!;
-        // Always override multi-select state with the conversation device,
-        // even if the same device is re-selected.
         ref.read(selectedLanTargetsProvider.notifier).setAll({peerId});
-        if (peerId != prev) {
-          _probeSingleDevice(peerId);
-        }
       }
+
+      final previous = prev;
+      final selected = next;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _runDeferredSelectionSideEffects(previous, selected);
+      });
     });
     _myDevicesListSub = ref.listenManual<List<DeviceDto>>(
       myDevicesProvider,
@@ -704,19 +712,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  Future<bool> _addPendingFiles(List<PlatformFile> files) async {
-    if (files.isEmpty) return false;
-    final result = await ref.read(pendingFilesProvider.notifier).add(files);
+  Future<bool> _addPendingFiles(List<PendingFileEntry> entries) async {
+    if (entries.isEmpty) return false;
+    final result = await ref.read(pendingFilesProvider.notifier).add(entries);
     return result.added > 0;
   }
 
+  Future<bool> _addPendingPlatformFiles(List<PlatformFile> files) async {
+    return _addPendingFiles(
+      files.map((f) => PendingFileEntry.fromPlatformFile(f)).toList(),
+    );
+  }
+
   Future<List<PlatformFile>?> _beginPendingSendDispatch() async {
-    final pending = List<PlatformFile>.from(ref.read(pendingFilesProvider));
+    final pending = List<PendingFileEntry>.from(ref.read(pendingFilesProvider));
     if (pending.isEmpty) return null;
     final dispatch =
         await ref.read(pendingFilesProvider.notifier).beginDispatch(pending);
     if (!mounted) {
-      return dispatch.queued.isEmpty ? null : dispatch.queued;
+      return dispatch.queued.isEmpty
+          ? null
+          : dispatch.queued.map((e) => e.file).toList();
     }
     if (dispatch.skipped > 0) {
       AppToast.show(
@@ -726,7 +742,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
     if (dispatch.queued.isEmpty) return null;
-    return dispatch.queued;
+    return dispatch.queued.map((e) => e.file).toList();
   }
 
   void _notifyPendingDispatchSettled(String? path, {required bool success}) {
@@ -735,7 +751,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _removePendingFileRef(PlatformFile file) {
-    ref.read(pendingFilesProvider.notifier).remove(file);
+    final entries = ref.read(pendingFilesProvider);
+    for (final entry in entries) {
+      if (entry.file.path == file.path) {
+        ref.read(pendingFilesProvider.notifier).remove(entry);
+        return;
+      }
+    }
   }
 
   void _clearPendingFiles() {
@@ -2807,13 +2829,98 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _clearChatTimeline() async {
     final msgs = List<Message>.from(_chatController.messages);
-    for (final m in msgs) {
-      await _chatController.removeMessage(m);
+    if (msgs.isNotEmpty) {
+      await Future.wait(
+        msgs.map((m) => _chatController.removeMessage(m)),
+      );
     }
     _loadedMessageIds.clear();
     _serverIdByMessageId.clear();
     _oldestServerMessageId = null;
     _hasNoMoreHistory = false;
+  }
+
+  void _cacheChatTimeline(String sessionId) {
+    if (_chatController.messages.isEmpty &&
+        _loadedMessageIds.isEmpty &&
+        !_chatTimelineCache.containsKey(sessionId)) {
+      return;
+    }
+    _chatTimelineCache[sessionId] = _CachedChatTimeline(
+      messages: List<Message>.from(_chatController.messages),
+      loadedMessageIds: Set<String>.from(_loadedMessageIds),
+      serverIdByMessageId: Map<String, int>.from(_serverIdByMessageId),
+      oldestServerMessageId: _oldestServerMessageId,
+      hasNoMoreHistory: _hasNoMoreHistory,
+      localMessageStatus: Map<String, String>.from(_localMessageStatus),
+    );
+  }
+
+  Future<bool> _restoreChatTimelineFromCache(String sessionId) async {
+    final cached = _chatTimelineCache[sessionId];
+    if (cached == null) return false;
+    await _clearChatTimeline();
+    if (cached.messages.isNotEmpty) {
+      await _chatController.insertAllMessages(
+        cached.messages,
+        index: 0,
+        animated: false,
+      );
+    }
+    _loadedMessageIds
+      ..clear()
+      ..addAll(cached.loadedMessageIds);
+    _serverIdByMessageId
+      ..clear()
+      ..addAll(cached.serverIdByMessageId);
+    _oldestServerMessageId = cached.oldestServerMessageId;
+    _hasNoMoreHistory = cached.hasNoMoreHistory;
+    _localMessageStatus
+      ..clear()
+      ..addAll(cached.localMessageStatus);
+    return true;
+  }
+
+  void _runDeferredSelectionSideEffects(String? prev, String? next) {
+    if (prev != next) {
+      if (!ref.read(authProvider).isLoggedIn) {
+        _chatTimelineCache.clear();
+      }
+      if (next != null) {
+        Analytics.track(AnalyticsEvents.chatSessionOpen, {
+          'session_type': next == s3VirtualDeviceId
+              ? 's3'
+              : isWebDavSelection(next)
+              ? 'webdav'
+              : 'peer',
+        });
+      }
+      unawaited(_handleChatSelectionDataChange(prev, next));
+    }
+    if (isPeerSelection(next) && next != prev) {
+      unawaited(_probeSingleDevice(next!));
+    }
+  }
+
+  Future<void> _handleChatSelectionDataChange(
+    String? prev,
+    String? next,
+  ) async {
+    if (!mounted) return;
+
+    if (prev != null && isChatSelection(prev)) {
+      _cacheChatTimeline(prev);
+    }
+
+    if (next == null || isWebDavSelection(next)) {
+      return;
+    }
+
+    if (await _restoreChatTimelineFromCache(next)) {
+      return;
+    }
+
+    await _reloadThreadForSelectionChange();
   }
 
   Future<void> _reloadThreadForSelectionChange() async {
@@ -4695,17 +4802,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _handleAttachmentChoice(AttachmentPickerChoice choice) async {
-    List<PlatformFile> picked = [];
-    switch (choice) {
-      case AttachmentPickerChoice.imageVideo:
-        picked = await _pickImageVideo();
-      case AttachmentPickerChoice.file:
-        picked = await _pickFiles();
-      case AttachmentPickerChoice.folder:
-        picked = await _pickFolder();
-      case AttachmentPickerChoice.apk:
-        picked = await _pickApk();
-    }
+    final picked = await AttachmentPickerService.pick(choice, context);
     Analytics.track(AnalyticsEvents.attachmentPick, {
       'choice': choice.name,
       'picked_count': picked.length,
@@ -4720,9 +4817,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  Future<void> _handleDesktopDropFiles(List<PlatformFile> files) async {
-    if (!_isDesktopPlatform || files.isEmpty || !mounted) return;
-    final ok = await _addPendingFiles(files);
+  Future<void> _handleDesktopDropFiles(List<PendingFileEntry> entries) async {
+    if (!_isDesktopPlatform || entries.isEmpty || !mounted) return;
+    final ok = await _addPendingFiles(entries);
     if (!ok && mounted) {
       AppToast.show(
         context,
@@ -4743,183 +4840,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     await _handleAttachmentChoice(choice);
   }
 
-  Future<List<PlatformFile>> _pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
-    if (result == null || result.files.isEmpty) return [];
-    return result.files
-        .where((f) => f.size > 0 && (f.bytes != null || f.path != null))
-        .toList();
-  }
-
-  Future<({bool proceed, bool hideLimitedOverlay})> _ensureGalleryReadForPicker() async {
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      return (proceed: true, hideLimitedOverlay: false);
-    }
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-    final l10n = AppLocalizations.of(context);
-
-    var state = await getGalleryReadPermissionState();
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-    state = await repairGalleryReadPermissionIfNeeded(state);
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-    if (isGalleryReadFullyAuthorized(state)) {
-      return (proceed: true, hideLimitedOverlay: false);
-    }
-
-    final confirmed = await AppConfirmDialog.show(
-      context,
-      title: l10n.chatGalleryReadPermissionTitle,
-      content: l10n.chatGalleryReadPermissionBody,
-      confirmLabel: l10n.chatGalleryReadPermissionConfirm,
-      icon: LucideIcons.images,
-    );
-    if (!confirmed || !mounted) return (proceed: false, hideLimitedOverlay: false);
-
-    state = await requestGalleryReadPermission();
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-
-    if (isGalleryReadFullyAuthorized(state)) {
-      return (proceed: true, hideLimitedOverlay: false);
-    }
-
-    if (state == PermissionState.limited) {
-      final openSettings = await AppConfirmDialog.show(
-        context,
-        title: l10n.chatGalleryReadPermissionTitle,
-        content: l10n.chatGalleryReadPermissionLimited,
-        confirmLabel: l10n.qrScannerOpenSettings,
-        cancelLabel: l10n.chatGalleryReadPermissionContinuePartial,
-        icon: LucideIcons.images,
-      );
-      if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-      if (openSettings) {
-        await openAppSettings();
-        return (proceed: false, hideLimitedOverlay: false);
-      }
-      return (proceed: true, hideLimitedOverlay: true);
-    }
-
-    if (!mounted) return (proceed: false, hideLimitedOverlay: false);
-    AppToast.show(context, message: l10n.chatGalleryReadPermissionDenied);
-    return (proceed: false, hideLimitedOverlay: false);
-  }
-
-  Future<List<PlatformFile>> _pickAssetsFromGallery({
-    bool hideLimitedOverlay = false,
-  }) async {
-    final assets = await AssetPicker.pickAssets(
-      context,
-      pickerConfig: AssetPickerConfig(
-        requestType: RequestType.common,
-        maxAssets: 999,
-        limitedPermissionOverlayPredicate:
-            hideLimitedOverlay ? (_) => false : null,
-        textDelegate: assetPickerTextDelegateFromLocale(
-          const Locale('zh', 'CN'),
-        ),
-      ),
-    );
-    if (assets == null || assets.isEmpty) return [];
-
-    final result = <PlatformFile>[];
-    for (final asset in assets) {
-      final file = await asset.file;
-      if (file == null) continue;
-      final stat = await file.stat();
-      if (stat.size <= 0) continue;
-      result.add(
-        PlatformFile(
-          name: await asset.titleAsync,
-          path: file.path,
-          size: stat.size,
-        ),
-      );
-    }
-    return result;
-  }
-
-  Future<List<PlatformFile>> _pickImageVideo() async {
-    if (!mounted) return [];
-    try {
-      final access = await _ensureGalleryReadForPicker();
-      if (!access.proceed) return [];
-      return await _pickAssetsFromGallery(
-        hideLimitedOverlay: access.hideLimitedOverlay,
-      );
-    } catch (e) {
-      logChat.warning('_pickImageVideo failed: $e');
-      return [];
-    }
-  }
-
-  Future<List<PlatformFile>> _pickFolder() async {
-    final dirPath = await FilePicker.platform.getDirectoryPath();
-    if (dirPath == null) return [];
-
-    final dir = Directory(dirPath);
-    if (!await dir.exists()) return [];
-
-    final result = <PlatformFile>[];
-    var listFailed = false;
-    try {
-      await for (final entity in dir.list(
-        recursive: true,
-        followLinks: false,
-      )) {
-        if (entity is File) {
-          try {
-            final stat = await entity.stat();
-            if (stat.size <= 0) continue;
-            result.add(
-              PlatformFile(
-                name: entity.path.split(Platform.pathSeparator).last,
-                path: entity.path,
-                size: stat.size,
-              ),
-            );
-          } catch (_) {}
-        }
-      }
-    } catch (e) {
-      listFailed = true;
-      logChat.warning('_pickFolder list failed: $e');
-    }
-
-    if (result.isEmpty && mounted) {
-      final message = Platform.isAndroid && listFailed
-          ? _l10n.chatScreenFolderSafTryFiles
-          : _l10n.chatScreenFolderEmpty;
-      AppToast.show(context, message: message);
-    }
-    return result;
-  }
-
-  Future<List<PlatformFile>> _pickApk() async {
-    _composerKey.currentState?.unfocus();
-    final picks = await Navigator.push<List<ApkPickResult>>(
-      context,
-      MaterialPageRoute(builder: (_) => const ApkPickerScreen()),
-    );
-    if (picks == null || picks.isEmpty) return [];
-
-    final result = <PlatformFile>[];
-    for (final pick in picks) {
-      final file = File(pick.path);
-      if (!await file.exists()) continue;
-      final stat = await file.stat();
-      if (stat.size <= 0) continue;
-      result.add(
-        PlatformFile(name: pick.displayName, path: pick.path, size: stat.size),
-      );
-    }
-    return result;
-  }
-
   Future<void> _handleDesktopPasteFromClipboard(
     List<PlatformFile> files,
   ) async {
     if (!_isDesktopPlatform || files.isEmpty) return;
-    final ok = await _addPendingFiles(files);
+    final ok = await _addPendingPlatformFiles(files);
     if (!ok && mounted) {
       AppToast.show(
         context,
@@ -4940,10 +4865,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _addFileMessageToPending(_FileMeta fileMeta, String localPath) async {
     final ok = await _addPendingFiles([
-      PlatformFile(
-        name: fileMeta.fileName,
-        size: fileMeta.size ?? 0,
-        path: localPath,
+      PendingFileEntry.fromPlatformFile(
+        PlatformFile(
+          name: fileMeta.fileName,
+          size: fileMeta.size ?? 0,
+          path: localPath,
+        ),
       ),
     ]);
     if (!mounted) return;
@@ -5791,7 +5718,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         );
       case SendMode.webrtc:
         final unsupportedFiles = ref.read(pendingFilesProvider)
-            .where((f) => f.path == null || f.path!.isEmpty)
+            .where((e) => e.file.path == null || e.file.path!.isEmpty)
             .toList();
         if (unsupportedFiles.isNotEmpty) {
           if (mounted) {
@@ -8083,7 +8010,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _selectedMessages.add(messageId);
         });
       },
-      onAddToPending: (files) => _addPendingFiles(files),
+      onAddToPending: (files) => _addPendingPlatformFiles(files),
     );
   }
 
@@ -8968,7 +8895,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               builder: (_) => FileManagerScreen(
                 onAddToPending: (files) async {
                   if (!mounted) return false;
-                  return _addPendingFiles(files);
+                  return _addPendingPlatformFiles(files);
                 },
               ),
             ),
@@ -8988,7 +8915,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       onDeleteSelected: _selectedMessages.isEmpty
           ? null
           : _deleteSelectedMessages,
-      chatContent: _buildChatContent(
+      chatContentBuilder: () => _buildChatContent(
         context,
         colors,
         isDark,
@@ -9245,7 +9172,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                       _embeddedFileTabActivation,
                                   onAddToPending: (files) async {
                                     if (!mounted) return false;
-                                    return _addPendingFiles(files);
+                                    return _addPendingPlatformFiles(files);
                                   },
                                 ),
                                 const SettingsScreen(embedded: true),
@@ -9451,13 +9378,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       key: _composerKey,
       onSend: _sendText,
       onAttachmentChoice: _handleAttachmentChoice,
-      pendingFiles: ref.watch(pendingFilesProvider),
+      pendingFiles: ref
+          .watch(pendingFilesProvider)
+          .map((entry) => entry.file)
+          .toList(),
       onSendPendingFiles: _showFileSendModal,
       onRemovePendingFile: _removePendingFileRef,
       onClearPendingFiles: _clearPendingFiles,
       onPasteFiles: _isDesktopPlatform
           ? (files) async {
-              await _addPendingFiles(files);
+              await _addPendingPlatformFiles(files);
             }
           : null,
       onToggleDesktopSidebar: _isDesktopPlatform
@@ -9971,6 +9901,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     bool isFileMessage,
     AppThemeColors appColors,
   ) {
+    final loc = AppLocalizations.of(context);
     final fileMeta = _fileMetaByMessageId[message.id];
     final localPath = fileMeta?.localPath;
     final fileExists = localPath != null && File(localPath).existsSync();
@@ -9978,41 +9909,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final canS3Download = s3Key != null && s3Key.isNotEmpty && !fileExists;
     final existingLocalPath = fileExists ? localPath : null;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: appColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: appColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _msgHoverBtn(LucideIcons.squareCheck, appColors.textSecondary, () {
+    return DesktopHoverActionBar(
+      colors: appColors,
+      actions: [
+        DesktopHoverAction(
+          icon: LucideIcons.squareCheck,
+          tooltip: loc.fmMultiSelectMode,
+          onTap: () {
             setState(() {
               _isSelectionMode = true;
               _selectedMessages.add(message.id);
             });
-          }),
-          if (!isFileMessage)
-            _msgHoverBtn(LucideIcons.copy, appColors.textSecondary, () {
+          },
+        ),
+        if (!isFileMessage)
+          DesktopHoverAction(
+            icon: LucideIcons.copy,
+            tooltip: loc.chatMenuCopyText,
+            onTap: () {
               Clipboard.setData(ClipboardData(text: message.text));
-              AppToast.show(
-                context,
-                message: AppLocalizations.of(context).chatCopied,
-              );
-            }),
-          if (isFileMessage && existingLocalPath != null) ...[
-            _msgHoverBtn(LucideIcons.copy, appColors.textSecondary, () {
-              unawaited(_copyChatFileToClipboard(existingLocalPath));
-            }),
-            _msgHoverBtn(LucideIcons.externalLink, appColors.textSecondary, () {
+              AppToast.show(context, message: loc.chatCopied);
+            },
+          ),
+        if (isFileMessage && existingLocalPath != null) ...[
+          DesktopHoverAction(
+            icon: LucideIcons.copy,
+            tooltip: loc.chatMenuCopyFile,
+            onTap: () => unawaited(_copyChatFileToClipboard(existingLocalPath)),
+          ),
+          DesktopHoverAction(
+            icon: LucideIcons.externalLink,
+            tooltip: loc.chatMenuOpen,
+            onTap: () {
               final meta = _fileMetaByMessageId[message.id];
               if (meta == null) {
                 unawaited(_tryOpenLocalFilePath(existingLocalPath));
@@ -10025,52 +9953,54 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   ),
                 );
               }
-            }),
-            _msgHoverBtn(LucideIcons.folderOpen, appColors.textSecondary, () {
-              unawaited(revealFileInFolder(existingLocalPath));
-            }),
-            if (FileExportService.isSupported)
-              _msgHoverBtn(LucideIcons.download, appColors.textSecondary, () {
+            },
+          ),
+          DesktopHoverAction(
+            icon: LucideIcons.folderOpen,
+            tooltip: loc.fmRevealInFolder,
+            onTap: () => unawaited(revealFileInFolder(existingLocalPath)),
+          ),
+          if (FileExportService.isSupported)
+            DesktopHoverAction(
+              icon: LucideIcons.download,
+              tooltip: _exportActionLabel(loc),
+              onTap: () {
                 final meta = _fileMetaByMessageId[message.id];
                 if (meta != null) {
                   unawaited(_exportChatFile(existingLocalPath, meta.fileName));
                 }
-              }),
-            _msgHoverBtn(LucideIcons.plus, appColors.textSecondary, () {
+              },
+            ),
+          DesktopHoverAction(
+            icon: LucideIcons.plus,
+            tooltip: loc.fmTooltipAddPending,
+            onTap: () {
               final meta = _fileMetaByMessageId[message.id];
               if (meta != null) {
                 _addFileMessageToPending(meta, existingLocalPath);
               }
-            }),
-          ],
-          if (isFileMessage && canS3Download)
-            _msgHoverBtn(LucideIcons.download, appColors.textSecondary, () {
-              unawaited(
-                _downloadS3File(
-                  s3Key,
-                  messageId: message.id,
-                  fileName: _fileFileNameByMessageId[message.id],
-                ),
-              );
-            }),
-          _msgHoverBtn(
-            LucideIcons.trash2,
-            appColors.danger,
-            () => _confirmDeleteMessage(message),
+            },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _msgHoverBtn(IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xxs),
-        child: Icon(icon, size: 16, color: color),
-      ),
+        if (isFileMessage && canS3Download)
+          DesktopHoverAction(
+            icon: LucideIcons.download,
+            tooltip: loc.chatMenuDownloadFromCloud,
+            onTap: () => unawaited(
+              _downloadS3File(
+                s3Key,
+                messageId: message.id,
+                fileName: _fileFileNameByMessageId[message.id],
+              ),
+            ),
+          ),
+        DesktopHoverAction(
+          icon: LucideIcons.trash2,
+          tooltip: loc.chatMenuDeleteMessage,
+          color: appColors.danger,
+          onTap: () => _confirmDeleteMessage(message),
+        ),
+      ],
     );
   }
 
