@@ -122,6 +122,15 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       );
       if (!mounted) return;
       setState(() => _loading = false);
+      if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          AppToast.show(
+            context,
+            message: AppLocalizations.of(context).webdavCstCloudReadOnlyToast,
+          );
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {

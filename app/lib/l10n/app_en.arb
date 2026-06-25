@@ -1824,7 +1824,7 @@
       "error": { "type": "String" }
     }
   },
-  "webdavCstCloudReadOnlyBanner": "Data Capsule WebDAV does not support uploads — browse and download only. To upload files, use Settings → S3.",
+  "webdavCstCloudReadOnlyToast": "Data Capsule WebDAV does not support uploads — browse and download only. To upload files, use Settings → S3.",
   "webdavCstCloudUploadNotSupported": "Data Capsule WebDAV does not support uploads. You can only browse and download files here.",
   "webdavTestSuccess": "Connection successful",
   "webdavTestFailed": "Connection test failed: {error}",

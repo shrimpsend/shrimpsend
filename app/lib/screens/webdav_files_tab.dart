@@ -371,16 +371,6 @@ class WebDavFilesTabState extends ConsumerState<WebDavFilesTab>
               setState(() => _searchQuery = '');
             },
           ),
-        if (cstCloudWebDavBlocksGeneralUpload(widget.connection.baseUrl))
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.md,
-              0,
-            ),
-            child: _CstCloudReadOnlyBanner(message: l10n.webdavCstCloudReadOnlyBanner),
-          ),
         Expanded(
           child: WebDavEntrySurfaceShell(
             header: Padding(
@@ -516,45 +506,6 @@ class _BreadcrumbChip extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CstCloudReadOnlyBanner extends StatelessWidget {
-  final String message;
-
-  const _CstCloudReadOnlyBanner({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = context.appColors;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: colors.warningSurface,
-        borderRadius: AppRadius.small,
-        border: Border.all(color: colors.warning.withValues(alpha: 0.24)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.info, size: 18, color: colors.warning),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.textSecondary,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

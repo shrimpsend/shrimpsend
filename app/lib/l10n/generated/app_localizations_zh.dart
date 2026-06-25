@@ -3099,7 +3099,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get webdavCstCloudReadOnlyBanner =>
+  String get webdavCstCloudReadOnlyToast =>
       '数据胶囊 WebDAV 不支持上传，仅可浏览和下载已有文件。如需上传，请使用 设置 → S3。';
 
   @override

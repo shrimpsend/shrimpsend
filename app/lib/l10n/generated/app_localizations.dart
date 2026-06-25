@@ -5736,11 +5736,11 @@ abstract class AppLocalizations {
   /// **'Diagnostic failed: {error}'**
   String webdavDiagnoseUploadFailed(String error);
 
-  /// No description provided for @webdavCstCloudReadOnlyBanner.
+  /// No description provided for @webdavCstCloudReadOnlyToast.
   ///
   /// In en, this message translates to:
   /// **'Data Capsule WebDAV does not support uploads — browse and download only. To upload files, use Settings → S3.'**
-  String get webdavCstCloudReadOnlyBanner;
+  String get webdavCstCloudReadOnlyToast;
 
   /// No description provided for @webdavCstCloudUploadNotSupported.
   ///

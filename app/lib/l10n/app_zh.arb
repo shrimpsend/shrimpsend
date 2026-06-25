@@ -1371,7 +1371,7 @@
       "error": { "type": "String" }
     }
   },
-  "webdavCstCloudReadOnlyBanner": "数据胶囊 WebDAV 不支持上传，仅可浏览和下载已有文件。如需上传，请使用 设置 → S3。",
+  "webdavCstCloudReadOnlyToast": "数据胶囊 WebDAV 不支持上传，仅可浏览和下载已有文件。如需上传，请使用 设置 → S3。",
   "webdavCstCloudUploadNotSupported": "数据胶囊 WebDAV 不支持上传，仅可浏览和下载。",
   "webdavTestSuccess": "连接成功",
   "webdavTestFailed": "连接测试失败：{error}",

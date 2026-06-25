@@ -3245,7 +3245,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get webdavCstCloudReadOnlyBanner =>
+  String get webdavCstCloudReadOnlyToast =>
       'Data Capsule WebDAV does not support uploads — browse and download only. To upload files, use Settings → S3.';
 
   @override
