@@ -233,6 +233,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsNavS3Subtitle => '广域网文件传输';
 
   @override
+  String get settingsNavWebDav => 'WebDAV';
+
+  @override
+  String get settingsNavWebDavSubtitle => '远程文件存储';
+
+  @override
+  String get settingsWebDavStatusNone => '未配置';
+
+  @override
+  String settingsWebDavStatusCount(int count) {
+    return '$count 个连接';
+  }
+
+  @override
+  String get settingsWebDavListTitle => 'WebDAV 连接';
+
+  @override
+  String get settingsWebDavListEmpty => '尚未添加 WebDAV 连接';
+
+  @override
   String get settingsNavShortcuts => '快捷键';
 
   @override

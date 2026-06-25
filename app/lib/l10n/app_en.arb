@@ -99,6 +99,19 @@
   "settingsNavMyDevicesSubtitleOnline": "Bound devices",
   "settingsNavS3": "S3",
   "settingsNavS3Subtitle": "Wide-area file transfer",
+  "settingsNavWebDav": "WebDAV",
+  "settingsNavWebDavSubtitle": "Remote file storage",
+  "settingsWebDavStatusNone": "Not configured",
+  "settingsWebDavStatusCount": "{count, plural, =1{1 connection} other{{count} connections}}",
+  "@settingsWebDavStatusCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsWebDavListTitle": "WebDAV connections",
+  "settingsWebDavListEmpty": "No WebDAV connections yet",
   "settingsNavShortcuts": "Shortcuts",
   "settingsNavShortcutsSubtitle": "Keyboard actions such as sending messages",
   "settingsNavFonts": "Fonts",

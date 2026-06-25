@@ -530,6 +530,42 @@ abstract class AppLocalizations {
   /// **'Wide-area file transfer'**
   String get settingsNavS3Subtitle;
 
+  /// No description provided for @settingsNavWebDav.
+  ///
+  /// In en, this message translates to:
+  /// **'WebDAV'**
+  String get settingsNavWebDav;
+
+  /// No description provided for @settingsNavWebDavSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote file storage'**
+  String get settingsNavWebDavSubtitle;
+
+  /// No description provided for @settingsWebDavStatusNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Not configured'**
+  String get settingsWebDavStatusNone;
+
+  /// No description provided for @settingsWebDavStatusCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 connection} other{{count} connections}}'**
+  String settingsWebDavStatusCount(int count);
+
+  /// No description provided for @settingsWebDavListTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WebDAV connections'**
+  String get settingsWebDavListTitle;
+
+  /// No description provided for @settingsWebDavListEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No WebDAV connections yet'**
+  String get settingsWebDavListEmpty;
+
   /// No description provided for @settingsNavShortcuts.
   ///
   /// In en, this message translates to:

@@ -27,6 +27,7 @@ import '../file_save_preferences.dart';
 import '../logger.dart';
 import '../providers/app_mode_provider.dart';
 import '../providers/app_update_provider.dart';
+import '../providers/webdav_provider.dart';
 import '../theme_store.dart';
 import '../ui/app_ui.dart';
 import '../utils/effective_save_dir_display.dart';
@@ -454,6 +455,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     '/settings/s3',
                                   );
                                   _load();
+                                },
+                              ),
+                              Divider(
+                                height: 1,
+                                color: colors.border,
+                                indent:
+                                    AppSpacing.md +
+                                    AppSize.settingsIcon +
+                                    AppSpacing.sm,
+                              ),
+                              _buildNavItem(
+                                context: context,
+                                icon: LucideIcons.hardDrive,
+                                iconBgColor: theme.colorScheme.primary
+                                    .withValues(alpha: 0.12),
+                                iconColor: theme.colorScheme.primary,
+                                title: l10n.settingsNavWebDav,
+                                subtitle: l10n.settingsNavWebDavSubtitle,
+                                trailing: _buildWebDavStatusBadge(context, ref),
+                                onTap: () async {
+                                  await Navigator.pushNamed(
+                                    context,
+                                    '/settings/webdav',
+                                  );
+                                  if (mounted) {
+                                    ref
+                                        .read(
+                                          webDavConnectionsProvider.notifier,
+                                        )
+                                        .refresh();
+                                  }
                                 },
                               ),
                             ],
@@ -1101,6 +1133,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         label = l10n.settingsS3StatusNotConfigured;
         break;
     }
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: 3,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: AppRadius.small,
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebDavStatusBadge(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    final l10n = AppLocalizations.of(context);
+    final webDavAsync = ref.watch(webDavConnectionsProvider);
+    final count = webDavAsync.valueOrNull?.length ?? 0;
+
+    final Color background;
+    final Color foreground;
+    final String label;
+    if (count == 0) {
+      background = colors.surfaceMuted;
+      foreground = colors.textSecondary;
+      label = l10n.settingsWebDavStatusNone;
+    } else {
+      final scheme = theme.colorScheme;
+      background = scheme.primary.withValues(alpha: 0.12);
+      foreground = scheme.primary;
+      label = l10n.settingsWebDavStatusCount(count);
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xs,

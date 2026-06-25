@@ -41,6 +41,7 @@ import 'screens/settings_screen.dart';
 import 'screens/font_settings_screen.dart';
 import 'screens/shortcut_settings_screen.dart';
 import 'screens/s3_settings_screen.dart';
+import 'screens/webdav_settings_screen.dart';
 import 'screens/webdav_connection_screen.dart';
 import 'screens/version_history_screen.dart';
 import 'screens/app_log_screen.dart';
@@ -704,6 +705,8 @@ class MyApp extends StatelessWidget {
                                       const MembershipScreen(),
                                   '/settings/s3': (_) =>
                                       const S3SettingsScreen(),
+                                  '/settings/webdav': (_) =>
+                                      const WebDavSettingsScreen(),
                                   '/webdav/add': (_) =>
                                       const WebDavConnectionScreen(),
                             '/settings/shortcuts': (_) =>

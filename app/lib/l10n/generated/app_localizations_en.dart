@@ -241,6 +241,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsNavS3Subtitle => 'Wide-area file transfer';
 
   @override
+  String get settingsNavWebDav => 'WebDAV';
+
+  @override
+  String get settingsNavWebDavSubtitle => 'Remote file storage';
+
+  @override
+  String get settingsWebDavStatusNone => 'Not configured';
+
+  @override
+  String settingsWebDavStatusCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count connections',
+      one: '1 connection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsWebDavListTitle => 'WebDAV connections';
+
+  @override
+  String get settingsWebDavListEmpty => 'No WebDAV connections yet';
+
+  @override
   String get settingsNavShortcuts => 'Shortcuts';
 
   @override

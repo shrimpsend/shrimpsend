@@ -79,6 +79,19 @@
   "settingsNavMyDevicesSubtitleOnline": "已绑定的设备",
   "settingsNavS3": "S3",
   "settingsNavS3Subtitle": "广域网文件传输",
+  "settingsNavWebDav": "WebDAV",
+  "settingsNavWebDavSubtitle": "远程文件存储",
+  "settingsWebDavStatusNone": "未配置",
+  "settingsWebDavStatusCount": "{count} 个连接",
+  "@settingsWebDavStatusCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsWebDavListTitle": "WebDAV 连接",
+  "settingsWebDavListEmpty": "尚未添加 WebDAV 连接",
   "settingsNavShortcuts": "快捷键",
   "settingsNavShortcutsSubtitle": "发送消息等键盘操作",
   "settingsNavFonts": "字体",
