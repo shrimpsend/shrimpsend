@@ -17,7 +17,7 @@ import '../widgets/pending_files_bar.dart';
 import 'webdav/webdav_browsable_tab.dart';
 import 'webdav_files_tab.dart';
 import 'webdav_recent_favorites_tab.dart';
-import 'webdav_settings_tab.dart';
+import 'webdav_connection_screen.dart';
 import 'webdav_transfer_list_screen.dart';
 
 class WebDavShellScreen extends ConsumerStatefulWidget {
@@ -164,8 +164,10 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     final connectionId = widget.connection.id;
     if (index == 1) {
       ref.invalidate(webDavRecentProvider(connectionId));
+      _recentTabKey.currentState?.refreshEntries();
     } else if (index == 2) {
       ref.invalidate(webDavFavoritesProvider(connectionId));
+      _favoritesTabKey.currentState?.refreshEntries();
     }
   }
 
@@ -212,12 +214,22 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     );
   }
 
-  void _openSettings() {
-    showWebDavSettingsSheet(
+  Color _contentBackground(BuildContext context) =>
+      Theme.of(context).scaffoldBackgroundColor;
+
+  void _openSettings() async {
+    final ok = await Navigator.push<bool>(
       context,
-      connection: widget.connection,
-      onSwitchConnection: () => Navigator.pop(context),
+      MaterialPageRoute(
+        builder: (_) => WebDavConnectionScreen(
+          connectionId: widget.connection.id,
+        ),
+      ),
     );
+    if (ok == true && mounted) {
+      await ref.read(webDavConnectionsProvider.notifier).refresh();
+      await _init();
+    }
   }
 
   String _uploadTargetLabel(AppLocalizations l10n) {
@@ -264,6 +276,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
+    final contentBg = _contentBackground(context);
     final pendingCount = ref.watch(pendingFilesProvider).length;
 
     Widget tab({
@@ -316,7 +329,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     }
 
     return ColoredBox(
-      color: colors.background,
+      color: contentBg,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -448,10 +461,10 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
     final client = _client!;
     final transferUi = ref.watch(webDavTransferUiProvider(widget.connection.id));
     final activeTransfers = transferUi.activeCount;
-    final colors = context.appColors;
+    final contentBg = _contentBackground(context);
 
     final body = ColoredBox(
-      color: colors.background,
+      color: contentBg,
       child: Column(
         children: [
           Expanded(
@@ -525,11 +538,16 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
   }
 
   Widget _wrapShell(BuildContext context, PreferredSizeWidget appBar, Widget body) {
-    return Scaffold(
-      primary: !widget.embedded,
-      resizeToAvoidBottomInset: false,
-      appBar: appBar,
-      body: body,
+    final contentBg = _contentBackground(context);
+    return ColoredBox(
+      color: contentBg,
+      child: Scaffold(
+        primary: !widget.embedded,
+        resizeToAvoidBottomInset: false,
+        backgroundColor: contentBg,
+        appBar: appBar,
+        body: body,
+      ),
     );
   }
 
@@ -602,7 +620,7 @@ class _WebDavShellScreenState extends ConsumerState<WebDavShellScreen>
       IconButton(
         icon: const Icon(LucideIcons.settings),
         onPressed: _openSettings,
-        tooltip: l10n.webdavTabSettings,
+        tooltip: l10n.webdavEditConnection,
       ),
     ];
   }

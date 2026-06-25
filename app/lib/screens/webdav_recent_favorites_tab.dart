@@ -143,11 +143,13 @@ class WebDavVirtualEntryTabState extends ConsumerState<WebDavVirtualEntryTab>
     await saveWebDavViewModePref(next);
   }
 
-  Future<void> _loadEntries() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _loadEntries({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       if (widget.kind == WebDavVirtualListKind.recent) {
         final items = await WebDavRecentDao.instance.listForConnection(_connKey);
@@ -311,8 +313,54 @@ class WebDavVirtualEntryTabState extends ConsumerState<WebDavVirtualEntryTab>
     return '${dt.month}/${dt.day}';
   }
 
+  /// Reload list from local DB (e.g. after tab switch or favorite change).
+  void refreshEntries({bool showLoading = false}) {
+    unawaited(_loadEntries(showLoading: showLoading));
+  }
+
+  void _applyFavoriteRecords(List<WebDavFavoriteRecord> items) {
+    if (!mounted || widget.kind != WebDavVirtualListKind.favorites) return;
+    setState(() {
+      _accessedAtByPath = {};
+      _entries = items.map((e) => e.toEntry()).toList();
+      _loading = false;
+      _error = null;
+    });
+    unawaited(_refreshLocalPaths(_entries));
+  }
+
+  void _applyRecentRecords(List<WebDavRecentRecord> items) {
+    if (!mounted || widget.kind != WebDavVirtualListKind.recent) return;
+    setState(() {
+      _accessedAtByPath = {
+        for (final item in items) item.remotePath: item.accessedAt,
+      };
+      _entries = items.map((e) => e.toEntry()).toList();
+      _loading = false;
+      _error = null;
+    });
+    unawaited(_refreshLocalPaths(_entries));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final connectionId = widget.connection.id;
+    if (widget.kind == WebDavVirtualListKind.favorites) {
+      ref.listen<AsyncValue<List<WebDavFavoriteRecord>>>(
+        webDavFavoritesProvider(connectionId),
+        (previous, next) {
+          next.whenData(_applyFavoriteRecords);
+        },
+      );
+    } else {
+      ref.listen<AsyncValue<List<WebDavRecentRecord>>>(
+        webDavRecentProvider(connectionId),
+        (previous, next) {
+          next.whenData(_applyRecentRecords);
+        },
+      );
+    }
+
     final l10n = AppLocalizations.of(context);
     final colors = context.appColors;
     final theme = Theme.of(context);
