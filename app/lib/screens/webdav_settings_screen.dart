@@ -4,11 +4,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n/generated/app_localizations.dart';
 import '../providers/webdav_provider.dart';
-import '../screens/qr_scanner_screen.dart';
 import '../screens/webdav_connection_screen.dart';
 import '../ui/app_ui.dart';
 import '../utils/auth_route_guard.dart';
-import '../widgets/webdav/add_connection_sheet.dart';
 import '../widgets/webdav/webdav_connection_actions.dart';
 import '../widgets/webdav/webdav_connection_item.dart';
 
@@ -32,22 +30,12 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
   }
 
   Future<void> _openAddConnection() async {
-    final choice = await showAddConnectionSheet(context);
-    if (!mounted || choice == null) return;
-    switch (choice) {
-      case AddConnectionChoice.scanLogin:
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const QrScannerScreen()),
-        );
-      case AddConnectionChoice.addWebDav:
-        final ok = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(builder: (_) => const WebDavConnectionScreen()),
-        );
-        if (ok == true && mounted) {
-          await ref.read(webDavConnectionsProvider.notifier).refresh();
-        }
+    final ok = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const WebDavConnectionScreen()),
+    );
+    if (ok == true && mounted) {
+      await ref.read(webDavConnectionsProvider.notifier).refresh();
     }
   }
 
