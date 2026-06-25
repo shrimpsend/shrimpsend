@@ -26,9 +26,13 @@ migrate_working_dir/
 # Gradle / build artifacts
 .gradle/
 **/packages/**/android/build/
+packages/**/build/
+packages/**/.dart_tool/
+packages/**/pubspec.lock
 
 # Flutter/Dart/Pub related
 **/doc/api/
+**/xcshareddata/swiftpm/Package.resolved
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
