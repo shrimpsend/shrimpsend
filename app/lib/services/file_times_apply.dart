@@ -48,37 +48,47 @@ bool _applyWindowsFileTimes(
   DateTime modified,
   DateTime created,
 ) {
-  final handle = CreateFile(
-    path.toNativeUtf16(),
-    FILE_WRITE_ATTRIBUTES,
-    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-    nullptr,
-    OPEN_EXISTING,
-    FILE_ATTRIBUTE_NORMAL,
-    NULL,
-  );
-  if (handle == INVALID_HANDLE_VALUE) {
-    _log.warning(
-      'CreateFile for timestamps failed (${GetLastError()}): $path',
-    );
-    return false;
-  }
-
-  final ftCreated = calloc<FILETIME>();
-  final ftModified = calloc<FILETIME>();
+  final lpFileName = path.toPcwstr(allocator: calloc);
   try {
-    _dateTimeToFileTime(created.toUtc(), ftCreated);
-    _dateTimeToFileTime(modified.toUtc(), ftModified);
-    final ok = SetFileTime(handle, ftCreated, nullptr, ftModified);
-    if (ok == FALSE) {
-      _log.warning('SetFileTime failed (${GetLastError()}): $path');
+    final Win32Result(value: handle, :error) = CreateFile(
+      lpFileName,
+      FILE_WRITE_ATTRIBUTES,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      nullptr,
+      OPEN_EXISTING,
+      FILE_ATTRIBUTE_NORMAL,
+      null,
+    );
+    if (error.isError || handle == INVALID_HANDLE_VALUE) {
+      _log.warning(
+        'CreateFile for timestamps failed ($error): $path',
+      );
       return false;
     }
-    return true;
+
+    final ftCreated = calloc<FILETIME>();
+    final ftModified = calloc<FILETIME>();
+    try {
+      _dateTimeToFileTime(created.toUtc(), ftCreated);
+      _dateTimeToFileTime(modified.toUtc(), ftModified);
+      final Win32Result(value: ok, :error) = SetFileTime(
+        handle,
+        ftCreated,
+        nullptr,
+        ftModified,
+      );
+      if (error.isError || !ok) {
+        _log.warning('SetFileTime failed ($error): $path');
+        return false;
+      }
+      return true;
+    } finally {
+      calloc.free(ftCreated);
+      calloc.free(ftModified);
+      CloseHandle(handle);
+    }
   } finally {
-    calloc.free(ftCreated);
-    calloc.free(ftModified);
-    CloseHandle(handle);
+    calloc.free(lpFileName);
   }
 }
 

@@ -108,7 +108,10 @@ dependencies:
       url: https://github.com/litangtech/feedmatter_flutter_sdk.git
       ref: 9568d44d3eb4b61316d8dbbb3b0a2aab2934383d
       path: packages/feedmatter_flutter_ui
-  launch_at_startup: ^0.5.1
+  launch_at_startup:
+    git:
+      url: https://github.com/leanflutter/launch_at_startup.git
+      ref: a16de1463644c4550e74e52f65d24500de917ed1
   fast_gbk: ^1.0.0
   wakelock_plus: ^1.4.0
   flutter_foreground_task: ^9.2.2

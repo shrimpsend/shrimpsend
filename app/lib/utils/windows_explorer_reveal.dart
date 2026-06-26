@@ -27,13 +27,13 @@ bool windowsRevealInExplorer(String absolutePath) {
         _SHOpenFolderAndSelectItemsDart
       >('SHOpenFolderAndSelectItems');
 
-  final coHr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  final coHr = CoInitializeEx(COINIT_APARTMENTTHREADED);
   // S_OK / S_FALSE require a balancing CoUninitialize. RPC_E_CHANGED_MODE
   // means another threading model was already chosen on this thread; we must
   // not call CoUninitialize in that case.
   final shouldUninit = coHr == S_OK || coHr == S_FALSE;
 
-  final wPath = absolutePath.toNativeUtf16();
+  final wPath = absolutePath.toPcwstr(allocator: calloc);
   final ppidl = calloc<IntPtr>();
   try {
     final hr = shParse(wPath, nullptr, ppidl, 0, nullptr);

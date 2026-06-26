@@ -769,10 +769,11 @@ packages:
   launch_at_startup:
     dependency: "direct main"
     description:
-      name: launch_at_startup
-      sha256: "7db33398b76ec0ed9e27f9f4640553e239977437564046625e215be89c91f084"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
+      path: "."
+      ref: a16de1463644c4550e74e52f65d24500de917ed1
+      resolved-ref: a16de1463644c4550e74e52f65d24500de917ed1
+      url: "https://github.com/leanflutter/launch_at_startup.git"
+    source: git
     version: "0.5.1"
   leak_tracker:
     dependency: transitive
