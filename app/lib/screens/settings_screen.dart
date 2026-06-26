@@ -42,6 +42,7 @@ import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
 import '../widgets/app_update_dialog.dart';
 import '../widgets/legal_doc_links_row.dart';
+import '../screens/feedmatter_feedback_screen.dart';
 import '../services/feedmatter_bootstrap.dart';
 import '../services/file_store.dart';
 import '../services/receive_dir_resolver.dart';
@@ -1149,7 +1150,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     FeedMatterThemeScope.push<void>(
       context,
       theme: themeOptions,
-      child: FeedMatterFeedbackEntry(options: uiOptions),
+      child: FeedmatterFeedbackScreen(options: uiOptions),
     );
   }
 
