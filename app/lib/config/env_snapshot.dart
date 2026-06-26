@@ -6,7 +6,9 @@ import 'package:flutter/scheduler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../logger.dart';
+import '../config/feedmatter_env.dart';
 import '../config/openpanel_env.dart';
+import '../services/feedmatter_bootstrap.dart';
 import '../services/openpanel_bootstrap.dart';
 import 'env.dart';
 
@@ -81,6 +83,15 @@ List<MapEntry<String, String>> _buildEntries(PackageInfo? pkg) => [
       MapEntry('apiUrl', Env.apiUrl),
       MapEntry('centrifugoWs', Env.centrifugoWs),
       MapEntry('openpanel', OpenpanelBootstrap.snapshotSummary()),
+      MapEntry('feedmatter', FeedmatterBootstrap.snapshotSummary()),
+      MapEntry(
+        'feedmatter.cnSecret',
+        FeedmatterEnv.cnApiSecret.isEmpty ? '(empty)' : '(set)',
+      ),
+      MapEntry(
+        'feedmatter.intlSecret',
+        FeedmatterEnv.intlApiSecret.isEmpty ? '(empty)' : '(set)',
+      ),
       MapEntry(
         'openpanel.cnSecret',
         OpenpanelEnv.cnAppClientSecret.isEmpty ? '(empty)' : '(set)',

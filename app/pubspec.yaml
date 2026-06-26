@@ -48,14 +48,17 @@ dependencies:
   uuid: ^4.2.2
   path: ^1.9.0
   path_provider: ^2.1.1
-  package_info_plus: ^9.0.0
-  file_picker: ^10.2.0
+  package_info_plus: ^10.1.0
+  file_picker:
+    git:
+      url: https://github.com/miguelpruivo/flutter_file_picker.git
+      ref: master
   url_launcher: ^6.2.0
   logging: ^1.2.0
-  network_info_plus: ^5.0.0
+  network_info_plus: ^8.0.0
   saver_gallery: ^4.1.0
   mobile_device_identifier: ^0.0.3
-  device_info_plus: ^12.3.0
+  device_info_plus: ^13.1.0
   crypto: ^3.0.3
   xml: ^6.3.0
   flutter_webrtc: ^0.12.9
@@ -65,7 +68,7 @@ dependencies:
   installed_apps: ^2.1.1
   mobile_scanner: ^7.2.0
   qr_flutter: ^4.1.0
-  share_plus: ^10.1.4
+  share_plus: ^13.0.0
   video_player: ^2.9.2
   pdfrx: ^1.0.92
   bonsoir: ^6.0.1
@@ -93,9 +96,18 @@ dependencies:
   ffi: ^2.1.4
   # Windows VC runtime DLLs are vendored under windows/vc_redist/x64
   # and copied into Release by app/scripts/package_windows.ps1.
-  win32: ^5.15.0
+  win32: ^6.3.0
   openpanel_flutter:
     path: packages/openpanel_flutter
+  feedmatter_flutter_sdk:
+    git:
+      url: https://github.com/litangtech/feedmatter_flutter_sdk.git
+      ref: 9568d44d3eb4b61316d8dbbb3b0a2aab2934383d
+  feedmatter_flutter_ui:
+    git:
+      url: https://github.com/litangtech/feedmatter_flutter_sdk.git
+      ref: 9568d44d3eb4b61316d8dbbb3b0a2aab2934383d
+      path: packages/feedmatter_flutter_ui
   launch_at_startup: ^0.5.1
   fast_gbk: ^1.0.0
   wakelock_plus: ^1.4.0
@@ -168,7 +180,14 @@ dependency_overrides:
   flutter_sharing_intent:
     path: packages/flutter_sharing_intent
   connectivity_plus: '>=7.0.0 <7.1.0'
-  # super_drag_and_drop / super_native_extensions caps device_info_plus <12
-  device_info_plus: ^11.5.0
+  # feedmatter_flutter_sdk declares ^13.1.0; override keeps win32/share_plus chain stable.
+  device_info_plus: ^13.1.0
+  package_info_plus: ^10.1.0
+  # feedmatter_flutter_ui pins file_picker from git; align whole app to same source.
+  file_picker:
+    git:
+      url: https://github.com/miguelpruivo/flutter_file_picker.git
+      ref: master
+  win32_registry: ^3.0.3
   # liquid_glass_widgets 0.10.x requires meta ^1.17.0; SDK flutter_test pins 1.16.0
   meta: ^1.17.0

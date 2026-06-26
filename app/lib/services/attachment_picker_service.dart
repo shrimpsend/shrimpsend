@@ -45,13 +45,13 @@ final class AttachmentPickerService {
   }
 
   static Future<List<PlatformFile>> _pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    final result = await FilePicker.pickFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return [];
     return _validPlatformFiles(result.files);
   }
 
   static Future<List<PlatformFile>> _pickMediaFiles() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       allowMultiple: true,
       type: FileType.media,
     );
@@ -184,7 +184,7 @@ final class AttachmentPickerService {
   }
 
   static Future<List<PendingFileEntry>> _pickFolder(BuildContext context) async {
-    final dirPath = await FilePicker.platform.getDirectoryPath();
+    final dirPath = await FilePicker.getDirectoryPath();
     if (dirPath == null) return [];
 
     final dir = Directory(dirPath);

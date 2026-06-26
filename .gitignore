@@ -31,6 +31,7 @@ backend/src/main/resources/application-prod-overseas.yml
 app_ohos/build-profile.json5
 app/lib/config/openpanel_env.secrets.dart
 app/lib/config/env.secrets.dart
+app/lib/config/feedmatter_env.secrets.dart
 
 # Private ops payloads (README + scripts remain tracked)
 ops/cn/

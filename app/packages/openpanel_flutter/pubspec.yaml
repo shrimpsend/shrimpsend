@@ -18,7 +18,7 @@ dependencies:
   dio_smart_retry: ^7.0.1
   equatable: ^2.0.7
   logger: ^2.6.2
-  package_info_plus: ^9.0.0
+  package_info_plus: ^10.1.0
   meta: ^1.16.0
   referrer: ^1.1.0
   shared_preferences: ^2.5.4

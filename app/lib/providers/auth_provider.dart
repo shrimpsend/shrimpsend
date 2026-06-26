@@ -8,6 +8,7 @@ import '../logger.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
 import '../services/openpanel_bootstrap.dart';
+import '../services/feedmatter_bootstrap.dart';
 import '../services/revenuecat_service.dart';
 import '../services/webdav_credential_store.dart';
 
@@ -65,6 +66,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       logAuth.info('AuthNotifier loadFromStorage restored userId=$userId');
       RevenueCatService.instance.configureIfNeeded(userId);
       OpenpanelBootstrap.identifyLoggedInUser(userId);
+      FeedmatterBootstrap.syncUser(state);
     } else {
       if (accessToken != null && accessToken.isNotEmpty) {
         logAuth.warning(
@@ -82,6 +84,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     logAuth.info('AuthNotifier login userId=${auth.userId}');
     RevenueCatService.instance.configureIfNeeded(auth.userId);
     OpenpanelBootstrap.identifyLoggedInUser(auth.userId);
+    FeedmatterBootstrap.syncUser(state);
   }
 
   Future<void> logout() async {
@@ -97,6 +100,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await WebDavCredentialStore.instance.wipeAll();
     await _clearStorage();
     OpenpanelBootstrap.onLogout();
+    FeedmatterBootstrap.onLogout();
     Analytics.track(AnalyticsEvents.logout, {'api_logout_ok': apiOk});
     logAuth.info('AuthNotifier logout');
   }
@@ -106,6 +110,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await WebDavCredentialStore.instance.wipeAll();
     await _clearStorage();
     OpenpanelBootstrap.onLogout();
+    FeedmatterBootstrap.onLogout();
     logAuth.info('AuthNotifier clearAuth');
   }
 
@@ -113,6 +118,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _persistAuth(auth);
     RevenueCatService.instance.configureIfNeeded(auth.userId);
     OpenpanelBootstrap.identifyLoggedInUser(auth.userId);
+    FeedmatterBootstrap.syncUser(state);
   }
 
   Future<DateTime?> getAccessTokenExpiresAt() async {

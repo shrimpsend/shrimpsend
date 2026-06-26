@@ -187,6 +187,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsSectionAbout => '关于';
 
   @override
+  String get settingsFeedbackTooltip => '意见反馈';
+
+  @override
   String get settingsNavLogin => '登录账号';
 
   @override

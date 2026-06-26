@@ -68,6 +68,7 @@
   "settingsSectionFeatures": "Features",
   "settingsSectionPreferences": "Preferences",
   "settingsSectionAbout": "About",
+  "settingsFeedbackTooltip": "Feedback",
   "settingsNavLogin": "Sign in",
   "settingsNavLoginSubtitle": "Cloud sync and more after you sign in",
   "settingsBadgeNotSignedIn": "Not signed in",

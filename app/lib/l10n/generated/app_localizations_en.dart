@@ -192,6 +192,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSectionAbout => 'About';
 
   @override
+  String get settingsFeedbackTooltip => 'Feedback';
+
+  @override
   String get settingsNavLogin => 'Sign in';
 
   @override

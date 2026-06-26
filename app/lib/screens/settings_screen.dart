@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:country_picker/country_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:feedmatter_flutter_ui/feedmatter_flutter_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,6 +41,7 @@ import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
 import '../widgets/app_update_dialog.dart';
 import '../widgets/legal_doc_links_row.dart';
+import '../services/feedmatter_bootstrap.dart';
 import '../services/file_store.dart';
 import '../services/receive_dir_resolver.dart';
 import '../services/received_file_dao.dart';
@@ -286,6 +288,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 icon: const Icon(LucideIcons.arrowLeft),
                 onPressed: () => Navigator.pop(context),
               ),
+        actions: [
+          if (FeedmatterBootstrap.isInitialized &&
+              FeedmatterBootstrap.feedbackEnabled)
+            IconButton(
+              icon: const Icon(LucideIcons.messageSquarePlus),
+              tooltip: l10n.settingsFeedbackTooltip,
+              onPressed: () => _openFeedback(context),
+            ),
+        ],
       ),
       body: _loading
           ? _buildLoadingSkeleton(context)
@@ -1108,6 +1119,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _openFeedback(BuildContext context) {
+    final themeOptions = FeedmatterBootstrap.themeOptionsFrom(context);
+    final lr = LocaleRegionStoreScope.of(context).notifier.value;
+    final uiOptions = FeedMatterUiOptions(
+      theme: themeOptions,
+      showProjectConfigDebugPanel: false,
+      customInfo: {
+        'source': 'settings_appbar',
+        'serviceRegion': Env.prodServiceRegion.name,
+        'appMarket': FeedmatterBootstrap.detectAppMarket(),
+        'locale': lr.locale.toLanguageTag(),
+      },
+      onContentUrlTap: launchExternalUrl,
+      onFaqUrlTap: launchExternalUrl,
+    );
+    FeedMatterThemeScope.push<void>(
+      context,
+      theme: themeOptions,
+      child: FeedMatterFeedbackEntry(options: uiOptions),
+    );
+  }
+
   Widget _buildS3StatusBadge(BuildContext context) {
     final theme = Theme.of(context);
     final colors = context.appColors;
@@ -1860,7 +1893,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
       return;
     }
-    final dirPath = await FilePicker.platform.getDirectoryPath();
+    final dirPath = await FilePicker.getDirectoryPath();
     if (dirPath == null || dirPath.trim().isEmpty) return;
     await _applyCustomSaveDir(dirPath);
   }

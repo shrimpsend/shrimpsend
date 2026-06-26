@@ -65,6 +65,7 @@
   "settingsSectionFeatures": "功能",
   "settingsSectionPreferences": "偏好设置",
   "settingsSectionAbout": "关于",
+  "settingsFeedbackTooltip": "意见反馈",
   "settingsNavLogin": "登录账号",
   "settingsNavLoginSubtitle": "登录后可使用云端同步和更多功能",
   "settingsBadgeNotSignedIn": "未登录",
