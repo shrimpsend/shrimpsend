@@ -55,6 +55,7 @@ import 'services/app_log_file.dart';
 import 'services/database.dart';
 import 'services/desktop_tray_lifecycle.dart';
 import 'services/openpanel_bootstrap.dart';
+import 'services/feedmatter_bootstrap.dart';
 import 'services/analytics/analytics.dart';
 import 'services/analytics/analytics_events.dart';
 import 'services/desktop_paste_dispatcher.dart';
@@ -178,6 +179,9 @@ Future<void> _bootstrap(List<String> args) async {
 
   await OpenpanelBootstrap.initIfEligible();
   logBoot.info('boot: openpanel init done');
+
+  await FeedmatterBootstrap.initIfEligible();
+  logBoot.info('boot: feedmatter init done');
 
   // 桌面更新 zip 内需含与 windows/CMakeLists.txt BINARY_NAME 一致的主程序（cn: 虾传.exe，intl: Shrimpsend.exe）。
   // MSIX/商店安装目录不可被 ZIP 覆盖，故不配置内置更新器（由商店负责更新）。

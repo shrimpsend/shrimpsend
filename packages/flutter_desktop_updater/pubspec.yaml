@@ -13,7 +13,7 @@ dependencies:
   archive: ^4.0.7
   path: ^1.9.1
   http: ^1.6.0
-  package_info_plus: ^9.0.0
+  package_info_plus: ^10.1.0
 
 dev_dependencies:
   flutter_test:

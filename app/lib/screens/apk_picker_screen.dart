@@ -130,7 +130,7 @@ class _ApkPickerScreenState extends State<ApkPickerScreen> {
   }
 
   Future<void> _pickApkFromFiles() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: ['apk'],

@@ -101,20 +101,18 @@ class FileExportService {
       );
     }
 
-    final dest = await FilePicker.platform.saveFile(
+    final file = File(resolved);
+    final bytes = await file.readAsBytes();
+    final dest = await FilePicker.saveFile(
       dialogTitle: dialogTitle,
       fileName: sanitizedName,
+      bytes: bytes,
     );
     if (dest == null || dest.isEmpty) return null;
 
-    final location = await _copyToDestination(
-      sourcePath: resolved,
-      destination: dest,
-      fileName: sanitizedName,
-    );
     return FileSaveAsResult(
-      displayName: p.basename(location),
-      location: location,
+      displayName: p.basename(dest),
+      location: dest,
     );
   }
 
@@ -138,7 +136,7 @@ class FileExportService {
 
     // file_picker on Android requires [bytes]; it writes to the SAF URI itself.
     final bytes = await file.readAsBytes();
-    final dest = await FilePicker.platform.saveFile(
+    final dest = await FilePicker.saveFile(
       dialogTitle: dialogTitle,
       fileName: fileName,
       bytes: bytes,
@@ -164,7 +162,7 @@ class FileExportService {
       }
 
       final bytes = await file.readAsBytes();
-      final dest = await FilePicker.platform
+      final dest = await FilePicker
           .saveFile(
             dialogTitle: dialogTitle,
             fileName: fileName,

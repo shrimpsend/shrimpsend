@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:country_picker/country_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:feedmatter_flutter_ui/feedmatter_flutter_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,6 +42,8 @@ import '../services/analytics/analytics.dart';
 import '../services/analytics/analytics_events.dart';
 import '../widgets/app_update_dialog.dart';
 import '../widgets/legal_doc_links_row.dart';
+import '../screens/feedmatter_feedback_screen.dart';
+import '../services/feedmatter_bootstrap.dart';
 import '../services/file_store.dart';
 import '../services/receive_dir_resolver.dart';
 import '../services/received_file_dao.dart';
@@ -286,6 +290,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 icon: const Icon(LucideIcons.arrowLeft),
                 onPressed: () => Navigator.pop(context),
               ),
+        actions: [
+          if (FeedmatterBootstrap.isInitialized &&
+              FeedmatterBootstrap.feedbackEnabled)
+            TextButton.icon(
+              onPressed: () => unawaited(_openFeedback(context)),
+              icon: Icon(
+                LucideIcons.messageSquarePlus,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              label: Text(l10n.settingsFeedbackLabel),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.primary,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              ),
+            ),
+        ],
       ),
       body: _loading
           ? _buildLoadingSkeleton(context)
@@ -1108,6 +1129,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _openFeedback(BuildContext context) async {
+    await FeedmatterBootstrap.syncUserFromAuth(ref.read(authProvider));
+    if (!context.mounted) return;
+
+    final themeOptions = FeedmatterBootstrap.themeOptionsFrom(context);
+    final lr = LocaleRegionStoreScope.of(context).notifier.value;
+    final uiOptions = FeedMatterUiOptions(
+      theme: themeOptions,
+      showProjectConfigDebugPanel: false,
+      customInfo: {
+        'source': 'settings_appbar',
+        'serviceRegion': Env.prodServiceRegion.name,
+        'appMarket': FeedmatterBootstrap.detectAppMarket(),
+        'locale': lr.locale.toLanguageTag(),
+      },
+      onContentUrlTap: launchExternalUrl,
+      onFaqUrlTap: launchExternalUrl,
+    );
+    FeedMatterThemeScope.push<void>(
+      context,
+      theme: themeOptions,
+      child: FeedmatterFeedbackScreen(options: uiOptions),
+    );
+  }
+
   Widget _buildS3StatusBadge(BuildContext context) {
     final theme = Theme.of(context);
     final colors = context.appColors;
@@ -1860,7 +1906,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
       return;
     }
-    final dirPath = await FilePicker.platform.getDirectoryPath();
+    final dirPath = await FilePicker.getDirectoryPath();
     if (dirPath == null || dirPath.trim().isEmpty) return;
     await _applyCustomSaveDir(dirPath);
   }

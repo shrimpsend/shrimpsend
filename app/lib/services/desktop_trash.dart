@@ -44,7 +44,7 @@ class DesktopTrash {
   static bool _moveToTrashWindows(String path) {
     // SHFileOperationW requires the source list to be double-null terminated.
     final fileOp = calloc<SHFILEOPSTRUCT>();
-    final from = '$path\u0000'.toNativeUtf16();
+    final from = '$path\u0000'.toPwstr(allocator: calloc);
     try {
       fileOp.ref
         ..wFunc = FO_DELETE
@@ -53,10 +53,12 @@ class DesktopTrash {
             FOF_NOCONFIRMATION |
             FOF_SILENT |
             FOF_NOERRORUI;
-      final result = SHFileOperation(fileOp);
-      return result == 0 && fileOp.ref.fAnyOperationsAborted == 0;
+      final Win32Result(value: result, :error) = SHFileOperation(fileOp);
+      return !error.isError &&
+          result == 0 &&
+          !fileOp.ref.fAnyOperationsAborted;
     } finally {
-      malloc.free(from);
+      calloc.free(from);
       calloc.free(fileOp);
     }
   }

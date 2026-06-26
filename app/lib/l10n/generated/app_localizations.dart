@@ -446,6 +446,18 @@ abstract class AppLocalizations {
   /// **'About'**
   String get settingsSectionAbout;
 
+  /// No description provided for @settingsFeedbackTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get settingsFeedbackTooltip;
+
+  /// No description provided for @settingsFeedbackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get settingsFeedbackLabel;
+
   /// No description provided for @settingsNavLogin.
   ///
   /// In en, this message translates to:

@@ -15,7 +15,7 @@ bool get isWindowsMsixPackaged {
   try {
     final rc = GetCurrentPackageFullName(
       lengthPtr,
-      Pointer<Utf16>.fromAddress(0),
+      null,
     );
     if (rc == APPMODEL_ERROR_NO_PACKAGE) return false;
     if (rc == ERROR_INSUFFICIENT_BUFFER && lengthPtr.value > 0) return true;
