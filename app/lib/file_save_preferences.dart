@@ -21,7 +21,7 @@ Future<void> setSaveToGallery(bool value) async {
 
 Future<bool> getDeleteCacheAfterSave() async {
   final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool(_keyDeleteCacheAfterSave) ?? false;
+  return prefs.getBool(_keyDeleteCacheAfterSave) ?? true;
 }
 
 Future<void> setDeleteCacheAfterSave(bool value) async {

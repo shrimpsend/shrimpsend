@@ -64,7 +64,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   S3StorageMode _s3Mode = S3StorageMode.disabled;
   bool _loading = true;
   bool _saveToGallery = false;
-  bool _deleteCacheAfterSave = false;
+  bool _deleteCacheAfterSave = true;
   bool _windowsLaunchAtStartup = false;
   bool _autoCopyReceivedText = true;
   String? _customSaveDir;
