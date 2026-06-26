@@ -5,9 +5,11 @@ import 'package:feedmatter_flutter_ui/feedmatter_flutter_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../api/user.dart';
 import '../color_theme_store.dart';
 import '../config/env.dart';
 import '../config/feedmatter_env.dart';
+import '../device_id.dart';
 import '../logger.dart';
 import '../preferences/service_region.dart';
 import '../providers/auth_provider.dart';
@@ -79,9 +81,10 @@ class FeedmatterBootstrap {
     final config = _resolveConfig();
     if (config == null) return;
 
+    final user = await _resolveUser(const AuthState());
     FeedMatterClient.instance.init(
       config,
-      _guestUser(),
+      user,
       onError: _handleError,
     );
     _activeConfig = config;
@@ -118,33 +121,59 @@ class FeedmatterBootstrap {
     );
   }
 
-  static FeedMatterUser _guestUser() =>
-      FeedMatterUser(userId: '', userName: 'Guest');
-
-  static FeedMatterUser _userFromAuth(AuthState auth) {
-    if (auth.isLoggedIn && auth.userId != null && auth.userId!.isNotEmpty) {
-      return FeedMatterUser(
-        userId: auth.userId!,
-        userName: auth.userId!,
-      );
-    }
-    return _guestUser();
+  static String _emailLocalPart(String email) {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) return '';
+    final at = trimmed.indexOf('@');
+    if (at <= 0) return trimmed;
+    return trimmed.substring(0, at);
   }
 
-  static void syncUser(AuthState auth) {
+  static String _deviceUserNamePrefix(String deviceId) {
+    if (deviceId.isEmpty) return '';
+    return deviceId.length <= 4 ? deviceId : deviceId.substring(0, 4);
+  }
+
+  static Future<FeedMatterUser> _resolveUser(AuthState auth) async {
+    if (auth.isLoggedIn && auth.userId != null && auth.userId!.isNotEmpty) {
+      var userName = auth.userId!;
+      try {
+        final profile = await fetchUserProfile();
+        final prefix = _emailLocalPart(profile.email);
+        if (prefix.isNotEmpty) userName = prefix;
+      } catch (e, st) {
+        logBoot.fine(
+          'FeedmatterBootstrap fetchUserProfile for userName failed: $e',
+          e,
+          st,
+        );
+      }
+      return FeedMatterUser(userId: auth.userId!, userName: userName);
+    }
+
+    final deviceId = await getOrCreateDeviceId();
+    return FeedMatterUser(
+      userId: deviceId,
+      userName: _deviceUserNamePrefix(deviceId),
+    );
+  }
+
+  static Future<void> syncUserFromAuth(AuthState auth) async {
     if (!_initialized || _activeConfig == null) return;
+    final user = await _resolveUser(auth);
     FeedMatterClient.instance.init(
       _activeConfig!,
-      _userFromAuth(auth),
+      user,
       onError: _handleError,
     );
   }
 
-  static void onLogout() {
+  static Future<void> onLogout() async {
     if (!_initialized || _activeConfig == null) return;
+    final user = await _resolveUser(const AuthState());
     FeedMatterClient.instance.init(
       _activeConfig!,
-      _guestUser(),
+      user,
       onError: _handleError,
     );
   }

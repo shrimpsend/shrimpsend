@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,7 +67,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       logAuth.info('AuthNotifier loadFromStorage restored userId=$userId');
       RevenueCatService.instance.configureIfNeeded(userId);
       OpenpanelBootstrap.identifyLoggedInUser(userId);
-      FeedmatterBootstrap.syncUser(state);
+      unawaited(FeedmatterBootstrap.syncUserFromAuth(state));
     } else {
       if (accessToken != null && accessToken.isNotEmpty) {
         logAuth.warning(
@@ -84,7 +85,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     logAuth.info('AuthNotifier login userId=${auth.userId}');
     RevenueCatService.instance.configureIfNeeded(auth.userId);
     OpenpanelBootstrap.identifyLoggedInUser(auth.userId);
-    FeedmatterBootstrap.syncUser(state);
+    unawaited(FeedmatterBootstrap.syncUserFromAuth(state));
   }
 
   Future<void> logout() async {
@@ -100,7 +101,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await WebDavCredentialStore.instance.wipeAll();
     await _clearStorage();
     OpenpanelBootstrap.onLogout();
-    FeedmatterBootstrap.onLogout();
+    unawaited(FeedmatterBootstrap.onLogout());
     Analytics.track(AnalyticsEvents.logout, {'api_logout_ok': apiOk});
     logAuth.info('AuthNotifier logout');
   }
@@ -110,7 +111,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await WebDavCredentialStore.instance.wipeAll();
     await _clearStorage();
     OpenpanelBootstrap.onLogout();
-    FeedmatterBootstrap.onLogout();
+    unawaited(FeedmatterBootstrap.onLogout());
     logAuth.info('AuthNotifier clearAuth');
   }
 
@@ -118,7 +119,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _persistAuth(auth);
     RevenueCatService.instance.configureIfNeeded(auth.userId);
     OpenpanelBootstrap.identifyLoggedInUser(auth.userId);
-    FeedmatterBootstrap.syncUser(state);
+    unawaited(FeedmatterBootstrap.syncUserFromAuth(state));
   }
 
   Future<DateTime?> getAccessTokenExpiresAt() async {

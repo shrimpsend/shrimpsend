@@ -195,6 +195,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsFeedbackTooltip => 'Feedback';
 
   @override
+  String get settingsFeedbackLabel => 'Feedback';
+
+  @override
   String get settingsNavLogin => 'Sign in';
 
   @override

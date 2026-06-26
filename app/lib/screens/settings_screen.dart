@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:country_picker/country_picker.dart';
@@ -291,10 +292,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         actions: [
           if (FeedmatterBootstrap.isInitialized &&
               FeedmatterBootstrap.feedbackEnabled)
-            IconButton(
-              icon: const Icon(LucideIcons.messageSquarePlus),
-              tooltip: l10n.settingsFeedbackTooltip,
-              onPressed: () => _openFeedback(context),
+            TextButton.icon(
+              onPressed: () => unawaited(_openFeedback(context)),
+              icon: Icon(
+                LucideIcons.messageSquarePlus,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              label: Text(l10n.settingsFeedbackLabel),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.primary,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              ),
             ),
         ],
       ),
@@ -1119,7 +1128,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _openFeedback(BuildContext context) {
+  Future<void> _openFeedback(BuildContext context) async {
+    await FeedmatterBootstrap.syncUserFromAuth(ref.read(authProvider));
+    if (!context.mounted) return;
+
     final themeOptions = FeedmatterBootstrap.themeOptionsFrom(context);
     final lr = LocaleRegionStoreScope.of(context).notifier.value;
     final uiOptions = FeedMatterUiOptions(
