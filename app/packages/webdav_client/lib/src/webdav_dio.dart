@@ -146,28 +146,26 @@ class WdDio with DioMixin implements Dio {
     if (resp.statusCode == 401) {
       String? w3AHeader = resp.headers.value('www-authenticate');
       String? lowerW3AHeader = w3AHeader?.toLowerCase();
+      final wantsDigest = lowerW3AHeader?.contains('digest') == true;
+      final wantsBasic = lowerW3AHeader?.contains('basic') == true;
 
-      // before is noAuth
-      if (self.auth.type == AuthType.NoAuth) {
-        // Digest
-        if (lowerW3AHeader?.contains('digest') == true) {
-          self.auth = DigestAuth(
-              user: self.auth.user,
-              pwd: self.auth.pwd,
-              dParts: DigestParts(w3AHeader));
-          detectedAuthType = AuthType.DigestAuth;
-        }
-        // Basic
-        else if (lowerW3AHeader?.contains('basic') == true) {
-          self.auth = BasicAuth(user: self.auth.user, pwd: self.auth.pwd);
-          detectedAuthType = AuthType.BasicAuth;
-        }
-        // error
-        else {
-          throw newResponseError(resp);
-        }
+      // Digest-only servers (e.g. Railway WebDAV) reject preemptive Basic and
+      // return 401 + WWW-Authenticate: Digest. Upgrade from NoAuth or BasicAuth.
+      if (wantsDigest &&
+          (self.auth.type == AuthType.NoAuth ||
+              self.auth.type == AuthType.BasicAuth)) {
+        self.auth = DigestAuth(
+            user: self.auth.user,
+            pwd: self.auth.pwd,
+            dParts: DigestParts(w3AHeader));
+        detectedAuthType = AuthType.DigestAuth;
       }
-      // before is digest and Nonce Lifetime is out
+      // Server advertises Basic and we have not tried credentials yet.
+      else if (self.auth.type == AuthType.NoAuth && wantsBasic) {
+        self.auth = BasicAuth(user: self.auth.user, pwd: self.auth.pwd);
+        detectedAuthType = AuthType.BasicAuth;
+      }
+      // Nonce expired during an ongoing Digest session.
       else if (self.auth.type == AuthType.DigestAuth &&
           lowerW3AHeader?.contains('stale=true') == true) {
         self.auth = DigestAuth(

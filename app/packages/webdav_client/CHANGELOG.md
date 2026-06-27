@@ -1,5 +1,8 @@
 # Changelog
 
+### [1.2.2] (vendored)
+- Retry with Digest auth when a preemptive Basic request gets 401 + `WWW-Authenticate: Digest` (fixes Digest-only servers such as Railway WebDAV).
+
 ### [1.2.1]
 - Dio Dependency Update
 
