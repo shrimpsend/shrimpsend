@@ -50,12 +50,13 @@ Future<void> showWebDavConnectionMenu(
             onTap: () async {
               Navigator.pop(ctx);
               try {
-                final result = await testWebDavConnection(conn.id);
-                if (!context.mounted) return;
-                AppToast.show(
-                  context,
-                  message: result.ok ? l10n.webdavTestSuccess : result.message,
+                final creds = await resolveWebDavCredentials(
+                  conn.id,
+                  forceRefresh: true,
                 );
+                await testWebDavConnectionLocally(creds);
+                if (!context.mounted) return;
+                AppToast.show(context, message: l10n.webdavTestSuccess);
               } catch (e) {
                 if (!context.mounted) return;
                 AppToast.show(context, message: l10n.webdavTestFailed('$e'));

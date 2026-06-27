@@ -116,12 +116,23 @@ function ConvertTo-FourPartVersion([string] $versionLine) {
 function Clear-WindowsCmakeStaleCache {
     $windowsBuild = Join-Path $AppDir 'build\windows'
     if (-not (Test-Path -LiteralPath $windowsBuild)) { return }
+    Write-Host "Remove Windows build dir: $windowsBuild"
+    for ($i = 0; $i -lt 3; $i++) {
+        Remove-Item -LiteralPath $windowsBuild -Recurse -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path -LiteralPath $windowsBuild)) { return }
+        Start-Sleep -Milliseconds 500
+    }
     Get-ChildItem -LiteralPath $windowsBuild -Recurse -Force -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -eq 'CMakeCache.txt' -or $_.Name -eq 'CMakeFiles' } |
         ForEach-Object {
             Write-Host "Remove stale CMake: $($_.FullName)"
             Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
         }
+    $stale = Get-ChildItem -LiteralPath $windowsBuild -Recurse -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq 'CMakeCache.txt' }
+    if ($stale) {
+        Write-Error "Stale CMakeCache.txt could not be removed (likely locked). Close the running app/IDE and retry: $($stale.FullName)"
+    }
 }
 
 function Invoke-PackageWindowsRegion {
