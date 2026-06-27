@@ -74,20 +74,6 @@ class WebDavCredentials {
   };
 }
 
-class WebDavTestResult {
-  final bool ok;
-  final String message;
-
-  const WebDavTestResult({required this.ok, required this.message});
-
-  factory WebDavTestResult.fromJson(Map<String, dynamic> j) {
-    return WebDavTestResult(
-      ok: j['ok'] as bool? ?? false,
-      message: j['message'] as String? ?? '',
-    );
-  }
-}
-
 class WebDavConnectionRequest {
   final String name;
   final String baseUrl;
@@ -207,33 +193,3 @@ Future<void> deleteWebDavConnection(int id) async {
   });
 }
 
-Future<WebDavTestResult> testWebDavConnection(int id) async {
-  return withAuthRetry(() async {
-    final r = await http.post(
-      Uri.parse('$apiBaseUrl/api/webdav/connections/$id/test'),
-      headers: apiHeaders,
-    );
-    checkAuthResponse(r, fallback: '测试 WebDAV 连接失败');
-    if (r.statusCode != 200) throw Exception('测试 WebDAV 连接失败');
-    return WebDavTestResult.fromJson(
-      jsonDecode(r.body) as Map<String, dynamic>,
-    );
-  });
-}
-
-Future<WebDavTestResult> testWebDavConnectionDraft(
-  WebDavConnectionRequest req,
-) async {
-  return withAuthRetry(() async {
-    final r = await http.post(
-      Uri.parse('$apiBaseUrl/api/webdav/connections/test'),
-      headers: apiHeaders,
-      body: jsonEncode(req.toJson()),
-    );
-    checkAuthResponse(r, fallback: '测试 WebDAV 连接失败');
-    if (r.statusCode != 200) throw Exception('测试 WebDAV 连接失败');
-    return WebDavTestResult.fromJson(
-      jsonDecode(r.body) as Map<String, dynamic>,
-    );
-  });
-}

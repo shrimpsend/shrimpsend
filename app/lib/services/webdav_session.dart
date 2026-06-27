@@ -35,6 +35,33 @@ class WebDavEntry {
   });
 }
 
+/// Builds credentials for a direct client-side connection test.
+WebDavCredentials buildWebDavTestCredentials({
+  required String baseUrl,
+  required String username,
+  required String password,
+  required String rootPath,
+  String? clientApp,
+}) {
+  final root = rootPath.trim().isEmpty ? '/' : rootPath.trim();
+  return WebDavCredentials(
+    username: username.trim(),
+    password: password,
+    baseUrl: baseUrl.trim(),
+    rootPath: root,
+    clientApp: clientApp,
+  );
+}
+
+/// Tests connectivity by pinging WebDAV directly from the client.
+///
+/// Uses the same [WebDavClient] stack as browse/upload (Digest/Basic via
+/// webdav_client), not the backend Basic-only PROPFIND probe.
+Future<void> testWebDavConnectionLocally(WebDavCredentials creds) async {
+  final client = WebDavClient(creds);
+  await client.ping();
+}
+
 /// Thin adapter over vendored [wd.Client] for Ultrasend WebDAV UI.
 class WebDavClient {
   WebDavClient(WebDavCredentials creds) : _client = _createClient(creds);

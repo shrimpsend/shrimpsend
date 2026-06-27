@@ -6,6 +6,7 @@ import '../api/api.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/webdav_provider.dart';
 import '../services/webdav_credential_store.dart';
+import '../services/webdav_session.dart';
 import '../ui/app_ui.dart';
 import '../utils/auth_route_guard.dart';
 import '../utils/toast.dart';
@@ -112,6 +113,22 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
     );
   }
 
+  Future<WebDavCredentials> _credentialsForTest() async {
+    final req = _buildRequest();
+    var password = req.password ?? '';
+    if (_isEdit && password.isEmpty) {
+      final stored = await fetchWebDavCredentials(widget.connectionId!);
+      password = stored.password;
+    }
+    return buildWebDavTestCredentials(
+      baseUrl: req.baseUrl,
+      username: req.username ?? '',
+      password: password,
+      rootPath: req.rootPath ?? '/',
+      clientApp: req.clientApp,
+    );
+  }
+
   Future<void> _test() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_isEdit && _passwordController.text.isEmpty) {
@@ -123,14 +140,10 @@ class _WebDavConnectionScreenState extends ConsumerState<WebDavConnectionScreen>
     setState(() => _testing = true);
     final l10n = AppLocalizations.of(context);
     try {
-      final result = _isEdit && _passwordController.text.isEmpty
-          ? await testWebDavConnection(widget.connectionId!)
-          : await testWebDavConnectionDraft(_buildRequest());
+      final creds = await _credentialsForTest();
+      await testWebDavConnectionLocally(creds);
       if (!mounted) return;
-      AppToast.show(
-        context,
-        message: result.ok ? l10n.webdavTestSuccess : result.message,
-      );
+      AppToast.show(context, message: l10n.webdavTestSuccess);
     } catch (e) {
       if (!mounted) return;
       AppToast.show(context, message: l10n.webdavTestFailed('$e'));
