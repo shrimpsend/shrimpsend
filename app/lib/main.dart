@@ -62,6 +62,7 @@ import 'services/desktop_paste_dispatcher.dart';
 import 'services/desktop_file_drop_dispatcher.dart';
 import 'services/share_receive_service.dart';
 import 'services/saf_storage_service.dart';
+import 'services/shared_preferences_bootstrap.dart';
 import 'services/windows_launch_at_startup_service.dart';
 import 'utils/runtime_platform.dart';
 import 'utils/windows_distribution_channel.dart';
@@ -163,13 +164,11 @@ Future<void> _bootstrap(List<String> args) async {
   }
   await _injectLetsEncryptRootCa();
   logBoot.info('boot: root CA injected');
+  await ensureSharedPreferencesReady();
+  logBoot.info('boot: shared preferences ready');
   final launchedAtStartup = WindowsLaunchAtStartupService.isStartupLaunch(args);
   if (Platform.isWindows) {
-    try {
-      await WindowsLaunchAtStartupService.syncWithPreference();
-    } catch (e, st) {
-      logBoot.warning('windows launch at startup sync failed: $e', e, st);
-    }
+    await WindowsLaunchAtStartupService.syncWithPreference();
   }
 
   final localeRegionStore = LocaleRegionStore();
@@ -364,6 +363,12 @@ class BootFailureApp extends StatelessWidget {
         ..writeln()
         ..writeln('日志文件 / Log file:')
         ..writeln(logFilePath);
+    }
+    final recoveryHint = bootFailureRecoveryHint(error);
+    if (recoveryHint != null) {
+      buffer
+        ..writeln()
+        ..writeln(recoveryHint);
     }
     final text = buffer.toString();
     return MaterialApp(
