@@ -265,7 +265,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final String _presenceSessionId = const Uuid().v4();
   centrifuge.Client? _client;
   late final InMemoryChatController _chatController;
-  final ScrollController _chatScrollController = ScrollController();
+  final Map<String, GlobalKey<ChatComposerState>> _composerKeysBySession = {};
+  final Map<String, ScrollController> _scrollControllersBySession = {};
   final Map<String, String> _fileKeyByMessageId = {};
   final Map<String, String> _fileFileNameByMessageId = {};
   // localIds of inbound LAN/WebRTC transfers we've already shown a local
@@ -291,7 +292,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final Map<String, _PullPartial> _lanPullPartialBySenderLocalId = {};
   final Map<String, String> _localMessageStatus = {};
   final Map<String, int> _localMessageProgress = {};
-  final _composerKey = GlobalKey<ChatComposerState>();
   String? _initError;
   int _initGeneration = 0;
   bool _desktopDevicePanelVisible = false;
@@ -308,6 +308,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   int _embeddedFileTabActivation = 0;
   bool get _isDesktopPlatform =>
       Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+
+  GlobalKey<ChatComposerState>? get _activeComposerKey {
+    final id = ref.read(selectedDeviceIdProvider);
+    if (id == null || !isChatSelection(id)) return null;
+    return _composerKeysBySession[id];
+  }
+
+  ChatComposerState? get _activeComposer => _activeComposerKey?.currentState;
+
+  ScrollController? get _activeScrollController {
+    final id = ref.read(selectedDeviceIdProvider);
+    if (id == null || !isChatSelection(id)) return null;
+    return _scrollControllersBySession[id];
+  }
+
+  void _ensureSessionUiResources(String sessionId) {
+    if (!isChatSelection(sessionId)) return;
+    _composerKeysBySession.putIfAbsent(
+      sessionId,
+      GlobalKey<ChatComposerState>.new,
+    );
+    _scrollControllersBySession.putIfAbsent(
+      sessionId,
+      ScrollController.new,
+    );
+  }
+
+  void _disposeSessionUiResources() {
+    for (final controller in _scrollControllersBySession.values) {
+      controller.dispose();
+    }
+    _scrollControllersBySession.clear();
+    _composerKeysBySession.clear();
+  }
   LanReceiver? _lanReceiver;
   LanDiscoveryService? _lanDiscovery;
   bool _statusCheckDone = false;
@@ -525,7 +559,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     });
     if (_isDesktopPlatform && open) {
-      _composerKey.currentState?.restoreDevicePanel(open);
+      _activeComposer?.restoreDevicePanel(open);
     }
   }
 
@@ -1955,7 +1989,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _openSessionDeviceSettings() async {
-    _composerKey.currentState?.unfocus();
+    _activeComposer?.unfocus();
     final selectedId = ref.read(selectedDeviceIdProvider);
     if (selectedId == null || selectedId == s3VirtualDeviceId) return;
 
@@ -2886,6 +2920,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (prev != next) {
       if (!ref.read(authProvider).isLoggedIn) {
         _chatTimelineCache.clear();
+        _disposeSessionUiResources();
       }
       if (next != null) {
         Analytics.track(AnalyticsEvents.chatSessionOpen, {
@@ -3300,8 +3335,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_chatScrollController.hasClients) return;
-      _chatScrollController.animateTo(
+      if (!mounted) return;
+      final scroll = _activeScrollController;
+      if (scroll == null || !scroll.hasClients) return;
+      scroll.animateTo(
         0,
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
@@ -4601,7 +4638,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final useLan = _effectiveOffline || isExternalPeer;
     if (useLan) {
       if (selectedTargets.isEmpty) {
-        _composerKey.currentState?.expandDevicePanel();
+        _activeComposer?.expandDevicePanel();
         if (mounted) {
           AppToast.show(context, message: _l10n.chatScreenSelectTargetFirst);
           setState(() => _setMessageStatus(localId, 'failed'));
@@ -4749,7 +4786,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final useLan = _effectiveOffline || isExternalPeer;
     if (useLan) {
       if (selectedTargets.isEmpty) {
-        _composerKey.currentState?.expandDevicePanel();
+        _activeComposer?.expandDevicePanel();
         if (mounted) {
           AppToast.show(context, message: _l10n.chatScreenSelectTargetFirst);
           setState(() => _setMessageStatus(localId, 'failed'));
@@ -4830,7 +4867,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _onAttachmentTap() async {
-    _composerKey.currentState?.unfocus();
+    _activeComposer?.unfocus();
     final colors = ChatColors.of(context);
     final choice = await showModalBottomSheet<AttachmentPickerChoice>(
       context: context,
@@ -5551,7 +5588,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
 
     if (sendMode != SendMode.s3 && selectedTargets.isEmpty) {
-      _composerKey.currentState?.expandDevicePanel();
+      _activeComposer?.expandDevicePanel();
       if (mounted) {
         AppToast.show(context, message: _l10n.chatScreenSelectTargetFirst);
       }
@@ -5569,7 +5606,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           icon: LucideIcons.cloud,
         );
         if (goConfig && mounted) {
-          _composerKey.currentState?.unfocus();
+          _activeComposer?.unfocus();
           Navigator.pushNamed(context, '/settings/s3');
         }
         return;
@@ -5584,7 +5621,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           icon: LucideIcons.cloud,
         );
         if (goConfig && mounted) {
-          _composerKey.currentState?.unfocus();
+          _activeComposer?.unfocus();
           Navigator.pushNamed(context, '/settings/s3');
         }
         return;
@@ -5658,7 +5695,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             )
             .toList();
         if (targets.isEmpty) {
-          _composerKey.currentState?.expandDevicePanel();
+          _activeComposer?.expandDevicePanel();
           if (mounted) {
             AppToast.show(context, message: _l10n.chatScreenNoNearbyDevice);
           }
@@ -5698,7 +5735,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             )
             .toList();
         if (targets.isEmpty) {
-          _composerKey.currentState?.expandDevicePanel();
+          _activeComposer?.expandDevicePanel();
           if (mounted) {
             AppToast.show(context, message: _l10n.chatScreenDeviceUnavailable);
           }
@@ -5739,7 +5776,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             )
             .toList();
         if (reachableTargets.isEmpty) {
-          _composerKey.currentState?.expandDevicePanel();
+          _activeComposer?.expandDevicePanel();
           if (mounted) {
             AppToast.show(context, message: _l10n.chatScreenDeviceUnavailable);
           }
@@ -8158,7 +8195,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   String _exportActionLabel(AppLocalizations loc) => saveAsActionLabel(loc);
 
   void _showMessageActions(TextMessage message, bool isSentByMe) {
-    _composerKey.currentState?.unfocus();
+    _activeComposer?.unfocus();
     final colors = context.appColors;
     final fileMeta = _fileMetaByMessageId[message.id];
     final localPath = fileMeta?.localPath;
@@ -8807,7 +8844,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _selectedDeviceSub?.close();
     _connectionOrchestratorSub?.close();
     _chatController.dispose();
-    _chatScrollController.dispose();
+    _disposeSessionUiResources();
     _client?.disconnect();
     if (_isDesktopPlatform) {
       DesktopFileDropDispatcher.instance.unregister(this);
@@ -8816,7 +8853,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _openAddWebDavConnection() async {
-    _composerKey.currentState?.unfocus();
+    _activeComposer?.unfocus();
     if (!ref.read(authProvider).isLoggedIn) {
       await Navigator.pushNamed(context, '/login');
       return;
@@ -8850,12 +8887,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       compactDeviceListChrome: mobileHomeTabs,
       authSessionPhase: ref.watch(authSessionPhaseProvider),
       onLoginTap: () {
-        _composerKey.currentState?.unfocus();
+        _activeComposer?.unfocus();
         Navigator.pushNamed(context, '/login');
       },
       onRefresh: _manualRefreshDevices,
       onShowSettings: () async {
-        _composerKey.currentState?.unfocus();
+        _activeComposer?.unfocus();
         if (mobileHomeTabs) {
           setState(() => _mobileMainTabIndex = 2);
         } else {
@@ -8868,7 +8905,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ? _openSessionDeviceSettings
           : null,
       onSearch: () {
-        _composerKey.currentState?.unfocus();
+        _activeComposer?.unfocus();
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const MessageSearchScreen()),
@@ -8876,7 +8913,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       },
       onScanTap: !isOffline
           ? () async {
-              _composerKey.currentState?.unfocus();
+              _activeComposer?.unfocus();
               await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const QrScannerScreen()),
@@ -8885,7 +8922,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           : null,
       onAddWebDavTap: !isOffline ? () => _openAddWebDavConnection() : null,
       onFileManager: () {
-        _composerKey.currentState?.unfocus();
+        _activeComposer?.unfocus();
         if (mobileHomeTabs) {
           setState(() {
             _mobileMainTabIndex = 1;
@@ -8906,7 +8943,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
       },
       onOpenS3Settings: () async {
-        _composerKey.currentState?.unfocus();
+        _activeComposer?.unfocus();
         await Navigator.pushNamed(context, '/settings/s3');
         if (mounted) await _checkS3Config();
       },
@@ -8918,8 +8955,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       onDeleteSelected: _selectedMessages.isEmpty
           ? null
           : _deleteSelectedMessages,
-      chatContentBuilder: () => _buildChatContent(
+      chatContentBuilder: (sessionId) => _buildChatContent(
         context,
+        sessionId,
         colors,
         isDark,
         ref.watch(authProvider).isLoggedIn,
@@ -9350,10 +9388,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Widget _buildChatContent(
     BuildContext context,
+    String sessionId,
     ChatColors colors,
     bool isDark,
     bool isLoggedIn,
   ) {
+    _ensureSessionUiResources(sessionId);
+    final scrollController = _scrollControllersBySession[sessionId]!;
     return ChatSessionBody(
       onRefresh: _refreshSelectedSessionReach,
       onModeSelected: isLoggedIn ? _confirmAndSwitchMode : null,
@@ -9365,20 +9406,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       onMessageTap: _onMessageTap,
       textMessageBuilder: _buildTextMessage,
       onChatTap: () {
-        _composerKey.currentState?.unfocus();
-        _composerKey.currentState?.dismissPanel();
+        _activeComposer?.unfocus();
+        _activeComposer?.dismissPanel();
       },
-      scrollController: _chatScrollController,
+      scrollController: scrollController,
       onEndReached: _loadMoreHistory,
-      composerBuilder: (context) => _buildComposerWidget(context, colors),
+      composerBuilder: (context) =>
+          _buildComposerWidget(context, sessionId, colors),
       colors: colors,
       isDark: isDark,
     );
   }
 
-  Widget _buildComposerWidget(BuildContext context, ChatColors colors) {
+  Widget _buildComposerWidget(
+    BuildContext context,
+    String sessionId,
+    ChatColors colors,
+  ) {
+    final composerKey = _composerKeysBySession[sessionId]!;
     return ChatComposer(
-      key: _composerKey,
+      key: composerKey,
       onSend: _sendText,
       onAttachmentChoice: _handleAttachmentChoice,
       pendingFiles: ref

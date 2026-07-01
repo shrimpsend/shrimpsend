@@ -20,7 +20,7 @@ const String _keyPanelWidth = 'main_layout_panel_width';
 const double _kPanelDividerHitWidth = 8;
 
 class MainLayout extends ConsumerStatefulWidget {
-  final Widget Function() chatContentBuilder;
+  final Widget Function(String sessionId) chatContentBuilder;
   final Widget? emptyPlaceholder;
   final bool connected;
   final String deviceName;
@@ -334,7 +334,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               onOpenS3Settings: widget.onOpenS3Settings,
               onSessionDeviceSettings: widget.onSessionDeviceSettings,
             ),
-            Expanded(child: widget.chatContentBuilder()),
+            Expanded(child: widget.chatContentBuilder(selectedDeviceId!)),
           ],
         ),
       );

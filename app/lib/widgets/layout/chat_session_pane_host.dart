@@ -6,7 +6,7 @@ import '../chat/chat_header.dart';
 /// Keeps visited chat session panes alive (header + body) for instant switching.
 class ChatSessionPaneHost extends StatefulWidget {
   final String selectedDeviceId;
-  final Widget Function() chatContentBuilder;
+  final Widget Function(String sessionId) chatContentBuilder;
   final bool isSelectionMode;
   final int selectedCount;
   final int totalCount;
@@ -66,21 +66,24 @@ class _ChatSessionPaneHostState extends State<ChatSessionPaneHost> {
         for (final sessionId in _materializedSessionIds)
           Offstage(
             offstage: sessionId != selectedId,
-            child: Column(
-              children: [
-                ChatHeader(
-                  isSelectionMode: widget.isSelectionMode,
-                  selectedCount: widget.selectedCount,
-                  totalCount: widget.totalCount,
-                  onExitSelection: widget.onExitSelection,
-                  onToggleSelectAll: widget.onToggleSelectAll,
-                  onDeleteSelected: widget.onDeleteSelected,
-                  onFileManager: widget.onFileManager,
-                  onOpenS3Settings: widget.onOpenS3Settings,
-                  onSessionDeviceSettings: widget.onSessionDeviceSettings,
-                ),
-                Expanded(child: widget.chatContentBuilder()),
-              ],
+            child: KeyedSubtree(
+              key: ValueKey('chat_session_$sessionId'),
+              child: Column(
+                children: [
+                  ChatHeader(
+                    isSelectionMode: widget.isSelectionMode,
+                    selectedCount: widget.selectedCount,
+                    totalCount: widget.totalCount,
+                    onExitSelection: widget.onExitSelection,
+                    onToggleSelectAll: widget.onToggleSelectAll,
+                    onDeleteSelected: widget.onDeleteSelected,
+                    onFileManager: widget.onFileManager,
+                    onOpenS3Settings: widget.onOpenS3Settings,
+                    onSessionDeviceSettings: widget.onSessionDeviceSettings,
+                  ),
+                  Expanded(child: widget.chatContentBuilder(sessionId)),
+                ],
+              ),
             ),
           ),
       ],
