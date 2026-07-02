@@ -2918,10 +2918,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _runDeferredSelectionSideEffects(String? prev, String? next) {
     if (prev != next) {
-      if (!ref.read(authProvider).isLoggedIn) {
-        _chatTimelineCache.clear();
-        _disposeSessionUiResources();
-      }
       if (next != null) {
         Analytics.track(AnalyticsEvents.chatSessionOpen, {
           'session_type': next == s3VirtualDeviceId
@@ -3098,27 +3094,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       await _backfillLocalPathsFromIndex(allMessages);
 
       final controllerIds = _chatController.messages.map((m) => m.id).toSet();
-      int insertedCount = 0;
-
+      final toInsert = <Message>[];
       for (final message in allMessages) {
         if (controllerIds.contains(message.id)) continue;
+        toInsert.add(message);
+      }
 
-        final messages = _chatController.messages;
-        final ts = message.createdAt?.millisecondsSinceEpoch ?? 0;
-        int insertIdx = messages.length;
-        for (int i = messages.length - 1; i >= 0; i--) {
-          final existingTs = messages[i].createdAt?.millisecondsSinceEpoch ?? 0;
-          if (existingTs <= ts) {
-            insertIdx = i + 1;
-            break;
-          }
-          if (i == 0) insertIdx = 0;
+      final insertedCount = toInsert.length;
+      if (toInsert.isNotEmpty) {
+        final insertStarted = DateTime.now();
+        logChat.fine('_loadHistory batch insert start count=$insertedCount');
+        await _chatController.insertAllMessages(
+          toInsert,
+          index: 0,
+          animated: false,
+        );
+        for (final message in toInsert) {
+          _loadedMessageIds.add(message.id);
         }
-
-        _chatController.insertMessage(message, index: insertIdx);
-        controllerIds.add(message.id);
-        _loadedMessageIds.add(message.id);
-        insertedCount++;
+        logChat.fine(
+          '_loadHistory batch insert done ms=${DateTime.now().difference(insertStarted).inMilliseconds}',
+        );
       }
 
       _updateOldestServerId();

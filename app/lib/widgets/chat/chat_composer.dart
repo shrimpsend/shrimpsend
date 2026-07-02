@@ -9,6 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../../shortcut_preferences.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../logger.dart';
 import '../../ui/app_ui.dart';
 import '../attachment_picker_sheet.dart';
 import '../pending_files_bar.dart';
@@ -79,7 +80,7 @@ class ChatComposer extends ConsumerStatefulWidget {
 }
 
 class ChatComposerState extends ConsumerState<ChatComposer>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   static const double _panelOptionIconSize = 48;
   static const double _primaryActionSize = 44;
   final _sizeKey = GlobalKey();
@@ -89,6 +90,20 @@ class ChatComposerState extends ConsumerState<ChatComposer>
   bool _panelVisible = false;
   SendShortcutMode _sendShortcutMode = sendShortcutModeNotifier.value;
   AttachmentPickerChoice? _pendingPanelChoice;
+
+  /// Tracks when the input most recently gained focus, so we can tell a
+  /// transient (implicit/native) keyboard dismiss apart from a deliberate one.
+  DateTime? _focusGainedAt;
+
+  /// Set before any intentional keyboard dismiss so the transient-hide guard
+  /// never fights a user- or app-initiated dismiss.
+  bool _suppressFocusReassert = false;
+
+  /// Last keyboard inset from [didChangeMetrics]; detects IME hide while focused.
+  double _previousViewInsetBottom = 0;
+
+  /// Last time the guard reopened the keyboard; cooldown avoids reopen loops.
+  DateTime? _lastKeyboardReopenAt;
 
   bool get _isDesktop =>
       Platform.isWindows || Platform.isLinux || Platform.isMacOS;
@@ -121,6 +136,7 @@ class ChatComposerState extends ConsumerState<ChatComposer>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _sendShortcutMode = sendShortcutModeNotifier.value;
     sendShortcutModeNotifier.addListener(_onSendShortcutModeChanged);
     _controller.addListener(_onTextChanged);
@@ -135,6 +151,7 @@ class ChatComposerState extends ConsumerState<ChatComposer>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     sendShortcutModeNotifier.removeListener(_onSendShortcutModeChanged);
     _panelAnimation.removeStatusListener(_onPanelAnimationStatus);
     _panelAnimation.dispose();
@@ -146,6 +163,7 @@ class ChatComposerState extends ConsumerState<ChatComposer>
   }
 
   void unfocus() {
+    _suppressFocusReassert = true;
     _focusNode.unfocus();
   }
 
@@ -180,14 +198,64 @@ class ChatComposerState extends ConsumerState<ChatComposer>
       widget.onExpandDevicePanel!();
       return;
     }
+    _suppressFocusReassert = true;
     _focusNode.unfocus();
     if (_panelVisible) _panelAnimation.reverse();
   }
 
   void _onFocusChange() {
-    if (_focusNode.hasFocus && mounted) {
+    if (!mounted) return;
+    final hasFocus = _focusNode.hasFocus;
+    logChat.fine('composer focus changed hasFocus=$hasFocus');
+    if (hasFocus) {
+      _focusGainedAt = DateTime.now();
+      _suppressFocusReassert = false;
       if (_panelVisible) _panelAnimation.reverse();
     }
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (!mounted) return;
+    final insetBottom = MediaQuery.viewInsetsOf(context).bottom;
+    logChat.fine(
+      'composer metrics insetBottom=$insetBottom hasFocus=${_focusNode.hasFocus}',
+    );
+    if (!_isDesktop &&
+        !_suppressFocusReassert &&
+        _focusNode.hasFocus &&
+        insetBottom == 0 &&
+        _previousViewInsetBottom > 0) {
+      logChat.fine('composer keyboard hidden while focused');
+      _maybeReopenKeyboardAfterTransientHide();
+    }
+    _previousViewInsetBottom = insetBottom;
+  }
+
+  /// Android may hide the soft keyboard while [FocusNode.hasFocus] stays true
+  /// (IME connection dropped during list layout). Re-toggle focus to reopen.
+  void _maybeReopenKeyboardAfterTransientHide() {
+    if (_isDesktop) return;
+    if (_suppressFocusReassert) return;
+    final gainedAt = _focusGainedAt;
+    if (gainedAt == null) return;
+    final now = DateTime.now();
+    if (now.difference(gainedAt) > const Duration(milliseconds: 500)) return;
+    final last = _lastKeyboardReopenAt;
+    if (last != null && now.difference(last) < const Duration(seconds: 3)) {
+      return;
+    }
+    if (!_focusNode.hasFocus) return;
+
+    _lastKeyboardReopenAt = now;
+    logChat.fine('composer transient keyboard hide; reopening IME');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _suppressFocusReassert) return;
+      if (!_focusNode.hasFocus) return;
+      _focusNode.unfocus();
+      _focusNode.requestFocus();
+    });
   }
 
   void _onTextChanged() {
@@ -249,6 +317,7 @@ class ChatComposerState extends ConsumerState<ChatComposer>
   }
 
   void _onPlusPressed() {
+    _suppressFocusReassert = true;
     _focusNode.unfocus();
     if (!_isDesktop) widget.onDismissDevicePanel?.call();
     if (_panelVisible) {
