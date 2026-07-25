@@ -3,6 +3,7 @@
 #include <flutter/encodable_value.h>
 #include <flutter/method_channel.h>
 #include <flutter/standard_method_codec.h>
+#include <algorithm>
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
@@ -50,9 +51,21 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
-  });
+  // When launched at startup (--startup arg, registered by
+  // windows_launch_at_startup_service.dart), the Dart layer keeps the window
+  // hidden via window_manager and parks it in the tray. An unconditional
+  // Show() on the first frame would override that hide and pop the window
+  // onto the desktop, so skip it here and let window_manager own visibility.
+  const auto& entrypoint_args = project_.dart_entrypoint_arguments();
+  const bool launched_at_startup =
+      std::find(entrypoint_args.begin(), entrypoint_args.end(),
+                "--startup") != entrypoint_args.end();
+
+  if (!launched_at_startup) {
+    flutter_controller_->engine()->SetNextFrameCallback([&]() {
+      this->Show();
+    });
+  }
 
   // Flutter can complete the first frame before the "show window" callback is
   // registered. The following call ensures a frame is pending to ensure the
